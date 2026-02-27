@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600">
+  <rect width="900" height="600" fill="#25211f"/>
+  <rect x="120" y="110" width="660" height="380" rx="30" fill="#503421"/>
+  <circle cx="250" cy="300" r="75" fill="#d4b25f" fill-opacity="0.5"/>
+  <circle cx="450" cy="300" r="75" fill="#d4b25f" fill-opacity="0.45"/>
+  <circle cx="650" cy="300" r="75" fill="#d4b25f" fill-opacity="0.4"/>
+  <text x="78" y="548" fill="#fff1d0" font-size="56" font-family="Segoe UI" font-weight="700">VIP ROOM B</text>
+</svg>

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600">
+  <rect width="900" height="600" fill="#2b2517"/>
+  <ellipse cx="350" cy="300" rx="220" ry="150" fill="#d4b25f" fill-opacity="0.5"/>
+  <ellipse cx="560" cy="310" rx="160" ry="110" fill="#8d6a3a" fill-opacity="0.7"/>
+  <text x="52" y="560" fill="#fff1d0" font-size="56" font-family="Segoe UI" font-weight="700">CHICKEN BIRIYANI</text>
+</svg>

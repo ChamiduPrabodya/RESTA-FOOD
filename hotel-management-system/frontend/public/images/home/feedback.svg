@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700">
+  <rect width="1200" height="700" fill="#19120d"/>
+  <path d="M0 520 C220 420, 420 620, 650 500 C860 390, 980 560, 1200 470 L1200 700 L0 700 Z" fill="#d4b25f" fill-opacity="0.24"/>
+  <text x="70" y="620" fill="#fff1d0" font-size="64" font-family="Segoe UI" font-weight="700">CUSTOMER FEEDBACK</text>
+</svg>
