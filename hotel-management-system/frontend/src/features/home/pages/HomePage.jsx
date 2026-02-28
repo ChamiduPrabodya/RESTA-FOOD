@@ -28,11 +28,12 @@ import { Link } from "react-router-dom";
 import BackToTopButton from "../../../common/components/ui/BackToTopButton";
 import SiteFooter from "../../../common/components/ui/SiteFooter";
 
-const heroImage = "/images/home/hero.svg";
+// NOTE: Image files should be placed in: frontend/public/images/home/
+const heroImage = "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&q=80&w=1920";
 const popularImage01 = "/images/home/popular-01.svg";
 const popularImage02 = "/images/home/popular-02.svg";
 const popularImage03 = "/images/home/popular-03.svg";
-const vipImage01 = "/images/home/vip-01.svg";
+const vipImage01 = "/images/home/VIP1.jpeg";
 const vipImage02 = "/images/home/vip-02.svg";
 const vipImage03 = "/images/home/vip-03.svg";
 
@@ -246,12 +247,52 @@ function HomePage() {
             Only this Saturday and Sunday. Grab yours now!
           </Typography>
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-            <Button component={Link} to="/menu" variant="contained" color="primary" endIcon={<ArrowOutwardRoundedIcon />} sx={{ px: 4, py: 1.4 }}>
-              Explore Menu
-            </Button>
-            <Button component={Link} to="/vip-rooms" variant="outlined" sx={{ px: 4, py: 1.4, borderColor: "rgba(212,178,95,0.5)", color: "text.primary" }}>
-              Book VIP Room
-            </Button>
+                <Button
+                  component={Link}
+                  to="/menu"
+                  variant="contained"
+                  color="primary"
+                  endIcon={<ArrowOutwardRoundedIcon />}
+                  sx={{
+                    px: 4,
+                    py: 1.4,
+                    // Hover effect
+                    "&:hover": {
+                      backgroundColor: "#d4b25f", // change to your desired color
+                      color: "#fff",
+                    },
+                    // Active/click effect
+                    "&:active": {
+                      backgroundColor: "#bfa84a", // slightly darker on click
+                    },
+                  }}
+                >
+                  Explore Menu
+                </Button>
+
+                <Button
+                  component={Link}
+                  to="/vip-rooms"
+                  variant="outlined"
+                  sx={{
+                    px: 4,
+                    py: 1.4,
+                    borderColor: "rgba(212,178,95,0.5)",
+                    color: "text.primary",
+                    "&:hover": {
+                      borderColor: "#d4b25f",
+                      color: "#d4b25f",
+                      backgroundColor: "rgba(212,178,95,0.1)", // optional light hover background
+                    },
+                    "&:active": {
+                      borderColor: "#bfa84a",
+                      color: "#bfa84a",
+                      backgroundColor: "rgba(191,168,74,0.2)",
+                    },
+                  }}
+                >
+                  Book VIP Room
+                </Button>
           </Stack>
         </Stack>
       </Box>
@@ -291,48 +332,67 @@ function HomePage() {
         </Box>
       </Box>
 
-      <Box
-        component={motion.div}
-        initial={{ opacity: 0, y: 28 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, amount: 0.1 }}
-        transition={{ duration: 0.45 }}
-        sx={{ px: sectionPaddingX, py: { xs: 4, md: 8 } }}
+    <Box
+  component={motion.div}
+  initial={{ opacity: 0, y: 28 }}
+  whileInView={{ opacity: 1, y: 0 }}
+  viewport={{ once: true, amount: 0.1 }}
+  transition={{ duration: 0.45 }}
+  sx={{ px: sectionPaddingX, py: { xs: 4, md: 8 } }}
+>
+  <Grid
+    container
+    spacing={{ xs: 3, md: 6 }}
+    sx={{
+      border: "1px solid rgba(212,178,95,0.2)",
+      borderRadius: 6,
+      p: { xs: 3, md: 7 },
+      alignItems: "center", // vertically center content
+    }}
+  >
+    {/* Left column: text and button */}
+    <Grid item xs={12} md={6}>
+      <Chip
+        icon={<WorkspacePremiumRoundedIcon />}
+        label="Royal Dining"
+        sx={{ mb: 2.5, bgcolor: "rgba(212,178,95,0.12)", color: "primary.main" }}
+      />
+      <Typography variant="h2" sx={{ fontSize: { xs: "38px", md: "56px" }, mb: 2.5 }}>
+        Exclusive <Box component="span" sx={{ color: "primary.main" }}>VIP Suites</Box>
+      </Typography>
+      <Typography variant="body1" sx={{ color: "text.secondary", mb: 4, pr: { md: 3 }, lineHeight: 1.6 }}>
+        Elevate your dining experience with our private VIP rooms.
+      </Typography>
+      <Button
+        component={Link}
+        to="/vip-rooms"
+        variant="contained"
+        color="primary"
+        endIcon={<ArrowOutwardRoundedIcon />}
+        sx={{ px: 4, py: 1.3 }}
       >
-        <Grid
-          container
-          spacing={{ xs: 3, md: 6 }}
-          sx={{
-            border: "1px solid rgba(212,178,95,0.2)",
-            borderRadius: 6,
-            p: { xs: 3, md: 7 },
-          }}
-        >
-          <Grid item xs={12} md={6}>
-            <Chip
-              icon={<WorkspacePremiumRoundedIcon />}
-              label="Royal Dining"
-              sx={{ mb: 2.5, bgcolor: "rgba(212,178,95,0.12)", color: "primary.main" }}
-            />
-            <Typography variant="h2" sx={{ fontSize: { xs: "38px", md: "56px" }, mb: 2.5 }}>
-              Exclusive <Box component="span" sx={{ color: "primary.main" }}>VIP Suites</Box>
-            </Typography>
-            <Typography variant="body1" sx={{ color: "text.secondary", mb: 4, pr: { md: 3 }, lineHeight: 1.6 }}>
-              Elevate your dining experience with our private VIP rooms.
-            </Typography>
-            <Button component={Link} to="/vip-rooms" variant="contained" color="primary" endIcon={<ArrowOutwardRoundedIcon />} sx={{ px: 4, py: 1.3 }}>
-              Explore VIP Rooms
-            </Button>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
-              <Box sx={{ flex: 1, height: 230, borderRadius: 3, backgroundImage: `url(${vipImage01})`, backgroundSize: "cover", backgroundPosition: "center" }} />
-              <Box sx={{ flex: 1, height: 230, borderRadius: 3, backgroundImage: `url(${vipImage02})`, backgroundSize: "cover", backgroundPosition: "center" }} />
-            </Stack>
-            <Box sx={{ height: 130, borderRadius: 3, backgroundImage: `url(${vipImage03})`, backgroundSize: "cover", backgroundPosition: "center" }} />
-          </Grid>
-        </Grid>
-      </Box>
+        Explore VIP Rooms
+      </Button>
+    </Grid>
+
+    {/* Right column: single VIP image */}
+    <Grid item xs={12} md={6}>
+     
+      <Box
+        sx={{
+          width: "100%",            
+          height: { xs: 250, md: 400 }, 
+          borderRadius: 3,
+          backgroundImage: `url(${vipImage01})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+        }}
+      />
+    
+    </Grid>
+  </Grid>
+</Box>
 
       <Box
         component={motion.div}

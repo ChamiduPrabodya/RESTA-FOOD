@@ -36,7 +36,7 @@ const suites = [
     guests: "Up to 15 Guests",
     seats: 15,
     price: "SLR 15,000 / Session",
-    image: "/images/home/vip-01.svg",
+    image: "/images/home/VIP1.jpeg",
     features: ["Full AC", '75" Smart TV', "Private Sound System", "Dedicated Butler", "RGB Ambient Lighting"],
   },
   {
