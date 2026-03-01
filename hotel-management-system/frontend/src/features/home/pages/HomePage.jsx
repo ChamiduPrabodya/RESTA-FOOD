@@ -31,8 +31,8 @@ import SiteFooter from "../../../common/components/ui/SiteFooter";
 
 // NOTE: Image files should be placed in: frontend/public/images/home/
 const heroImage = "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&q=80&w=1920";
-const popularImage01 = "/images/home/popular-01.svg";
-const popularImage02 = "/images/home/popular-02.svg";
+const popularImage01 = "https://images.unsplash.com/photo-1600891964599-f61ba0e24092?auto=format&fit=crop&q=80&w=800";
+const popularImage02 = "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&fit=crop&q=80&w=800";
 const popularImage03 = "/images/home/popular-03.svg";
 const vipImage01 = `${import.meta.env.BASE_URL}images/home/VIP1.jpeg`;
 
@@ -52,7 +52,7 @@ const popularItems = [
     name: "Cheese Kottu",
     category: "Kottu",
     description: "Freshly made paratha chopped with vegetables, egg, and creamy cheese sauce.",
-    price: "SLR 850",
+    price: "SLR 1500",
     image: popularImage01,
     sizes: ["Small", "Medium", "Large"],
   },
@@ -60,7 +60,7 @@ const popularItems = [
     name: "Chicken Biriyani",
     category: "Biriyani",
     description: "Fragrant basmati rice cooked with aromatic spices and tender chicken.",
-    price: "SLR 950",
+    price: "SLR 1100",
     image: popularImage02,
     sizes: ["Small", "Medium", "Large"],
   },
@@ -68,7 +68,7 @@ const popularItems = [
     name: "Deviled Chicken",
     category: "Deviled",
     description: "Spicy and tangy chicken stir-fried with onions, peppers, and chili sauce.",
-    price: "SLR 1,200",
+    price: "SLR 1,000",
     image: popularImage03,
     sizes: ["300g", "500g"],
   },
