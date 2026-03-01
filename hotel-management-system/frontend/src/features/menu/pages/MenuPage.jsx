@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   Box,
   Button,
@@ -35,6 +35,14 @@ const menuItems = [
 ];
 
 const categories = ["All", "Kottu", "Rice", "Pasta", "Biriyani", "Set Menu", "Deviled"];
+const sectionReveal = {
+  hidden: { opacity: 0, y: 24 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.46, ease: [0.2, 0.7, 0.2, 1] },
+  },
+};
 
 function MenuCard({ item, index }) {
   return (
@@ -73,6 +81,7 @@ function MenuCard({ item, index }) {
 function MenuPage() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [search, setSearch] = useState("");
+  const reduceMotion = useReducedMotion();
 
   const filteredItems = useMemo(() => {
     return menuItems.filter((item) => {
@@ -94,7 +103,7 @@ function MenuPage() {
               VIP Rooms
             </Button>
           </Stack>
-          <Stack direction="row" spacing={1.5} alignItems="center">
+          <Stack direction="row" spacing={2.5} alignItems="center">
             <LocalMallOutlinedIcon sx={{ color: "text.secondary" }} />
             <Button variant="contained" color="primary" startIcon={<LoginRoundedIcon />}>Sign In</Button>
           </Stack>
@@ -103,9 +112,9 @@ function MenuPage() {
 
       <Box
         component={motion.div}
-        initial={{ opacity: 0, y: 22 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45 }}
+        variants={sectionReveal}
+        initial="hidden"
+        animate="visible"
         sx={{ px: sectionPaddingX, py: { xs: 8, md: 10 }, borderBottom: "1px solid rgba(212,178,95,0.2)" }}
       >
         <Stack spacing={2.5} sx={{ maxWidth: 860, mx: "auto", textAlign: "center" }}>
@@ -123,10 +132,10 @@ function MenuPage() {
 
       <Box
         component={motion.div}
-        initial={{ opacity: 0, y: 22 }}
-        whileInView={{ opacity: 1, y: 0 }}
+        variants={sectionReveal}
+        initial="hidden"
+        whileInView="visible"
         viewport={{ once: true, amount: 0.3 }}
-        transition={{ duration: 0.4 }}
         sx={{ px: sectionPaddingX, py: 3, borderBottom: "1px solid rgba(212,178,95,0.2)" }}
       >
         <Stack direction={{ xs: "column", lg: "row" }} spacing={2} justifyContent="space-between" alignItems={{ xs: "stretch", lg: "center" }}>
@@ -137,6 +146,8 @@ function MenuPage() {
                 onClick={() => setSelectedCategory(category)}
                 variant={selectedCategory === category ? "contained" : "outlined"}
                 color="primary"
+                component={motion.button}
+                whileTap={reduceMotion ? {} : { scale: 0.96 }}
                 sx={{
                   borderRadius: 999,
                   px: 2.6,
@@ -174,13 +185,40 @@ function MenuPage() {
         </Stack>
       </Box>
 
-      <Box sx={{ px: sectionPaddingX, py: { xs: 4, md: 6 } }}>
-        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0, 1fr))" }, gap: 2 }}>
-          {filteredItems.map((item, index) => (
-            <Box key={item.name}>
-              <MenuCard item={item} index={index} />
-            </Box>
-          ))}
+      <Box
+        component={motion.div}
+        variants={sectionReveal}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.15 }}
+        sx={{ px: sectionPaddingX, py: { xs: 4, md: 6 } }}
+      >
+        <Box
+          component={motion.div}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.15 }}
+          variants={{
+            hidden: {},
+            visible: { transition: { staggerChildren: 0.07 } },
+          }}
+          sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0, 1fr))" }, gap: 2 }}
+        >
+          <AnimatePresence mode="popLayout">
+            {filteredItems.map((item, index) => (
+              <Box
+                key={item.name}
+                component={motion.div}
+                layout
+                initial={{ opacity: 0, y: 14, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                transition={{ duration: 0.28 }}
+              >
+                <MenuCard item={item} index={index} />
+              </Box>
+            ))}
+          </AnimatePresence>
         </Box>
       </Box>
       <SiteFooter />

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   Box,
   Button,
@@ -28,6 +28,14 @@ import BackToTopButton from "../../../common/components/ui/BackToTopButton";
 import SiteFooter from "../../../common/components/ui/SiteFooter";
 
 const sectionPaddingX = { xs: 2.5, sm: 5, md: 8, lg: 12 };
+const sectionReveal = {
+  hidden: { opacity: 0, y: 22 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.46, ease: [0.2, 0.7, 0.2, 1] },
+  },
+};
 
 const suites = [
   {
@@ -52,6 +60,7 @@ const suites = [
 
 function VipRoomsPage() {
   const [suiteId, setSuiteId] = useState("platinum");
+  const reduceMotion = useReducedMotion();
 
   return (
     <Box sx={{ bgcolor: "background.default", color: "text.primary", minHeight: "100vh" }}>
@@ -63,7 +72,7 @@ function VipRoomsPage() {
             <Button component={Link} to="/menu" startIcon={<RestaurantMenuRoundedIcon sx={{ fontSize: 18 }} />} sx={{ color: "text.secondary", fontWeight: 600 }}>Menu</Button>
             <Button startIcon={<MeetingRoomRoundedIcon sx={{ fontSize: 18 }} />} sx={{ color: "primary.main", fontWeight: 700 }}>VIP Rooms</Button>
           </Stack>
-          <Stack direction="row" spacing={1.5} alignItems="center">
+          <Stack direction="row" spacing={2.5} alignItems="center">
             <LocalMallOutlinedIcon sx={{ color: "text.secondary" }} />
             <Button variant="contained" color="primary" startIcon={<LoginRoundedIcon />}>Sign In</Button>
           </Stack>
@@ -72,9 +81,9 @@ function VipRoomsPage() {
 
       <Box
         component={motion.div}
-        initial={{ opacity: 0, y: 18 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45 }}
+        variants={sectionReveal}
+        initial="hidden"
+        animate="visible"
         sx={{
           px: sectionPaddingX,
           py: { xs: 8, md: 10 },
@@ -99,17 +108,24 @@ function VipRoomsPage() {
           >
             Royal Dining Experience
           </Button>
-          <Typography variant="h1" sx={{ fontSize: { xs: "52px", md: "88px" }, lineHeight: 1.02 }}>
+          <Typography variant="h1" sx={{ fontSize: { xs: "55px", md: "75px" }, lineHeight: 1.02 }}>
             Exclusive <Box component="span" sx={{ color: "primary.main" }}>VIP Rooms</Box>
           </Typography>
-          <Typography variant="body1" sx={{ color: "text.secondary", maxWidth: 900, mx: "auto" }}>
+          <Typography variant="body1" sx={{  fontSize: "1.4rem", color: "text.secondary", maxWidth: 900, mx: "auto" }}>
             Elevate your gatherings with our premium private dining suites. Experience luxury,
             privacy, and unparalleled service tailored to your needs.
           </Typography>
         </Stack>
       </Box>
 
-      <Box sx={{ px: sectionPaddingX, py: { xs: 4, md: 6 } }}>
+      <Box
+        component={motion.div}
+        variants={sectionReveal}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.12 }}
+        sx={{ px: sectionPaddingX, py: { xs: 4, md: 6 } }}
+      >
         <Box
           sx={{
             display: "grid",
@@ -184,6 +200,9 @@ function VipRoomsPage() {
                 }}
               >
                 <Box
+                  component={motion.div}
+                  whileHover={reduceMotion ? {} : { scale: 1.02 }}
+                  transition={{ duration: 0.35 }}
                   sx={{
                     borderTopLeftRadius: 6,
                     borderBottomLeftRadius: { md: 6 },
@@ -199,21 +218,31 @@ function VipRoomsPage() {
 
                 <Card
                   component={motion.div}
-                  whileHover={{ y: -5 }}
+                  whileHover={reduceMotion ? {} : { y: -6, scale: 1.01 }}
                   sx={{ bgcolor: "#1a110d", border: "1px solid rgba(212,178,95,0.2)", borderRadius: { xs: "0 0 24px 24px", md: "0 24px 24px 0" }, p: 3.2 }}
                 >
                   <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2 }}>
-                    <Typography variant="h2" sx={{ fontSize: { xs: "40px", md: "52px" }, lineHeight: 1.02 }}>{suite.name}</Typography>
+                    <Typography variant="h2" sx={{ fontSize: { xs: "40px", md: "45px" }, lineHeight: 1.02 }}>{suite.name}</Typography>
                     <Stack direction="row" alignItems="center" spacing={0.5}>
                       <WorkspacePremiumRoundedIcon sx={{ fontSize: 18, color: "primary.main" }} />
                       <Typography sx={{ color: "primary.main", fontWeight: 700 }}>Premium</Typography>
                     </Stack>
                   </Stack>
-                  <Typography variant="h3" sx={{ color: "primary.main", fontSize: "36px", mb: 2 }}>{suite.guests}</Typography>
+                  <Typography variant="h3" sx={{ color: "primary.main", fontSize: "30px", mb: 2 }}>{suite.guests}</Typography>
 
                   <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1.4, mb: 2.5 }}>
-                    {suite.features.map((feature) => (
-                      <Stack key={feature} direction="row" spacing={1} alignItems="flex-start">
+                    {suite.features.map((feature, featureIndex) => (
+                      <Stack
+                        key={feature}
+                        direction="row"
+                        spacing={1}
+                        alignItems="flex-start"
+                        component={motion.div}
+                        initial={{ opacity: 0, x: -8 }}
+                        whileInView={{ opacity: 1, x: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 0.25, delay: featureIndex * 0.04 }}
+                      >
                         <CheckCircleOutlineRoundedIcon sx={{ fontSize: 18, color: "#00d26a", mt: 0.2 }} />
                         <Typography variant="body1" sx={{ color: "text.secondary" }}>{feature}</Typography>
                       </Stack>
@@ -224,7 +253,7 @@ function VipRoomsPage() {
                     <Typography variant="body2" sx={{ color: "text.secondary", textTransform: "uppercase", fontWeight: 700 }}>
                       Base Booking Fee
                     </Typography>
-                    <Typography variant="h3" sx={{ fontSize: "44px" }}>{suite.price}</Typography>
+                    <Typography variant="h3" sx={{ fontSize: "25px" }}>{suite.price}</Typography>
                   </Box>
                 </Card>
               </Box>
@@ -232,7 +261,17 @@ function VipRoomsPage() {
           </Stack>
         </Box>
 
-        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(4, minmax(0, 1fr))" }, gap: 1.8, mt: 2.4 }}>
+        <Box
+          component={motion.div}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.25 }}
+          variants={{
+            hidden: {},
+            visible: { transition: { staggerChildren: 0.07 } },
+          }}
+          sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(4, minmax(0, 1fr))" }, gap: 1.8, mt: 2.4 }}
+        >
           {[
             { icon: <MusicNoteRoundedIcon />, label: "Personalized Audio" },
             { icon: <AirRoundedIcon />, label: "Air Conditioned" },
@@ -242,7 +281,11 @@ function VipRoomsPage() {
             <Card
               key={item.label}
               component={motion.div}
-              whileHover={{ y: -4, scale: 1.01 }}
+              variants={{
+                hidden: { opacity: 0, y: 12 },
+                visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+              }}
+              whileHover={reduceMotion ? {} : { y: -5, scale: 1.02 }}
               sx={{ bgcolor: "#140d0a", border: "1px solid rgba(212,178,95,0.12)", borderRadius: 4, p: 2.6, textAlign: "center" }}
             >
               <Box sx={{ color: "primary.main", mb: 1 }}>{item.icon}</Box>

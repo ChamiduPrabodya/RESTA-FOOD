@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   Box,
   Button,
@@ -16,6 +16,7 @@ import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
 import RestaurantMenuRoundedIcon from "@mui/icons-material/RestaurantMenuRounded";
 import MeetingRoomRoundedIcon from "@mui/icons-material/MeetingRoomRounded";
 import LoginRoundedIcon from "@mui/icons-material/LoginRounded";
+import LocalMallOutlinedIcon from "@mui/icons-material/LocalMallOutlined";
 import LocalOfferRoundedIcon from "@mui/icons-material/LocalOfferRounded";
 import ArrowOutwardRoundedIcon from "@mui/icons-material/ArrowOutwardRounded";
 import WorkspacePremiumRoundedIcon from "@mui/icons-material/WorkspacePremiumRounded";
@@ -33,12 +34,18 @@ const heroImage = "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?
 const popularImage01 = "/images/home/popular-01.svg";
 const popularImage02 = "/images/home/popular-02.svg";
 const popularImage03 = "/images/home/popular-03.svg";
-const vipImage01 = "/images/home/VIP1.jpeg";
-const vipImage02 = "/images/home/vip-02.svg";
-const vipImage03 = "/images/home/vip-03.svg";
+const vipImage01 = `${import.meta.env.BASE_URL}images/home/VIP1.jpeg`;
 
 const sectionPaddingX = { xs: 2.5, sm: 5, md: 8, lg: 12 };
 const MotionBox = motion.div;
+const sectionReveal = {
+  hidden: { opacity: 0, y: 26 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.48, ease: [0.2, 0.7, 0.2, 1] },
+  },
+};
 
 const popularItems = [
   {
@@ -192,6 +199,9 @@ function MenuCard({ item, index }) {
 }
 
 function HomePage() {
+  const [feedbackRating, setFeedbackRating] = useState(0);
+  const reduceMotion = useReducedMotion();
+
   return (
     <Box sx={{ bgcolor: "background.default", color: "text.primary" }}>
       <Box
@@ -227,15 +237,25 @@ function HomePage() {
               </Typography>
             </Stack>
           </Stack>
-          <Button variant="contained" color="primary" startIcon={<LoginRoundedIcon />}>Sign In</Button>
+          <Stack direction="row" spacing={2.5} alignItems="center">
+            <LocalMallOutlinedIcon sx={{ color: "text.secondary" }} />
+            <Button variant="contained" color="primary" startIcon={<LoginRoundedIcon />}>Sign In</Button>
+          </Stack>
         </Stack>
 
         <Stack spacing={3} sx={{ maxWidth: 760, pt: { xs: 8, md: 12 }, pb: 8 }}>
-          <Chip
-            icon={<LocalOfferRoundedIcon />}
-            label="Limited Time Offer"
-            sx={{ alignSelf: "flex-start", bgcolor: "rgba(212,178,95,0.12)", color: "primary.main" }}
-          />
+          <Box
+            component={motion.div}
+            initial={{ opacity: 0, x: -12 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
+          >
+            <Chip
+              icon={<LocalOfferRoundedIcon />}
+              label="Limited Time Offer"
+              sx={{ alignSelf: "flex-start", bgcolor: "rgba(212,178,95,0.12)", color: "primary.main" }}
+            />
+          </Box>
           <MotionBox initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
             <Typography variant="h1" sx={{ lineHeight: 1.08, fontSize: { xs: "44px", md: "64px" } }}>
               Weekend Special:
@@ -246,7 +266,14 @@ function HomePage() {
           <Typography variant="body1" sx={{ color: "text.secondary" }}>
             Only this Saturday and Sunday. Grab yours now!
           </Typography>
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+          <Stack
+            component={motion.div}
+            direction={{ xs: "column", sm: "row" }}
+            spacing={2}
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, delay: 0.2 }}
+          >
                 <Button
                   component={Link}
                   to="/menu"
@@ -256,14 +283,12 @@ function HomePage() {
                   sx={{
                     px: 4,
                     py: 1.4,
-                    // Hover effect
                     "&:hover": {
-                      backgroundColor: "#d4b25f", // change to your desired color
+                      backgroundColor: "#d4b25f",
                       color: "#fff",
                     },
-                    // Active/click effect
                     "&:active": {
-                      backgroundColor: "#bfa84a", // slightly darker on click
+                      backgroundColor: "#bfa84a",
                     },
                   }}
                 >
@@ -299,10 +324,10 @@ function HomePage() {
 
       <Box
         component={motion.div}
-        initial={{ opacity: 0, y: 26 }}
-        whileInView={{ opacity: 1, y: 0 }}
+        variants={sectionReveal}
+        initial="hidden"
+        whileInView="visible"
         viewport={{ once: true, amount: 0.15 }}
-        transition={{ duration: 0.45 }}
         sx={{ px: sectionPaddingX, py: { xs: 6, md: 7 } }}
       >
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
@@ -318,6 +343,14 @@ function HomePage() {
           </Button>
         </Stack>
         <Box
+          component={motion.div}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.15 }}
+          variants={{
+            hidden: {},
+            visible: { transition: { staggerChildren: 0.08 } },
+          }}
           sx={{
             display: "grid",
             gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
@@ -325,7 +358,14 @@ function HomePage() {
           }}
         >
           {popularItems.map((item, index) => (
-            <Box key={item.name}>
+            <Box
+              key={item.name}
+              component={motion.div}
+              variants={{
+                hidden: { opacity: 0, y: 14 },
+                visible: { opacity: 1, y: 0, transition: { duration: 0.35 } },
+              }}
+            >
               <MenuCard item={item} index={index} />
             </Box>
           ))}
@@ -334,72 +374,120 @@ function HomePage() {
 
     <Box
   component={motion.div}
-  initial={{ opacity: 0, y: 28 }}
-  whileInView={{ opacity: 1, y: 0 }}
+  variants={sectionReveal}
+  initial="hidden"
+  whileInView="visible"
   viewport={{ once: true, amount: 0.1 }}
-  transition={{ duration: 0.45 }}
   sx={{ px: sectionPaddingX, py: { xs: 4, md: 8 } }}
 >
-  <Grid
-    container
-    spacing={{ xs: 3, md: 6 }}
+  <Box
     sx={{
       border: "1px solid rgba(212,178,95,0.2)",
       borderRadius: 6,
       p: { xs: 3, md: 7 },
-      alignItems: "center", // vertically center content
+      display: "grid",
+      gridTemplateColumns: { xs: "1fr", md: "1fr 1.15fr" },
+      gap: { xs: 5, md: 6 },
+      alignItems: "center",
     }}
   >
     {/* Left column: text and button */}
-    <Grid item xs={12} md={6}>
-      <Chip
-        icon={<WorkspacePremiumRoundedIcon />}
-        label="Royal Dining"
-        sx={{ mb: 2.5, bgcolor: "rgba(212,178,95,0.12)", color: "primary.main" }}
-      />
-      <Typography variant="h2" sx={{ fontSize: { xs: "38px", md: "56px" }, mb: 2.5 }}>
-        Exclusive <Box component="span" sx={{ color: "primary.main" }}>VIP Suites</Box>
-      </Typography>
-      <Typography variant="body1" sx={{ color: "text.secondary", mb: 4, pr: { md: 3 }, lineHeight: 1.6 }}>
-        Elevate your dining experience with our private VIP rooms.
-      </Typography>
-      <Button
-        component={Link}
-        to="/vip-rooms"
-        variant="contained"
-        color="primary"
-        endIcon={<ArrowOutwardRoundedIcon />}
-        sx={{ px: 4, py: 1.3 }}
-      >
-        Explore VIP Rooms
-      </Button>
-    </Grid>
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 2.2,
+        height: { md: 460 },
+      }}
+    >
+      <Box>
+        <Chip
+          icon={<WorkspacePremiumRoundedIcon />}
+          label="Royal Dining"
+          sx={{ mb: 2.5, bgcolor: "rgba(212,178,95,0.12)", color: "primary.main" }}
+        />
+        <Typography variant="h2" sx={{ fontSize: { xs: "38px", md: "56px" }, mb: 2.5 }}>
+          Exclusive <Box component="span" sx={{ color: "primary.main" }}>VIP Suites</Box>
+        </Typography>
+        <Typography variant="body1" sx={{ color: "text.secondary", mb: 3, pr: { md: 3 }, lineHeight: 1.6 }}>
+          Elevate your dining experience with our private VIP rooms.
+        </Typography>
+      </Box>
 
-    {/* Right column: single VIP image */}
-    <Grid item xs={12} md={6}>
-     
       <Box
         sx={{
-          width: "100%",            
-          height: { xs: 250, md: 400 }, 
+          flex: 1,
+          width: "100%",
           borderRadius: 3,
-          backgroundImage: `url(${vipImage01})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
+          border: "1px solid rgba(212,178,95,0.2)",
+          bgcolor: "rgba(212,178,95,0.06)",
+          p: 2.4,
+          display: "grid",
+          alignContent: "center",
+          gap: 1.1,
+        }}
+      >
+        <Typography sx={{ color: "primary.main", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.7 }}>
+          VIP Experience Includes
+        </Typography>
+        <Typography sx={{ color: "text.secondary" }}>Dedicated private space for family and group dining.</Typography>
+        <Typography sx={{ color: "text.secondary" }}>Priority service with custom table setup.</Typography>
+        <Typography sx={{ color: "text.secondary" }}>Premium comfort seating and quiet ambiance.</Typography>
+      </Box>
+
+      <Stack spacing={2.2} sx={{ alignItems: "flex-start" }}>
+        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+          <Chip label="Private Entrance" size="small" sx={{ bgcolor: "rgba(212,178,95,0.12)", color: "primary.main" }} />
+          <Chip label="Butler Service" size="small" sx={{ bgcolor: "rgba(212,178,95,0.12)", color: "primary.main" }} />
+          <Chip label="Premium Seating" size="small" sx={{ bgcolor: "rgba(212,178,95,0.12)", color: "primary.main" }} />
+        </Stack>
+        <Button
+          component={Link}
+          to="/vip-rooms"
+          variant="contained"
+          color="primary"
+          endIcon={<ArrowOutwardRoundedIcon />}
+          sx={{ px: 4, py: 1.3 }}
+        >
+          Explore VIP Rooms
+        </Button>
+      </Stack>
+    </Box>
+
+    {/* Right column: single VIP image */}
+    <Box
+      sx={{ width: "100%" }}
+      component={motion.div}
+      initial={{ opacity: 0, scale: 0.98 }}
+      whileInView={{ opacity: 1, scale: 1 }}
+      viewport={{ once: true, amount: 0.25 }}
+      transition={{ duration: 0.5 }}
+    >
+      <Box
+        component={motion.img}
+        src={vipImage01}
+        alt="Exclusive VIP Suite"
+        whileHover={reduceMotion ? {} : { scale: 1.03 }}
+        transition={{ duration: 0.45 }}
+        sx={{
+          width: "100%",
+          height: { xs: 260, md: 460 },
+          borderRadius: 3,
+          objectFit: "cover",
+          display: "block",
           boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
         }}
       />
-    
-    </Grid>
-  </Grid>
+    </Box>
+  </Box>
 </Box>
 
       <Box
         component={motion.div}
-        initial={{ opacity: 0, y: 28 }}
-        whileInView={{ opacity: 1, y: 0 }}
+        variants={sectionReveal}
+        initial="hidden"
+        whileInView="visible"
         viewport={{ once: true, amount: 0.1 }}
-        transition={{ duration: 0.45 }}
         sx={{ px: sectionPaddingX, py: { xs: 8, md: 10 } }}
       >
         <Grid container spacing={{ xs: 3, md: 6 }} alignItems="stretch">
@@ -433,7 +521,13 @@ function HomePage() {
                 <Typography sx={{ color: "primary.main", fontWeight: 700, mb: 1, textTransform: "uppercase", letterSpacing: 0.8 }}>
                   Your Rating
                 </Typography>
-                <Rating value={5} readOnly size="large" sx={{ color: "primary.main", mb: 3 }} />
+                <Rating
+                  name="user-feedback-rating"
+                  value={feedbackRating}
+                  onChange={(_, newValue) => setFeedbackRating(newValue ?? 0)}
+                  size="large"
+                  sx={{ color: "primary.main", mb: 3 }}
+                />
 
                 <Typography sx={{ color: "primary.main", fontWeight: 700, mb: 1, textTransform: "uppercase", letterSpacing: 0.8 }}>
                   Your Message
