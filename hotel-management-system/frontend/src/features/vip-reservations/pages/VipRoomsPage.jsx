@@ -74,7 +74,7 @@ function VipRoomsPage() {
           </Stack>
           <Stack direction="row" spacing={2.5} alignItems="center">
             <LocalMallOutlinedIcon sx={{ color: "text.secondary" }} />
-            <Button variant="contained" color="primary" startIcon={<LoginRoundedIcon />}>Sign In</Button>
+            <Button component={Link} to="/sign-in" variant="contained" color="primary" startIcon={<LoginRoundedIcon />}>Sign In</Button>
           </Stack>
         </Stack>
       </Box>
