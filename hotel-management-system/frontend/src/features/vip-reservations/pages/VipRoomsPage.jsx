@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
 import {
+  Alert,
   Box,
   Button,
   Card,
@@ -9,6 +10,7 @@ import {
   InputLabel,
   MenuItem,
   Select,
+  Snackbar,
   Stack,
   TextField,
   Typography,
@@ -16,8 +18,6 @@ import {
 import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
 import RestaurantMenuRoundedIcon from "@mui/icons-material/RestaurantMenuRounded";
 import MeetingRoomRoundedIcon from "@mui/icons-material/MeetingRoomRounded";
-import LoginRoundedIcon from "@mui/icons-material/LoginRounded";
-import LocalMallOutlinedIcon from "@mui/icons-material/LocalMallOutlined";
 import WorkspacePremiumRoundedIcon from "@mui/icons-material/WorkspacePremiumRounded";
 import CheckCircleOutlineRoundedIcon from "@mui/icons-material/CheckCircleOutlineRounded";
 import MusicNoteRoundedIcon from "@mui/icons-material/MusicNoteRounded";
@@ -26,6 +26,8 @@ import Groups2RoundedIcon from "@mui/icons-material/Groups2Rounded";
 import SecurityRoundedIcon from "@mui/icons-material/SecurityRounded";
 import BackToTopButton from "../../../common/components/ui/BackToTopButton";
 import SiteFooter from "../../../common/components/ui/SiteFooter";
+import { useAuth } from "../../auth/context/AuthContext";
+import AuthHeaderActions from "../../../common/components/ui/AuthHeaderActions";
 
 const sectionPaddingX = { xs: 2.5, sm: 5, md: 8, lg: 12 };
 const sectionReveal = {
@@ -60,7 +62,51 @@ const suites = [
 
 function VipRoomsPage() {
   const [suiteId, setSuiteId] = useState("platinum");
+  const [bookingDate, setBookingDate] = useState("");
+  const [bookingTime, setBookingTime] = useState("");
+  const [guests, setGuests] = useState(4);
+  const [notice, setNotice] = useState({ open: false, message: "", severity: "success" });
   const reduceMotion = useReducedMotion();
+  const navigate = useNavigate();
+  const { authUser, addVipBooking } = useAuth();
+
+  const handleCheckAvailability = () => {
+    if (!authUser) {
+      navigate("/sign-in", { state: { from: "/vip-rooms" } });
+      return;
+    }
+
+    if (authUser.role !== "user") {
+      setNotice({
+        open: true,
+        message: "Admin accounts cannot book rooms. Use a user account.",
+        severity: "warning",
+      });
+      return;
+    }
+
+    if (!bookingDate || !bookingTime || !guests) {
+      setNotice({
+        open: true,
+        message: "Please add date, time, and guest count.",
+        severity: "error",
+      });
+      return;
+    }
+
+    const result = addVipBooking({
+      suiteId,
+      date: bookingDate,
+      time: bookingTime,
+      guests,
+    });
+
+    setNotice({
+      open: true,
+      message: result.success ? "VIP booking request submitted." : result.message,
+      severity: result.success ? "success" : "error",
+    });
+  };
 
   return (
     <Box sx={{ bgcolor: "background.default", color: "text.primary", minHeight: "100vh" }}>
@@ -72,10 +118,7 @@ function VipRoomsPage() {
             <Button component={Link} to="/menu" startIcon={<RestaurantMenuRoundedIcon sx={{ fontSize: 18 }} />} sx={{ color: "text.secondary", fontWeight: 600 }}>Menu</Button>
             <Button startIcon={<MeetingRoomRoundedIcon sx={{ fontSize: 18 }} />} sx={{ color: "primary.main", fontWeight: 700 }}>VIP Rooms</Button>
           </Stack>
-          <Stack direction="row" spacing={2.5} alignItems="center">
-            <LocalMallOutlinedIcon sx={{ color: "text.secondary" }} />
-            <Button component={Link} to="/sign-in" variant="contained" color="primary" startIcon={<LoginRoundedIcon />}>Sign In</Button>
-          </Stack>
+          <AuthHeaderActions />
         </Stack>
       </Box>
 
@@ -170,13 +213,41 @@ function VipRoomsPage() {
             </FormControl>
 
             <Stack direction="row" spacing={1.8} sx={{ mb: 2.5 }}>
-              <TextField fullWidth label="Date" type="date" slotProps={{ inputLabel: { shrink: true } }} sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#07090d", borderRadius: 3 } }} />
-              <TextField fullWidth label="Time" type="time" slotProps={{ inputLabel: { shrink: true } }} sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#07090d", borderRadius: 3 } }} />
+              <TextField
+                fullWidth
+                label="Date"
+                type="date"
+                value={bookingDate}
+                onChange={(event) => setBookingDate(event.target.value)}
+                slotProps={{ inputLabel: { shrink: true } }}
+                sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#07090d", borderRadius: 3 } }}
+              />
+              <TextField
+                fullWidth
+                label="Time"
+                type="time"
+                value={bookingTime}
+                onChange={(event) => setBookingTime(event.target.value)}
+                slotProps={{ inputLabel: { shrink: true } }}
+                sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#07090d", borderRadius: 3 } }}
+              />
             </Stack>
 
-            <TextField fullWidth label="Number of Guests" defaultValue={4} sx={{ mb: 2.8, "& .MuiOutlinedInput-root": { bgcolor: "#07090d", borderRadius: 3 } }} />
+            <TextField
+              fullWidth
+              label="Number of Guests"
+              value={guests}
+              onChange={(event) => setGuests(event.target.value)}
+              sx={{ mb: 2.8, "& .MuiOutlinedInput-root": { bgcolor: "#07090d", borderRadius: 3 } }}
+            />
 
-            <Button variant="contained" color="primary" fullWidth sx={{ py: 1.6, mb: 2.2 }}>
+            <Button
+              variant="contained"
+              color="primary"
+              fullWidth
+              sx={{ py: 1.6, mb: 2.2 }}
+              onClick={handleCheckAvailability}
+            >
               Check Availability
             </Button>
             <Typography variant="body2" sx={{ color: "text.secondary", textAlign: "center", textTransform: "uppercase", fontWeight: 700 }}>
@@ -294,6 +365,16 @@ function VipRoomsPage() {
           ))}
         </Box>
       </Box>
+      <Snackbar
+        open={notice.open}
+        autoHideDuration={2400}
+        onClose={() => setNotice((current) => ({ ...current, open: false }))}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert onClose={() => setNotice((current) => ({ ...current, open: false }))} severity={notice.severity} variant="filled">
+          {notice.message}
+        </Alert>
+      </Snackbar>
       <SiteFooter />
       <BackToTopButton />
     </Box>

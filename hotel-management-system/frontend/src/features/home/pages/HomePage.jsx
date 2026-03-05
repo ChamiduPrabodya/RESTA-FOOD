@@ -15,8 +15,6 @@ import {
 import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
 import RestaurantMenuRoundedIcon from "@mui/icons-material/RestaurantMenuRounded";
 import MeetingRoomRoundedIcon from "@mui/icons-material/MeetingRoomRounded";
-import LoginRoundedIcon from "@mui/icons-material/LoginRounded";
-import LocalMallOutlinedIcon from "@mui/icons-material/LocalMallOutlined";
 import LocalOfferRoundedIcon from "@mui/icons-material/LocalOfferRounded";
 import ArrowOutwardRoundedIcon from "@mui/icons-material/ArrowOutwardRounded";
 import WorkspacePremiumRoundedIcon from "@mui/icons-material/WorkspacePremiumRounded";
@@ -28,6 +26,7 @@ import SendRoundedIcon from "@mui/icons-material/SendRounded";
 import { Link } from "react-router-dom";
 import BackToTopButton from "../../../common/components/ui/BackToTopButton";
 import SiteFooter from "../../../common/components/ui/SiteFooter";
+import AuthHeaderActions from "../../../common/components/ui/AuthHeaderActions";
 
 // NOTE: Image files should be placed in: frontend/public/images/home/
 const heroImage = "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&q=80&w=1920";
@@ -237,10 +236,7 @@ function HomePage() {
               </Typography>
             </Stack>
           </Stack>
-          <Stack direction="row" spacing={2.5} alignItems="center">
-            <LocalMallOutlinedIcon sx={{ color: "text.secondary" }} />
-            <Button component={Link} to="/sign-in" variant="contained" color="primary" startIcon={<LoginRoundedIcon />}>Sign In</Button>
-          </Stack>
+          <AuthHeaderActions />
         </Stack>
 
         <Stack spacing={3} sx={{ maxWidth: 760, pt: { xs: 8, md: 12 }, pb: 8 }}>

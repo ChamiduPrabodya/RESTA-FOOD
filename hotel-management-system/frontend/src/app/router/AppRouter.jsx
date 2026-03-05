@@ -4,6 +4,9 @@ import HomePage from "../../features/home/pages/HomePage";
 import MenuPage from "../../features/menu/pages/MenuPage";
 import VipRoomsPage from "../../features/vip-reservations/pages/VipRoomsPage";
 import SignInPage from "../../features/auth/pages/SignInPage";
+import SignUpPage from "../../features/auth/pages/SignUpPage";
+import AdminDashboardPage from "../../features/admin/pages/AdminDashboardPage";
+import ProtectedRoute from "./ProtectedRoute";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -22,6 +25,15 @@ function AppRouter() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/sign-in" element={<SignInPage />} />
+        <Route path="/sign-up" element={<SignUpPage />} />
+        <Route
+          path="/admin-dashboard"
+          element={
+            <ProtectedRoute roles={["admin"]}>
+              <AdminDashboardPage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/menu" element={<MenuPage />} />
         <Route path="/vip-rooms" element={<VipRoomsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

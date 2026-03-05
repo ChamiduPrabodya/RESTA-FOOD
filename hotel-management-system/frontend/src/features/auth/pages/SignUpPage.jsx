@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Alert,
@@ -13,39 +13,43 @@ import {
   Typography,
 } from "@mui/material";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
-import PersonOutlineRoundedIcon from "@mui/icons-material/PersonOutlineRounded";
+import PersonAddAltRoundedIcon from "@mui/icons-material/PersonAddAltRounded";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import VisibilityOffOutlinedIcon from "@mui/icons-material/VisibilityOffOutlined";
 import { useAuth } from "../context/AuthContext";
 
 const MotionCard = motion(Card);
 
-function SignInPage() {
+function SignUpPage() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { login, adminEmail, userEmail } = useAuth();
+  const { signup } = useAuth();
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
 
   const handleSubmit = (event) => {
     event.preventDefault();
-    setError("");
 
-    const result = login(email, password);
+    setError("");
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    const result = signup(fullName, email, password);
     if (!result.success) {
       setError(result.message);
       return;
     }
 
-    if (result.role === "admin") {
-      navigate("/admin-dashboard", { replace: true });
-      return;
-    }
-
-    const redirectPath = location.state?.from || "/";
-    navigate(redirectPath, { replace: true });
+    navigate("/sign-in", {
+      replace: true,
+      state: { signupSuccess: "Account created. Please login." },
+    });
   };
 
   return (
@@ -86,7 +90,7 @@ function SignInPage() {
           }}
         >
           <Typography variant="h2" sx={{ fontSize: { xs: "32px", md: "36px" } }}>
-            Welcome Back
+            Create Account
           </Typography>
           <IconButton onClick={() => navigate(-1)} sx={{ color: "text.secondary" }}>
             <CloseRoundedIcon />
@@ -106,30 +110,39 @@ function SignInPage() {
                 placeItems: "center",
               }}
             >
-              <PersonOutlineRoundedIcon sx={{ color: "primary.main", fontSize: 30 }} />
+              <PersonAddAltRoundedIcon sx={{ color: "primary.main", fontSize: 30 }} />
             </Box>
             <Typography variant="body1" sx={{ color: "text.secondary", textAlign: "center", maxWidth: 520 }}>
-              Login to your account 
-            </Typography>
-            <Typography variant="body2" sx={{ color: "text.secondary", textAlign: "center" }}>
-              Admin login: {adminEmail} / admin123
-            </Typography>
-            <Typography variant="body2" sx={{ color: "text.secondary", textAlign: "center" }}>
-              User login: {userEmail} / user123
+              Sign up to create your account.
             </Typography>
           </Stack>
 
           <Box component="form" onSubmit={handleSubmit} autoComplete="off">
-            {location.state?.signupSuccess && (
-              <Alert severity="success" sx={{ mb: 2 }}>
-                {location.state.signupSuccess}
-              </Alert>
-            )}
             {error && (
               <Alert severity="error" sx={{ mb: 2 }}>
                 {error}
               </Alert>
             )}
+            <Typography sx={{ color: "primary.main", fontWeight: 700, letterSpacing: 0.8, mb: 1, textTransform: "uppercase" }}>
+              Full Name
+            </Typography>
+            <TextField
+              fullWidth
+              value={fullName}
+              onChange={(event) => setFullName(event.target.value)}
+              placeholder="Enter your full name"
+              type="text"
+              name="signup-full-name"
+              sx={{
+                mb: 2.6,
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: 3,
+                  bgcolor: "#06090f",
+                },
+                "& .MuiInputBase-input": { py: 1.2, fontSize: "15px" },
+              }}
+            />
+
             <Typography sx={{ color: "primary.main", fontWeight: 700, letterSpacing: 0.8, mb: 1, textTransform: "uppercase" }}>
               Email Address
             </Typography>
@@ -139,8 +152,7 @@ function SignInPage() {
               onChange={(event) => setEmail(event.target.value)}
               placeholder="Enter your email address"
               type="email"
-              autoComplete="off"
-              name="signin-email"
+              name="signup-email"
               sx={{
                 mb: 2.6,
                 "& .MuiOutlinedInput-root": {
@@ -158,12 +170,11 @@ function SignInPage() {
               fullWidth
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="Enter your password"
+              placeholder="Create a password"
               type={showPassword ? "text" : "password"}
-              autoComplete="new-password"
-              name="signin-password"
+              name="signup-password"
               sx={{
-                mb: 3.2,
+                mb: 2.6,
                 "& .MuiOutlinedInput-root": {
                   borderRadius: 3,
                   bgcolor: "#06090f",
@@ -183,16 +194,47 @@ function SignInPage() {
               }}
             />
 
+            <Typography sx={{ color: "primary.main", fontWeight: 700, letterSpacing: 0.8, mb: 1, textTransform: "uppercase" }}>
+              Confirm Password
+            </Typography>
+            <TextField
+              fullWidth
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              placeholder="Re-enter your password"
+              type={showConfirmPassword ? "text" : "password"}
+              name="signup-confirm-password"
+              sx={{
+                mb: 3.2,
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: 3,
+                  bgcolor: "#06090f",
+                },
+                "& .MuiInputBase-input": { py: 1.2, fontSize: "15px" },
+              }}
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton onClick={() => setShowConfirmPassword((value) => !value)} edge="end" sx={{ color: "text.secondary" }}>
+                        {showConfirmPassword ? <VisibilityOffOutlinedIcon /> : <VisibilityOutlinedIcon />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
+
             <Button type="submit" fullWidth variant="contained" color="primary" sx={{ py: 1.25, fontSize: "22px", color: "#101114" }}>
-              Log In
+              Sign Up
             </Button>
           </Box>
 
           <Typography sx={{ mt: 2.5, textAlign: "center", color: "text.secondary" }}>
-            Don&apos;t have an account?{" "}
+            Already have an account?{" "}
             <Box
               component={Link}
-              to="/sign-up"
+              to="/sign-in"
               sx={{
                 ml: 0.8,
                 color: "primary.main",
@@ -201,14 +243,13 @@ function SignInPage() {
                 "&:hover": { textDecoration: "underline" },
               }}
             >
-              Sign Up
+              Log In
             </Box>
           </Typography>
-
         </Box>
       </MotionCard>
     </Box>
   );
 }
 
-export default SignInPage;
+export default SignUpPage;
