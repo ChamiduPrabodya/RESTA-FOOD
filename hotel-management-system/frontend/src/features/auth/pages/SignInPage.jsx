@@ -16,6 +16,7 @@ import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import PersonOutlineRoundedIcon from "@mui/icons-material/PersonOutlineRounded";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import VisibilityOffOutlinedIcon from "@mui/icons-material/VisibilityOffOutlined";
+import GoogleIcon from "@mui/icons-material/Google";
 import { useAuth } from "../context/AuthContext";
 
 const MotionCard = motion(Card);
@@ -23,7 +24,7 @@ const MotionCard = motion(Card);
 function SignInPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, adminEmail, userEmail } = useAuth();
+  const { login, loginWithGoogle, adminEmail, userEmail } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -44,6 +45,17 @@ function SignInPage() {
       return;
     }
 
+    const redirectPath = location.state?.from || "/";
+    navigate(redirectPath, { replace: true });
+  };
+
+  const handleGoogleLogin = () => {
+    setError("");
+    const result = loginWithGoogle();
+    if (!result.success) {
+      setError("Google login failed.");
+      return;
+    }
     const redirectPath = location.state?.from || "/";
     navigate(redirectPath, { replace: true });
   };
@@ -185,6 +197,26 @@ function SignInPage() {
 
             <Button type="submit" fullWidth variant="contained" color="primary" sx={{ py: 1.25, fontSize: "22px", color: "#101114" }}>
               Log In
+            </Button>
+            <Stack direction="row" alignItems="center" spacing={1.3} sx={{ my: 2 }}>
+              <Box sx={{ flex: 1, height: 1, bgcolor: "rgba(212,178,95,0.22)" }} />
+              <Typography sx={{ color: "text.secondary", fontSize: 13, letterSpacing: 0.6 }}>OR</Typography>
+              <Box sx={{ flex: 1, height: 1, bgcolor: "rgba(212,178,95,0.22)" }} />
+            </Stack>
+            <Button
+              fullWidth
+              onClick={handleGoogleLogin}
+              variant="outlined"
+              startIcon={<GoogleIcon />}
+              sx={{
+                py: 1.15,
+                borderRadius: 3,
+                borderColor: "rgba(212,178,95,0.35)",
+                color: "text.primary",
+                bgcolor: "rgba(15,20,30,0.55)",
+              }}
+            >
+              Continue with Google
             </Button>
           </Box>
 

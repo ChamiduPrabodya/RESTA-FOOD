@@ -28,15 +28,93 @@ import AuthHeaderActions from "../../../common/components/ui/AuthHeaderActions";
 const sectionPaddingX = { xs: 2.5, sm: 5, md: 8, lg: 12 };
 
 const menuItems = [
-  { name: "Cheese Kottu", category: "Kottu", description: "Freshly made paratha chopped with vegetables and creamy cheese sauce.", price: "SLR 850", image: "/images/home/popular-01.svg" },
-  { name: "Chicken Biriyani", category: "Biriyani", description: "Fragrant basmati rice cooked with aromatic spices and tender chicken.", price: "SLR 950", image: "/images/home/popular-02.svg" },
-  { name: "Deviled Chicken", category: "Deviled", description: "Spicy and tangy chicken stir-fried with onions and peppers.", price: "SLR 1,200", image: "/images/home/popular-03.svg" },
-  { name: "Seafood Rice", category: "Rice", description: "Sri Lankan style seafood rice with prawns and cuttlefish.", price: "SLR 1,450", image: "/images/home/popular-02.svg" },
-  { name: "Creamy Pasta", category: "Pasta", description: "Penne pasta in rich cream sauce with chicken strips.", price: "SLR 1,050", image: "/images/home/popular-01.svg" },
-  { name: "Family Set Menu", category: "Set Menu", description: "Special combo for four with mains, sides, and beverages.", price: "SLR 3,800", image: "/images/home/popular-03.svg" },
+  {
+    name: "Cheese Kottu",
+    category: "Kottu",
+    description: "Freshly made paratha chopped with vegetables and creamy cheese sauce.",
+    portions: {
+      Small: "SLR 850",
+      Medium: "SLR 1,150",
+      Large: "SLR 1,450",
+    },
+    image: "/images/home/popular-01.svg",
+  },
+  {
+    name: "Chicken Biriyani",
+    category: "Biriyani",
+    description: "Fragrant basmati rice cooked with aromatic spices and tender chicken.",
+    portions: {
+      Small: "SLR 950",
+      Medium: "SLR 1,250",
+      Large: "SLR 1,550",
+    },
+    image: "/images/home/popular-02.svg",
+  },
+  {
+    name: "Seafood Rice",
+    category: "Rice",
+    description: "Sri Lankan style seafood rice with prawns and cuttlefish.",
+    portions: {
+      Small: "SLR 1,100",
+      Medium: "SLR 1,450",
+      Large: "SLR 1,850",
+    },
+    image: "/images/home/popular-02.svg",
+  },
+  {
+    name: "Deviled Chicken",
+    category: "Deviled",
+    description: "Spicy and tangy chicken stir-fried with onions and peppers.",
+    portions: {
+      "300g": "SLR 1,200",
+      "500g": "SLR 1,800",
+      "1kg": "SLR 3,300",
+    },
+    image: "/images/home/popular-03.svg",
+  },
+  {
+    name: "Black Curry Beef",
+    category: "Black Curry",
+    description: "Slow-cooked black curry beef with roasted spices and deep flavor.",
+    portions: {
+      "300g": "SLR 1,350",
+      "500g": "SLR 2,000",
+      "1kg": "SLR 3,700",
+    },
+    image: "/images/home/popular-03.svg",
+  },
+  {
+    name: "Chicken Isstu",
+    category: "Isstu",
+    description: "Classic rich gravy style isstu made with tender chicken and spices.",
+    portions: {
+      "300g": "SLR 1,150",
+      "500g": "SLR 1,700",
+      "1kg": "SLR 3,100",
+    },
+    image: "/images/home/popular-01.svg",
+  },
+  {
+    name: "Creamy Pasta",
+    category: "Pasta",
+    description: "Penne pasta in rich cream sauce with chicken strips.",
+    portions: {
+      Regular: "SLR 1,050",
+    },
+    image: "/images/home/popular-01.svg",
+  },
+  {
+    name: "Family Set Menu",
+    category: "Set Menu",
+    description: "Special combo for four with mains, sides, and beverages.",
+    portions: {
+      Regular: "SLR 3,800",
+    },
+    image: "/images/home/popular-03.svg",
+  },
 ];
 
-const categories = ["All", "Kottu", "Rice", "Pasta", "Biriyani", "Set Menu", "Deviled"];
+const categories = ["All", "Kottu", "Rice", "Biriyani", "Deviled", "Black Curry", "Isstu", "Pasta", "Set Menu"];
 const sectionReveal = {
   hidden: { opacity: 0, y: 24 },
   visible: {
@@ -47,6 +125,10 @@ const sectionReveal = {
 };
 
 function MenuCard({ item, index, onBuy }) {
+  const portionKeys = Object.keys(item.portions);
+  const [selectedPortion, setSelectedPortion] = useState(portionKeys[0]);
+  const selectedPrice = item.portions[selectedPortion];
+
   return (
     <Card
       component={motion.div}
@@ -66,13 +148,38 @@ function MenuCard({ item, index, onBuy }) {
       <CardContent sx={{ p: 2 }}>
         <Typography variant="h3" sx={{ fontSize: "24px", mb: 0.8 }}>{item.name}</Typography>
         <Typography variant="body2" sx={{ color: "text.secondary", mb: 1.6 }}>{item.description}</Typography>
+        {portionKeys.length > 1 && (
+          <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap sx={{ mb: 1.6 }}>
+            {portionKeys.map((portion) => (
+              <Button
+                key={portion}
+                onClick={() => setSelectedPortion(portion)}
+                variant={selectedPortion === portion ? "contained" : "outlined"}
+                color="primary"
+                size="small"
+                sx={{
+                  minWidth: 78,
+                  borderRadius: 999,
+                  px: 1.4,
+                  py: 0.4,
+                  fontSize: 12,
+                  borderColor: "rgba(212,178,95,0.35)",
+                  color: selectedPortion === portion ? "#0d0f14" : "text.secondary",
+                  bgcolor: selectedPortion === portion ? "primary.main" : "rgba(24,19,16,0.75)",
+                }}
+              >
+                {portion}
+              </Button>
+            ))}
+          </Stack>
+        )}
         <Stack direction="row" justifyContent="space-between" alignItems="flex-end">
           <Box>
             <Typography sx={{ color: "primary.main", fontWeight: 700, letterSpacing: 0.8 }}>PRICE</Typography>
-            <Typography variant="h3" sx={{ fontSize: "28px" }}>{item.price}</Typography>
+            <Typography variant="h3" sx={{ fontSize: "28px" }}>{selectedPrice}</Typography>
           </Box>
           <Button
-            onClick={() => onBuy(item)}
+            onClick={() => onBuy(item, selectedPortion, selectedPrice)}
             sx={{ minWidth: 46, width: 46, height: 46, borderRadius: "14px", color: "#fff", bgcolor: "#9a6a3f", "&:hover": { bgcolor: "#b07b4a" } }}
           >
             <AddRoundedIcon />
@@ -89,7 +196,7 @@ function MenuPage() {
   const [notice, setNotice] = useState({ open: false, message: "", severity: "success" });
   const reduceMotion = useReducedMotion();
   const navigate = useNavigate();
-  const { authUser, addPurchase } = useAuth();
+  const { authUser, addToCart } = useAuth();
 
   const filteredItems = useMemo(() => {
     return menuItems.filter((item) => {
@@ -99,7 +206,7 @@ function MenuPage() {
     });
   }, [search, selectedCategory]);
 
-  const handleBuy = (item) => {
+  const handleBuy = (item, size, price) => {
     if (!authUser) {
       navigate("/sign-in", { state: { from: "/menu" } });
       return;
@@ -114,10 +221,15 @@ function MenuPage() {
       return;
     }
 
-    const result = addPurchase(item.name, item.price);
+    const result = addToCart({
+      itemName: item.name,
+      price,
+      image: item.image,
+      size,
+    });
     setNotice({
       open: true,
-      message: result.success ? `${item.name} added successfully.` : result.message,
+      message: result.success ? `${item.name} (${size}) added to cart.` : result.message,
       severity: result.success ? "success" : "error",
     });
   };
