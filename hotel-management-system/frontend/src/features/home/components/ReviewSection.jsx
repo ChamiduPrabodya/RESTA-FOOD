@@ -27,47 +27,36 @@ function ReviewSection({ sectionPaddingX, sectionReveal }) {
       viewport={{ once: true, amount: 0.1 }}
       sx={{ px: sectionPaddingX, py: { xs: 8, md: 10 } }}
     >
-      <Grid container spacing={{ xs: 4, md: 6 }} alignItems="stretch">
-        <Grid item xs={12} md={6}>
+      <Grid container spacing={{ xs: 3, md: 6 }} alignItems="stretch">
+        <Grid size={{ xs: 12, md: 6 }}>
           <Stack direction="row" alignItems="center" spacing={0.8} sx={{ mb: 2.2 }}>
             <FormatQuoteRoundedIcon sx={{ color: "primary.main", fontSize: 20 }} />
             <Typography sx={{ color: "primary.main", textTransform: "uppercase", fontWeight: 700, letterSpacing: 1.6 }}>
-              Testimonials
+              Testimonials 
             </Typography>
           </Stack>
           <Typography
             variant="h2"
-            sx={{ fontSize: { xs: "40px", md: "60px" }, lineHeight: 1.08, mb: 4, maxWidth: 700, fontWeight: 700 }}
+            sx={{ fontSize: { xs: "30px", md: "42px" }, lineHeight: 1.1, mb: 4, maxWidth: 820, fontWeight: 700 }}
           >
             What Our Customers <Box component="span" sx={{ color: "primary.main" }}>Say About Us</Box>
           </Typography>
           <Card sx={{ bgcolor: "#120b09", border: "1px solid rgba(212,178,95,0.12)", borderRadius: 4 }}>
-            <CardContent sx={{ p: { xs: 4, md: 6 }, textAlign: "center" }}>
-              <Typography sx={{ color: "rgba(246,247,251,0.42)", fontStyle: "italic", fontSize: { xs: "32px", md: "44px" }, lineHeight: 1.35 }}>
+            <CardContent sx={{ p: { xs: 4, md: 5.5 }, minHeight: { xs: 140, md: 250 }, display: "grid", placeItems: "center", textAlign: "center" }}>
+              <Typography sx={{ color: "rgba(246,247,251,0.35)", fontStyle: "italic", fontSize: { xs: "20px", md: "26px" }, lineHeight: 1.3 }}>
                 Be the first to share your experience with us!
               </Typography>
-              <Button
-                size="small"
-                sx={{
-                  mt: 2.5,
-                  minWidth: 70,
-                  height: 30,
-                  px: 1.8,
-                  borderRadius: 1,
-                  bgcolor: "#343b46",
-                  color: "rgba(246,247,251,0.95)",
-                  textTransform: "none",
-                  fontSize: "12px",
-                  "&:hover": { bgcolor: "#464f5d" },
-                }}
-              >
-                Preview
-              </Button>
             </CardContent>
           </Card>
         </Grid>
 
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Stack direction="row" alignItems="center" spacing={1.1} sx={{ mb: 2.2 }}>
+            <ChatBubbleOutlineRoundedIcon sx={{ color: "primary.main", fontSize: 24 }} />
+            <Typography variant="h3" sx={{ fontSize: { xs: "24px", md: "32px" }, fontWeight: 700, lineHeight: 1.1 }}>
+              Share Your Thoughts
+            </Typography>
+          </Stack>
           <Card
             sx={{
               height: "100%",
@@ -78,15 +67,8 @@ function ReviewSection({ sectionPaddingX, sectionReveal }) {
             }}
           >
             <CardContent sx={{ p: { xs: 3, md: 5 } }}>
-              <Stack direction="row" alignItems="center" spacing={1.1} sx={{ mb: 4 }}>
-                <ChatBubbleOutlineRoundedIcon sx={{ color: "primary.main", fontSize: 34 }} />
-                <Typography variant="h3" sx={{ fontSize: { xs: "40px", md: "54px" }, fontWeight: 700, lineHeight: 1.08 }}>
-                  Share Your Thoughts 
-                </Typography>
-              </Stack>
-
-              <Typography sx={{ color: "primary.main", fontWeight: 700, mb: 1.4, textTransform: "uppercase", letterSpacing: 1.8, fontSize: "32px" }}>
-                Your Rating
+              <Typography sx={{ color: "primary.main", fontWeight: 700, mb: 1.4, textTransform: "uppercase", letterSpacing: 1.5, fontSize: { xs: "14px", md: "16px" } }}>
+                Your Rating 
               </Typography>
               <Rating
                 name="user-feedback-rating"
@@ -95,13 +77,13 @@ function ReviewSection({ sectionPaddingX, sectionReveal }) {
                 size="large"
                 sx={{
                   color: "primary.main",
-                  fontSize: { xs: "2.2rem", md: "3.5rem" },
+                  fontSize: { xs: "1.9rem", md: "2.4rem" },
                   mb: 4,
                   "& .MuiRating-iconEmpty": { color: "rgba(212,178,95,0.35)" },
                 }}
               />
 
-              <Typography sx={{ color: "primary.main", fontWeight: 700, mb: 1.4, textTransform: "uppercase", letterSpacing: 1.8, fontSize: "32px" }}>
+              <Typography sx={{ color: "primary.main", fontWeight: 700, mb: 1.4, textTransform: "uppercase", letterSpacing: 1.5, fontSize: { xs: "14px", md: "16px" } }}>
                 Your Message
               </Typography>
               <TextField
@@ -115,7 +97,7 @@ function ReviewSection({ sectionPaddingX, sectionReveal }) {
                     bgcolor: "#030508",
                     borderRadius: 3,
                     color: "text.primary",
-                    fontSize: "30px",
+                    fontSize: { xs: "16px", md: "18px" },
                     lineHeight: 1.3,
                     "& fieldset": {
                       borderColor: "rgba(212,178,95,0.22)",
@@ -143,10 +125,10 @@ function ReviewSection({ sectionPaddingX, sectionReveal }) {
                 startIcon={<SendRoundedIcon />}
                 fullWidth
                 sx={{
-                  py: 2.2,
+                  py: 1.5,
                   borderRadius: 3,
                   fontWeight: 700,
-                  fontSize: { xs: "24px", md: "42px" },
+                  fontSize: { xs: "18px", md: "20px" },
                   color: "#0f1115",
                   boxShadow: "none",
                   "&:hover": {
