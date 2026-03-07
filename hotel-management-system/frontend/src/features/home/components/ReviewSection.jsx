@@ -44,7 +44,7 @@ function ReviewSection({ sectionPaddingX, sectionReveal }) {
           <Card sx={{ bgcolor: "#120b09", border: "1px solid rgba(212,178,95,0.12)", borderRadius: 4 }}>
             <CardContent sx={{ p: { xs: 4, md: 5.5 }, minHeight: { xs: 140, md: 250 }, display: "grid", placeItems: "center", textAlign: "center" }}>
               <Typography sx={{ color: "rgba(246,247,251,0.35)", fontStyle: "italic", fontSize: { xs: "20px", md: "26px" }, lineHeight: 1.3 }}>
-                Be the first to share your experience with us!
+                Be the first to share your experience with us !
               </Typography>
             </CardContent>
           </Card>
