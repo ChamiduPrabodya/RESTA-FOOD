@@ -123,12 +123,7 @@ function SignInPage() {
             <Typography variant="body1" sx={{ color: "text.secondary", textAlign: "center", maxWidth: 520 }}>
               Login to your account 
             </Typography>
-            <Typography variant="body2" sx={{ color: "text.secondary", textAlign: "center" }}>
-              Admin login: {adminEmail} / admin123
-            </Typography>
-            <Typography variant="body2" sx={{ color: "text.secondary", textAlign: "center" }}>
-              User login: {userEmail} / user123
-            </Typography>
+            
           </Stack>
 
           <Box component="form" onSubmit={handleSubmit} autoComplete="off">
