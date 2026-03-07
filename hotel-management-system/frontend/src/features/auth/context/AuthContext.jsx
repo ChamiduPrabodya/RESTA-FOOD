@@ -71,6 +71,7 @@ export function AuthProvider({ children }) {
         email: DEMO_USER_EMAIL,
         role: "user",
         fullName: "John Doe",
+        phone: "+94 71 987 6543",
       });
       return { success: true, role: "user" };
     }
@@ -83,6 +84,7 @@ export function AuthProvider({ children }) {
         email: registeredUser.email,
         role: "user",
         fullName: registeredUser.fullName,
+        phone: registeredUser.phone || "",
       });
       return { success: true, role: "user" };
     }
@@ -90,10 +92,11 @@ export function AuthProvider({ children }) {
     return { success: false, message: "Invalid credentials." };
   };
 
-  const signup = (fullName, email, password) => {
+  const signup = (fullName, email, password, phone) => {
     const normalizedEmail = email.trim().toLowerCase();
+    const normalizedPhone = String(phone || "").trim();
 
-    if (!fullName.trim() || !normalizedEmail || !password.trim()) {
+    if (!fullName.trim() || !normalizedEmail || !password.trim() || !normalizedPhone) {
       return { success: false, message: "Please fill all required fields." };
     }
     if (fullName.trim().length < 2) {
@@ -108,6 +111,9 @@ export function AuthProvider({ children }) {
     if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/\d/.test(password)) {
       return { success: false, message: "Password must include uppercase, lowercase, and a number." };
     }
+    if (!/^[0-9+\-\s]{9,15}$/.test(normalizedPhone)) {
+      return { success: false, message: "Please enter a valid phone number." };
+    }
 
     if (normalizedEmail === ADMIN_EMAIL) {
       return { success: false, message: "This email is reserved." };
@@ -118,7 +124,12 @@ export function AuthProvider({ children }) {
       return { success: false, message: "Email already registered." };
     }
 
-    const nextUser = { fullName: fullName.trim(), email: normalizedEmail, password };
+    const nextUser = {
+      fullName: fullName.trim(),
+      email: normalizedEmail,
+      password,
+      phone: normalizedPhone,
+    };
     setUsers((current) => [...current, nextUser]);
     return { success: true };
   };
@@ -138,6 +149,7 @@ export function AuthProvider({ children }) {
       email: GOOGLE_DEMO_EMAIL,
       role: "user",
       fullName: "Google User",
+      phone: "",
     });
     return { success: true, role: "user" };
   };

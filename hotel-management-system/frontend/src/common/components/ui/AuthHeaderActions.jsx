@@ -44,7 +44,7 @@ function AuthHeaderActions() {
   const displayName = isAdmin
     ? "Resta Admin"
     : authUser?.fullName || "John Doe";
-  const phone = isAdmin ? "+94 77 123 4567" : "+94 71 987 6543";
+  const phone = isAdmin ? "+94 77 123 4567" : authUser?.phone || "+94 71 987 6543";
 
   const handleLogout = () => {
     setAccountOpen(false);
