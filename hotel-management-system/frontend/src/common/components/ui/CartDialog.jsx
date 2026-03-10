@@ -54,13 +54,9 @@ function CartDialog({
   onRemove,
   onPlaceOrder,
 }) {
-  const { authUser, lastDeliveryDetails } = useAuth();
+  const { authUser } = useAuth();
   const [orderType, setOrderType] = useState("Delivery");
   const [paymentMethod, setPaymentMethod] = useState("Card (Online)");
-  const [deliveryName, setDeliveryName] = useState("");
-  const [deliveryPhone, setDeliveryPhone] = useState("");
-  const [deliveryLocation, setDeliveryLocation] = useState("");
-  const [deliveryErrors, setDeliveryErrors] = useState({ name: "", phone: "", location: "" });
   const [cardNumber, setCardNumber] = useState("");
   const [cardExpiry, setCardExpiry] = useState("");
   const [cardCvv, setCardCvv] = useState("");
@@ -77,10 +73,15 @@ function CartDialog({
   const expiryOk = /^\d{2}\/\d{2}$/.test(cardExpiry);
   const cvvOk = /^\d{3,4}$/.test(cardCvv);
   const cardFormComplete = cardDigits.length === 16 && expiryOk && cvvOk;
-  const deliveryFormComplete =
-    deliveryName.trim().length > 1 &&
-    /^[0-9+\-\s]{9,15}$/.test(deliveryPhone.trim()) &&
-    deliveryLocation.trim().length > 5;
+  const profileDelivery = {
+    name: String(authUser?.fullName || "").trim(),
+    phone: String(authUser?.phone || "").trim(),
+    address: String(authUser?.address || "").trim(),
+  };
+  const hasDeliveryProfile =
+    profileDelivery.name.length > 1 &&
+    /^[0-9+\-\s]{9,15}$/.test(profileDelivery.phone) &&
+    profileDelivery.address.length > 5;
 
   const validateCardNumber = (value) => {
     const digits = value.replace(/\D/g, "");
@@ -129,30 +130,11 @@ function CartDialog({
       setCardCvv(saved.cardCvv ?? "");
       setSaveCardDetails(true);
     }
-    if (lastDeliveryDetails) {
-      setDeliveryName(lastDeliveryDetails.name ?? "");
-      setDeliveryPhone(lastDeliveryDetails.phone ?? "");
-      setDeliveryLocation(lastDeliveryDetails.location ?? "");
-    } else if (authUser?.fullName) {
-      setDeliveryName(authUser.fullName);
-    }
-  }, [open, authUser, lastDeliveryDetails]);
-
-  const validateDeliveryDetails = () => {
-    const nextErrors = {
-      name: deliveryName.trim().length > 1 ? "" : "Please enter your name.",
-      phone: /^[0-9+\-\s]{9,15}$/.test(deliveryPhone.trim())
-        ? ""
-        : "Enter a valid phone number.",
-      location: deliveryLocation.trim().length > 5 ? "" : "Please enter your full delivery location.",
-    };
-    setDeliveryErrors(nextErrors);
-    return !nextErrors.name && !nextErrors.phone && !nextErrors.location;
-  };
+  }, [open, authUser]);
 
   const handlePlaceOrder = () => {
-    if (orderType === "Delivery" && !validateDeliveryDetails()) {
-      setErrorMessage("Please fill valid delivery details.");
+    if (orderType === "Delivery" && !hasDeliveryProfile) {
+      setErrorMessage("Delivery profile is incomplete. Please update your account details.");
       return;
     }
 
@@ -167,14 +149,6 @@ function CartDialog({
     const result = onPlaceOrder({
       orderType,
       paymentMethod,
-      deliveryDetails:
-        orderType === "Delivery"
-          ? {
-              name: deliveryName.trim(),
-              phone: deliveryPhone.trim(),
-              location: deliveryLocation.trim(),
-            }
-          : null,
     });
     if (!result.success) {
       setErrorMessage(result.message);
@@ -292,9 +266,6 @@ function CartDialog({
               onClick={() => {
                 setOrderType(type);
                 setErrorMessage("");
-                if (type === "Takeaway") {
-                  setDeliveryErrors({ name: "", phone: "", location: "" });
-                }
               }}
               sx={{
                 flex: 1,
@@ -317,48 +288,15 @@ function CartDialog({
               <Typography sx={{ color: "primary.main", textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 700, mb: 1.1 }}>
                 Delivery Details
               </Typography>
-              <TextField
-                fullWidth
-                placeholder="Name"
-                value={deliveryName}
-                onChange={(event) => {
-                  setDeliveryName(event.target.value);
-                  setDeliveryErrors((current) => ({ ...current, name: "" }));
-                }}
-                error={Boolean(deliveryErrors.name)}
-                helperText={deliveryErrors.name || " "}
-                sx={{ mb: 1.1, "& .MuiOutlinedInput-root": { bgcolor: "#0d1118", borderRadius: 2.5 } }}
-              />
-              <TextField
-                fullWidth
-                placeholder="Mobile Number"
-                value={deliveryPhone}
-                onChange={(event) => {
-                  const normalized = event.target.value.replace(/[^\d+\-\s]/g, "").slice(0, 15);
-                  setDeliveryPhone(normalized);
-                  setDeliveryErrors((current) => ({ ...current, phone: "" }));
-                }}
-                error={Boolean(deliveryErrors.phone)}
-                helperText={deliveryErrors.phone || " "}
-                sx={{ mb: 1.1, "& .MuiOutlinedInput-root": { bgcolor: "#0d1118", borderRadius: 2.5 } }}
-              />
-              <TextField
-                fullWidth
-                placeholder="Delivery Location"
-                value={deliveryLocation}
-                onChange={(event) => {
-                  setDeliveryLocation(event.target.value);
-                  setDeliveryErrors((current) => ({ ...current, location: "" }));
-                }}
-                error={Boolean(deliveryErrors.location)}
-                helperText={deliveryErrors.location || " "}
-                sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0d1118", borderRadius: 2.5 } }}
-              />
-              {lastDeliveryDetails && (
-                <Typography sx={{ mt: 0.8, color: "text.secondary", fontSize: 12 }}>
-                  Last saved location is loaded automatically.
-                </Typography>
-              )}
+              <Stack spacing={0.8}>
+                <Typography sx={{ color: "text.secondary", fontSize: 13 }}>Name</Typography>
+                <Typography sx={{ fontWeight: 700 }}>{profileDelivery.name || "-"}</Typography>
+                <Typography sx={{ color: "text.secondary", fontSize: 13 }}>Phone</Typography>
+                <Typography sx={{ fontWeight: 700 }}>{profileDelivery.phone || "-"}</Typography>
+                <Typography sx={{ color: "text.secondary", fontSize: 13 }}>Address</Typography>
+                <Typography sx={{ fontWeight: 700 }}>{profileDelivery.address || "-"}</Typography>
+              </Stack>
+              
             </CardContent>
           </Card>
         )}
@@ -501,7 +439,7 @@ function CartDialog({
           onClick={handlePlaceOrder}
           disabled={
             cartItems.length === 0 ||
-            (orderType === "Delivery" && !deliveryFormComplete) ||
+            (orderType === "Delivery" && !hasDeliveryProfile) ||
             (paymentMethod === "Card (Online)" && !cardFormComplete)
           }
           sx={{ py: 1.5, borderRadius: 3.2, bgcolor: "primary.main", color: "#111214", fontWeight: 800, fontSize: "18px", "&:hover": { bgcolor: "#d4b25f" } }}

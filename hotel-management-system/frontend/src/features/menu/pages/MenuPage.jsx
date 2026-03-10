@@ -26,95 +26,6 @@ import { useAuth } from "../../auth/context/AuthContext";
 import AuthHeaderActions from "../../../common/components/ui/AuthHeaderActions";
 
 const sectionPaddingX = { xs: 2.5, sm: 5, md: 8, lg: 12 };
-
-const menuItems = [
-  {
-    name: "Cheese Kottu",
-    category: "Kottu",
-    description: "Freshly made paratha chopped with vegetables and creamy cheese sauce.",
-    portions: {
-      Small: "SLR 850",
-      Medium: "SLR 1,150",
-      Large: "SLR 1,450",
-    },
-    image: "/images/home/popular-01.svg",
-  },
-  {
-    name: "Chicken Biriyani",
-    category: "Biriyani",
-    description: "Fragrant basmati rice cooked with aromatic spices and tender chicken.",
-    portions: {
-      Small: "SLR 950",
-      Medium: "SLR 1,250",
-      Large: "SLR 1,550",
-    },
-    image: "/images/home/popular-02.svg",
-  },
-  {
-    name: "Seafood Rice",
-    category: "Rice",
-    description: "Sri Lankan style seafood rice with prawns and cuttlefish.",
-    portions: {
-      Small: "SLR 1,100",
-      Medium: "SLR 1,450",
-      Large: "SLR 1,850",
-    },
-    image: "/images/home/popular-02.svg",
-  },
-  {
-    name: "Deviled Chicken",
-    category: "Deviled",
-    description: "Spicy and tangy chicken stir-fried with onions and peppers.",
-    portions: {
-      "300g": "SLR 1,200",
-      "500g": "SLR 1,800",
-      "1kg": "SLR 3,300",
-    },
-    image: "/images/home/popular-03.svg",
-  },
-  {
-    name: "Black Curry Beef",
-    category: "Black Curry",
-    description: "Slow-cooked black curry beef with roasted spices and deep flavor.",
-    portions: {
-      "300g": "SLR 1,350",
-      "500g": "SLR 2,000",
-      "1kg": "SLR 3,700",
-    },
-    image: "/images/home/popular-03.svg",
-  },
-  {
-    name: "Chicken Isstu",
-    category: "Isstu",
-    description: "Classic rich gravy style isstu made with tender chicken and spices.",
-    portions: {
-      "300g": "SLR 1,150",
-      "500g": "SLR 1,700",
-      "1kg": "SLR 3,100",
-    },
-    image: "/images/home/popular-01.svg",
-  },
-  {
-    name: "Creamy Pasta",
-    category: "Pasta",
-    description: "Penne pasta in rich cream sauce with chicken strips.",
-    portions: {
-      Regular: "SLR 1,050",
-    },
-    image: "/images/home/popular-01.svg",
-  },
-  {
-    name: "Family Set Menu",
-    category: "Set Menu",
-    description: "Special combo for four with mains, sides, and beverages.",
-    portions: {
-      Regular: "SLR 3,800",
-    },
-    image: "/images/home/popular-03.svg",
-  },
-];
-
-const categories = ["All", "Kottu", "Rice", "Biriyani", "Deviled", "Black Curry", "Isstu", "Pasta", "Set Menu"];
 const sectionReveal = {
   hidden: { opacity: 0, y: 24 },
   visible: {
@@ -180,11 +91,17 @@ function MenuCard({ item, index, onBuy }) {
           </Box>
           <Button
             onClick={() => onBuy(item, selectedPortion, selectedPrice)}
+            disabled={item.outOfStock}
             sx={{ minWidth: 46, width: 46, height: 46, borderRadius: "14px", color: "#fff", bgcolor: "#9a6a3f", "&:hover": { bgcolor: "#b07b4a" } }}
           >
             <AddRoundedIcon />
           </Button>
         </Stack>
+        {item.outOfStock && (
+          <Typography sx={{ color: "#ff7a84", fontWeight: 700, mt: 1 }}>
+            Out of Stock
+          </Typography>
+        )}
       </CardContent>
     </Card>
   );
@@ -196,7 +113,11 @@ function MenuPage() {
   const [notice, setNotice] = useState({ open: false, message: "", severity: "success" });
   const reduceMotion = useReducedMotion();
   const navigate = useNavigate();
-  const { authUser, addToCart } = useAuth();
+  const { authUser, menuItems, addToCart } = useAuth();
+  const categories = useMemo(
+    () => ["All", ...new Set(menuItems.map((item) => item.category))],
+    [menuItems]
+  );
 
   const filteredItems = useMemo(() => {
     return menuItems.filter((item) => {
@@ -222,6 +143,7 @@ function MenuPage() {
     }
 
     const result = addToCart({
+      menuItemId: item.id,
       itemName: item.name,
       price,
       image: item.image,

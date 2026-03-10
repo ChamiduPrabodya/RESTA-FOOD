@@ -15,8 +15,10 @@ function AuthHeaderActions() {
   const {
     authUser,
     logout,
+    updateUserProfile,
     purchases,
     vipBookings,
+    cancelVipBookingByUser,
     cartItems,
     increaseCartQty,
     decreaseCartQty,
@@ -149,6 +151,10 @@ function AuthHeaderActions() {
         onLogout={handleLogout}
         ordersCount={userPurchases.length}
         bookingsCount={userBookings.length}
+        userOrders={userPurchases}
+        userBookings={userBookings}
+        onCancelBooking={cancelVipBookingByUser}
+        onSaveProfile={updateUserProfile}
       />
       <CartDialog
         open={cartOpen}

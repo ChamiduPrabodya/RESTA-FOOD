@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -20,15 +20,32 @@ import GoogleIcon from "@mui/icons-material/Google";
 import { useAuth } from "../context/AuthContext";
 
 const MotionCard = motion(Card);
+const LAST_SIGNIN_EMAIL_KEY = "hms_last_signin_email";
 
 function SignInPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, loginWithGoogle, adminEmail, userEmail } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const savedEmail = localStorage.getItem(LAST_SIGNIN_EMAIL_KEY);
+    if (savedEmail) {
+      setEmail(savedEmail);
+    }
+  }, []);
+
+  useEffect(() => {
+    const trimmedEmail = email.trim();
+    if (trimmedEmail) {
+      localStorage.setItem(LAST_SIGNIN_EMAIL_KEY, trimmedEmail);
+      return;
+    }
+    localStorage.removeItem(LAST_SIGNIN_EMAIL_KEY);
+  }, [email]);
 
   const handleSubmit = (event) => {
     event.preventDefault();

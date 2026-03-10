@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
 import {
@@ -6,6 +6,7 @@ import {
   Box,
   Button,
   Card,
+  Chip,
   FormControl,
   InputLabel,
   MenuItem,
@@ -59,6 +60,19 @@ const suites = [
     features: ["Full AC", '55" Smart TV', "Private Sound System", "Private Entrance", "Soft Gold Theme"],
   },
 ];
+const TIME_SLOTS = [
+  { value: "10:00-12:00", label: "10:00 AM - 12:00 PM" },
+  { value: "12:00-15:00", label: "12:00 PM - 03:00 PM" },
+  { value: "15:00-18:00", label: "03:00 PM - 06:00 PM" },
+  { value: "18:00-21:00", label: "06:00 PM - 09:00 PM" },
+];
+const mapLegacyTimeToSlot = (timeValue) => {
+  if (!timeValue) return "";
+  const normalized = String(timeValue).trim();
+  if (normalized.includes("-")) return normalized;
+  const found = TIME_SLOTS.find((slot) => slot.value.startsWith(normalized));
+  return found ? found.value : normalized;
+};
 
 function VipRoomsPage() {
   const [suiteId, setSuiteId] = useState("platinum");
@@ -68,7 +82,48 @@ function VipRoomsPage() {
   const [notice, setNotice] = useState({ open: false, message: "", severity: "success" });
   const reduceMotion = useReducedMotion();
   const navigate = useNavigate();
-  const { authUser, addVipBooking } = useAuth();
+  const { authUser, vipBookings, addVipBooking } = useAuth();
+  const bookedDateStats = useMemo(() => {
+    const byDate = new Map();
+    vipBookings
+      .filter(
+        (booking) =>
+          booking.suiteId === suiteId &&
+          String(booking.status || "").toLowerCase() !== "cancelled"
+      )
+      .forEach((booking) => {
+        const slotValue = mapLegacyTimeToSlot(booking.time);
+        if (!byDate.has(booking.date)) byDate.set(booking.date, new Set());
+        byDate.get(booking.date).add(slotValue);
+      });
+
+    return [...byDate.entries()]
+      .map(([date, slots]) => ({
+        date,
+        bookedCount: slots.size,
+        isFull: slots.size >= TIME_SLOTS.length,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [vipBookings, suiteId]);
+  const bookedSlotsForSelectedDate = useMemo(() => {
+    if (!bookingDate) return new Set();
+    return new Set(
+      vipBookings
+        .filter(
+          (booking) =>
+            booking.suiteId === suiteId &&
+            booking.date === bookingDate &&
+            String(booking.status || "").toLowerCase() !== "cancelled"
+        )
+        .map((booking) => mapLegacyTimeToSlot(booking.time))
+    );
+  }, [vipBookings, suiteId, bookingDate]);
+  const isSelectedDateFullyBooked = bookingDate && bookedSlotsForSelectedDate.size >= TIME_SLOTS.length;
+  useEffect(() => {
+    if (bookingTime && bookedSlotsForSelectedDate.has(bookingTime)) {
+      setBookingTime("");
+    }
+  }, [bookingTime, bookedSlotsForSelectedDate]);
 
   const handleCheckAvailability = () => {
     if (!authUser) {
@@ -85,10 +140,32 @@ function VipRoomsPage() {
       return;
     }
 
+    if (bookingDate && isSelectedDateFullyBooked) {
+      setNotice({
+        open: true,
+        message: "Selected date is fully booked. Please choose another date.",
+        severity: "error",
+      });
+      return;
+    }
+
+    if (bookingDate && bookingTime && bookedSlotsForSelectedDate.has(bookingTime)) {
+      setNotice({
+        open: true,
+        message: "This time slot is already booked. Please choose another slot.",
+        severity: "error",
+      });
+      return;
+    }
+
     if (!bookingDate || !bookingTime || !guests) {
       setNotice({
         open: true,
-        message: "Please add date, time, and guest count.",
+        message: !bookingDate
+          ? "Please select a booking date."
+          : !bookingTime
+            ? "Please select an available time slot."
+            : "Please add guest count.",
         severity: "error",
       });
       return;
@@ -149,7 +226,7 @@ function VipRoomsPage() {
               py: 0.5,
             }}
           >
-            Royal Dining Experience
+            Royal Dining Experience 
           </Button>
           <Typography variant="h1" sx={{ fontSize: { xs: "55px", md: "75px" }, lineHeight: 1.02 }}>
             Exclusive <Box component="span" sx={{ color: "primary.main" }}>VIP Rooms</Box>
@@ -193,6 +270,11 @@ function VipRoomsPage() {
             }}
           >
             <Typography variant="h3" sx={{ mb: 3 }}>Reserve a Suite</Typography>
+            {bookedDateStats.length === 0 && (
+              <Typography sx={{ color: "text.secondary", mb: 2.2 }}>
+                No booked dates yet for selected room.
+              </Typography>
+            )}
 
             <FormControl fullWidth sx={{ mb: 2.5 }}>
               <InputLabel sx={{ color: "primary.main", textTransform: "uppercase", fontWeight: 700, letterSpacing: 0.9 }}>
@@ -220,18 +302,55 @@ function VipRoomsPage() {
                 value={bookingDate}
                 onChange={(event) => setBookingDate(event.target.value)}
                 slotProps={{ inputLabel: { shrink: true } }}
-                sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#07090d", borderRadius: 3 } }}
+                sx={{
+                  "& .MuiOutlinedInput-root": { bgcolor: "#07090d", borderRadius: 3 },
+                  "& input::-webkit-calendar-picker-indicator": {
+                    filter: "invert(1)",
+                    opacity: 1,
+                  },
+                }}
               />
-              <TextField
-                fullWidth
-                label="Time"
-                type="time"
-                value={bookingTime}
-                onChange={(event) => setBookingTime(event.target.value)}
-                slotProps={{ inputLabel: { shrink: true } }}
-                sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#07090d", borderRadius: 3 } }}
-              />
+              <FormControl fullWidth>
+                <InputLabel sx={{ color: "primary.main", textTransform: "uppercase", fontWeight: 700, letterSpacing: 0.9 }}>
+                  Time Slot
+                </InputLabel>
+                <Select
+                  value={bookingTime}
+                  label="Time Slot"
+                  onChange={(event) => setBookingTime(event.target.value)}
+                  sx={{ borderRadius: 3, bgcolor: "#07090d" }}
+                >
+                  {TIME_SLOTS.map((slot) => (
+                    <MenuItem key={slot.value} value={slot.value} disabled={bookedSlotsForSelectedDate.has(slot.value)}>
+                      {slot.label} {bookedSlotsForSelectedDate.has(slot.value) ? "(Booked)" : ""}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Stack>
+            {bookingDate && (
+              <Typography sx={{ color: "text.secondary", mb: 1.8 }}>
+                Booked slots for selected date:{" "}
+                {bookedSlotsForSelectedDate.size > 0
+                  ? TIME_SLOTS
+                    .filter((slot) => bookedSlotsForSelectedDate.has(slot.value))
+                    .map((slot) => slot.label)
+                    .join(", ")
+                  : "No booked slots yet"}
+              </Typography>
+            )}
+            {bookedDateStats.length > 0 && (
+              <Stack direction="row" spacing={0.8} useFlexGap flexWrap="wrap" sx={{ mb: 2.2 }}>
+                {bookedDateStats.slice(0, 8).map((item) => (
+                  <Chip
+                    key={item.date}
+                    label={`${item.date} (${item.isFull ? "Fully Booked" : "Partially Booked"})`}
+                    onClick={() => setBookingDate(item.date)}
+                    variant={bookingDate === item.date ? "filled" : "outlined"}
+                  />
+                ))}
+              </Stack>
+            )}
 
             <TextField
               fullWidth
@@ -247,10 +366,16 @@ function VipRoomsPage() {
               fullWidth
               sx={{ py: 1.6, mb: 2.2 }}
               onClick={handleCheckAvailability}
+              disabled={isSelectedDateFullyBooked}
             >
               Check Availability
             </Button>
-            <Typography variant="body2" sx={{ color: "text.secondary", textAlign: "center", textTransform: "uppercase", fontWeight: 700 }}>
+            {isSelectedDateFullyBooked && (
+              <Typography sx={{ color: "text.secondary", textAlign: "center", mb: 1.1 }}>
+                Selected date is fully booked. Please choose another date.
+              </Typography>
+            )}
+        <Typography variant="body2" sx={{ color: "text.secondary", textAlign: "center", textTransform: "uppercase", fontWeight: 700 }}>
               No Payment Required Now
             </Typography>
           </Card>

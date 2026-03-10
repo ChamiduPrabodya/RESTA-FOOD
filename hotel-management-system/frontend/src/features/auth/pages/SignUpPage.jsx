@@ -27,6 +27,7 @@ function SignUpPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -42,7 +43,7 @@ function SignUpPage() {
       return;
     }
 
-    const result = signup(fullName, email, password, phone);
+    const result = signup(fullName, email, password, phone, address);
     if (!result.success) {
       setError(result.message);
       return;
@@ -187,6 +188,28 @@ function SignUpPage() {
               placeholder="Enter your phone number"
               type="tel"
               name="signup-phone"
+              sx={{
+                mb: 2.6,
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: 3,
+                  bgcolor: "#06090f",
+                },
+                "& .MuiInputBase-input": { py: 1.2, fontSize: "15px" },
+              }}
+            />
+
+            <Typography sx={{ color: "primary.main", fontWeight: 700, letterSpacing: 0.8, mb: 1, textTransform: "uppercase" }}>
+              Address
+            </Typography>
+            <TextField
+              fullWidth
+              value={address}
+              onChange={(event) => setAddress(event.target.value)}
+              placeholder="Enter your delivery address"
+              type="text"
+              name="signup-address"
+              multiline
+              minRows={2}
               sx={{
                 mb: 2.6,
                 "& .MuiOutlinedInput-root": {

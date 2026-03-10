@@ -1,0 +1,673 @@
+import { useMemo, useState } from "react";
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  MenuItem,
+  Select,
+  Stack,
+  Switch,
+  Snackbar,
+  TextField,
+  Typography,
+} from "@mui/material";
+import AddRoundedIcon from "@mui/icons-material/AddRounded";
+import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
+import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
+import EditRoundedIcon from "@mui/icons-material/EditRounded";
+import RemoveCircleOutlineRoundedIcon from "@mui/icons-material/RemoveCircleOutlineRounded";
+import SaveRoundedIcon from "@mui/icons-material/SaveRounded";
+
+const DEFAULT_MENU_CATEGORIES = [
+  "Kottu",
+  "Rice",
+  "Chicken",
+  "Prawns",
+  "Pork",
+  "Biriyani",
+  "Deviled",
+  "Pasta",
+  "Set Menu",
+];
+
+const toPortionRows = (portions) => {
+  const rows = Object.entries(portions || {}).map(([name, price]) => ({
+    id: crypto.randomUUID(),
+    name,
+    price,
+  }));
+  return rows.length > 0 ? rows : [{ id: crypto.randomUUID(), name: "Regular", price: "" }];
+};
+
+const normalizePortions = (rows) => {
+  const portions = rows
+    .filter((portion) => String(portion.name || "").trim() && String(portion.price || "").trim())
+    .reduce((acc, portion) => {
+      acc[String(portion.name).trim()] = String(portion.price).trim();
+      return acc;
+    }, {});
+  if (Object.keys(portions).length > 0) return portions;
+
+  const fallbackName = String(rows[0]?.name || "Regular").trim() || "Regular";
+  const fallbackPrice = String(rows[0]?.price || "").trim() || "SLR 0";
+  return { [fallbackName]: fallbackPrice };
+};
+
+function AdminMenuManagementPanel({
+  menuItems,
+  menuCategories = [],
+  addMenuCategory,
+  updateMenuCategory,
+  deleteMenuCategory,
+  addMenuItem,
+  updateMenuItem,
+  deleteMenuItem,
+}) {
+  const availableCategories = useMemo(() => {
+    const categoriesFromItems = menuItems.map((item) => String(item.category || "").trim()).filter(Boolean);
+    return [...new Set([...DEFAULT_MENU_CATEGORIES, ...menuCategories, ...categoriesFromItems])];
+  }, [menuItems, menuCategories]);
+
+  const [activeCategory, setActiveCategory] = useState("All");
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [showCategoryDialog, setShowCategoryDialog] = useState(false);
+  const [newCategory, setNewCategory] = useState("");
+  const [editingCategory, setEditingCategory] = useState("");
+  const [editingCategoryValue, setEditingCategoryValue] = useState("");
+  const [editingItemId, setEditingItemId] = useState("");
+  const [notice, setNotice] = useState({ open: false, message: "", severity: "success" });
+  const [form, setForm] = useState({
+    name: "",
+    category: availableCategories[0] || "Kottu",
+    description: "",
+    image: "",
+    portions: [{ id: crypto.randomUUID(), name: "Regular", price: "" }],
+  });
+  const [editForm, setEditForm] = useState({
+    name: "",
+    category: availableCategories[0] || "Kottu",
+    description: "",
+    image: "",
+    portions: [{ id: crypto.randomUUID(), name: "Regular", price: "" }],
+    outOfStock: false,
+  });
+
+  const filteredItems = menuItems.filter((item) =>
+    activeCategory === "All" ? true : item.category === activeCategory
+  );
+
+  const handleAddCategory = () => {
+    const result = addMenuCategory?.(newCategory);
+    if (!result?.success) {
+      setNotice({
+        open: true,
+        message: result?.message || "Unable to add category.",
+        severity: "error",
+      });
+      return;
+    }
+    const normalizedCategory = String(newCategory || "").trim();
+    setForm((current) => ({ ...current, category: normalizedCategory || current.category }));
+    setEditForm((current) => ({ ...current, category: normalizedCategory || current.category }));
+    setNewCategory("");
+    setNotice({ open: true, message: "Category added successfully.", severity: "success" });
+  };
+
+  const handleStartCategoryEdit = (category) => {
+    setEditingCategory(category);
+    setEditingCategoryValue(category);
+  };
+
+  const handleSaveCategoryEdit = () => {
+    const result = updateMenuCategory?.(editingCategory, editingCategoryValue);
+    if (!result?.success) {
+      setNotice({
+        open: true,
+        message: result?.message || "Unable to update category.",
+        severity: "error",
+      });
+      return;
+    }
+    if (activeCategory === editingCategory) {
+      setActiveCategory(String(editingCategoryValue || "").trim() || "All");
+    }
+    setEditingCategory("");
+    setEditingCategoryValue("");
+    setNotice({ open: true, message: "Category updated successfully.", severity: "success" });
+  };
+
+  const handleDeleteCategory = (category) => {
+    const result = deleteMenuCategory?.(category);
+    if (!result?.success) {
+      setNotice({
+        open: true,
+        message: result?.message || "Unable to delete category.",
+        severity: "error",
+      });
+      return;
+    }
+    if (activeCategory === category) {
+      setActiveCategory("All");
+    }
+    setNotice({ open: true, message: "Category deleted successfully.", severity: "success" });
+  };
+
+  const handleAdd = () => {
+    const result = addMenuItem({
+      name: form.name,
+      category: form.category,
+      description: form.description,
+      image: form.image,
+      portions: normalizePortions(form.portions),
+    });
+    if (!result.success) {
+      setNotice({ open: true, message: result.message || "Unable to add menu item.", severity: "error" });
+      return;
+    }
+    setNotice({ open: true, message: "Menu item added successfully.", severity: "success" });
+    setForm({
+      name: "",
+      category: availableCategories[0] || "Kottu",
+      description: "",
+      image: "",
+      portions: [{ id: crypto.randomUUID(), name: "Regular", price: "" }],
+    });
+  };
+
+  const addPortionRow = (name = "", price = "") => {
+    setForm((current) => ({
+      ...current,
+      portions: [...current.portions, { id: crypto.randomUUID(), name, price }],
+    }));
+  };
+
+  const removePortionRow = (rowId) => {
+    setForm((current) => ({
+      ...current,
+      portions:
+        current.portions.length <= 1
+          ? current.portions
+          : current.portions.filter((portion) => portion.id !== rowId),
+    }));
+  };
+
+  const updatePortionRow = (rowId, field, value) => {
+    setForm((current) => ({
+      ...current,
+      portions: current.portions.map((portion) =>
+        portion.id === rowId ? { ...portion, [field]: value } : portion
+      ),
+    }));
+  };
+
+  const startEdit = (item) => {
+    setEditingItemId(item.id);
+    setEditForm({
+      name: item.name || "",
+      category: item.category || availableCategories[0] || "Kottu",
+      description: item.description || "",
+      image: item.image || "",
+      portions: toPortionRows(item.portions),
+      outOfStock: Boolean(item.outOfStock),
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingItemId("");
+  };
+
+  const addEditPortionRow = (name = "", price = "") => {
+    setEditForm((current) => ({
+      ...current,
+      portions: [...current.portions, { id: crypto.randomUUID(), name, price }],
+    }));
+  };
+
+  const removeEditPortionRow = (rowId) => {
+    setEditForm((current) => ({
+      ...current,
+      portions:
+        current.portions.length <= 1
+          ? current.portions
+          : current.portions.filter((portion) => portion.id !== rowId),
+    }));
+  };
+
+  const updateEditPortionRow = (rowId, field, value) => {
+    setEditForm((current) => ({
+      ...current,
+      portions: current.portions.map((portion) =>
+        portion.id === rowId ? { ...portion, [field]: value } : portion
+      ),
+    }));
+  };
+
+  const handleSaveEdit = (itemId) => {
+    const result = updateMenuItem(itemId, {
+      name: editForm.name,
+      category: editForm.category,
+      description: editForm.description,
+      image: editForm.image,
+      portions: normalizePortions(editForm.portions),
+      outOfStock: Boolean(editForm.outOfStock),
+    });
+    if (!result?.success) {
+      setNotice({ open: true, message: result?.message || "Unable to update item.", severity: "error" });
+      return;
+    }
+    setEditingItemId("");
+    setNotice({ open: true, message: "Menu item updated successfully.", severity: "success" });
+  };
+
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", rowGap: 1, alignItems: "stretch", alignContent: "flex-start", height: "fit-content" }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" useFlexGap gap={1}>
+        <Typography variant="h2" sx={{ fontSize: { xs: "24px", md: "30px" } }}>
+          Menu Management
+        </Typography>
+        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+          <Button
+            variant="outlined"
+            color="primary"
+            onClick={() => setShowCategoryDialog(true)}
+          >
+            Manage Categories
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={showAddForm ? <CloseRoundedIcon /> : <AddRoundedIcon />}
+            onClick={() => setShowAddForm((current) => !current)}
+          >
+            {showAddForm ? "Close Form" : "Add Items"}
+          </Button>
+        </Stack>
+      </Stack>
+
+      <Dialog
+        open={showCategoryDialog}
+        onClose={() => setShowCategoryDialog(false)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>Manage Categories</DialogTitle>
+        <DialogContent>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={1} sx={{ mt: 0.5 }}>
+            <TextField
+              value={newCategory}
+              onChange={(e) => setNewCategory(e.target.value)}
+              placeholder="Category name (e.g. Kottu, Rice, Deviled)"
+              size="small"
+              sx={{ flex: 1 }}
+            />
+            <Button variant="contained" color="primary" onClick={handleAddCategory}>
+              Add Category
+            </Button>
+          </Stack>
+          <Stack spacing={0.8} sx={{ mt: 1.2 }}>
+            {availableCategories.map((category) => {
+              const isCategoryEditing = editingCategory === category;
+              return (
+                <Stack key={category} direction="row" spacing={0.8} alignItems="center">
+                  {!isCategoryEditing && (
+                    <>
+                      <Box
+                        sx={{
+                          flex: 1,
+                          px: 1,
+                          py: 0.7,
+                          borderRadius: 1.2,
+                          bgcolor: "rgba(212,178,95,0.08)",
+                          border: "1px solid rgba(212,178,95,0.18)",
+                          color: "text.secondary",
+                          fontSize: 14,
+                        }}
+                      >
+                        {category}
+                      </Box>
+                      <Button size="small" variant="outlined" onClick={() => handleStartCategoryEdit(category)}>
+                        Edit
+                      </Button>
+                      <Button
+                        size="small"
+                        color="error"
+                        variant="outlined"
+                        onClick={() => handleDeleteCategory(category)}
+                      >
+                        Delete
+                      </Button>
+                    </>
+                  )}
+                  {isCategoryEditing && (
+                    <>
+                      <TextField
+                        value={editingCategoryValue}
+                        onChange={(e) => setEditingCategoryValue(e.target.value)}
+                        size="small"
+                        sx={{ flex: 1 }}
+                      />
+                      <Button size="small" variant="contained" onClick={handleSaveCategoryEdit}>
+                        Save
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={() => {
+                          setEditingCategory("");
+                          setEditingCategoryValue("");
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </>
+                  )}
+                </Stack>
+              );
+            })}
+          </Stack>
+        </DialogContent>
+      </Dialog>
+
+      <Box
+        sx={{
+          display: "flex",
+          flexWrap: "nowrap",
+          alignItems: "center",
+          alignContent: "center",
+          gap: 0.8,
+          minHeight: 34,
+          overflowX: "auto",
+          overflowY: "hidden",
+          scrollbarWidth: "thin",
+        }}
+      >
+        <Button
+          variant={activeCategory === "All" ? "contained" : "outlined"}
+          color="primary"
+          onClick={() => setActiveCategory("All")}
+          sx={{
+            flex: "0 0 auto",
+            alignSelf: "flex-start",
+            height: 34,
+            minWidth: 72,
+            px: 1.4,
+            py: 0,
+            borderRadius: 2.2,
+            fontSize: "0.85rem",
+            lineHeight: 1,
+            textTransform: "none",
+          }}
+        >
+          All
+        </Button>
+        {availableCategories.map((category) => (
+          <Button
+            key={category}
+            variant={activeCategory === category ? "contained" : "outlined"}
+            color="primary"
+            onClick={() => setActiveCategory(category)}
+            sx={{
+              flex: "0 0 auto",
+              alignSelf: "flex-start",
+              height: 34,
+              minWidth: 86,
+              px: 1.4,
+              py: 0,
+              borderRadius: 2.2,
+              fontSize: "0.85rem",
+              lineHeight: 1,
+              textTransform: "none",
+            }}
+          >
+            {category}
+          </Button>
+        ))}
+      </Box>
+
+      {showAddForm && (
+        <Card sx={{ bgcolor: "#17100c", border: "1px solid rgba(212,178,95,0.14)", borderRadius: 4 }}>
+          <CardContent sx={{ p: 2.2 }}>
+            <Typography sx={{ color: "primary.main", textTransform: "uppercase", fontWeight: 700, mb: 1.2 }}>
+              Add Menu Item
+            </Typography>
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 1.1 }}>
+              <TextField value={form.name} onChange={(e) => setForm((c) => ({ ...c, name: e.target.value }))} placeholder="Item name" sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }} />
+              <Select
+                value={form.category}
+                onChange={(e) => setForm((c) => ({ ...c, category: e.target.value }))}
+                size="small"
+                sx={{ bgcolor: "#0f1116" }}
+              >
+                {availableCategories.map((category) => (
+                  <MenuItem key={category} value={category}>
+                    {category}
+                  </MenuItem>
+                ))}
+              </Select>
+              <TextField value={form.description} onChange={(e) => setForm((c) => ({ ...c, description: e.target.value }))} placeholder="Description" sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }} />
+              <TextField value={form.image} onChange={(e) => setForm((c) => ({ ...c, image: e.target.value }))} placeholder="Image URL/path" sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }} />
+            </Box>
+            <Box sx={{ mt: 1.1 }}>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.8 }}>
+                <Typography sx={{ color: "primary.main", fontWeight: 700, textTransform: "uppercase", fontSize: "0.85rem" }}>
+                  Portions & Prices
+                </Typography>
+                <Stack direction="row" spacing={0.6}>
+                  <Button size="small" variant="outlined" onClick={() => addPortionRow("Small", "")}>+ Small</Button>
+                  <Button size="small" variant="outlined" onClick={() => addPortionRow("Medium", "")}>+ Medium</Button>
+                  <Button size="small" variant="outlined" onClick={() => addPortionRow("Large", "")}>+ Large</Button>
+                </Stack>
+              </Stack>
+              <Stack spacing={0.8}>
+                {form.portions.map((portion) => (
+                  <Stack key={portion.id} direction="row" spacing={0.7} alignItems="center">
+                    <TextField
+                      value={portion.name}
+                      onChange={(e) => updatePortionRow(portion.id, "name", e.target.value)}
+                      placeholder="Portion name"
+                      size="small"
+                      sx={{ flex: 1, "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }}
+                    />
+                    <TextField
+                      value={portion.price}
+                      onChange={(e) => updatePortionRow(portion.id, "price", e.target.value)}
+                      placeholder="Price (e.g. SLR 950)"
+                      size="small"
+                      sx={{ flex: 1, "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }}
+                    />
+                    <IconButton color="error" onClick={() => removePortionRow(portion.id)}>
+                      <RemoveCircleOutlineRoundedIcon />
+                    </IconButton>
+                  </Stack>
+                ))}
+                <Button size="small" variant="outlined" onClick={() => addPortionRow()}>
+                  + Add custom portion
+                </Button>
+              </Stack>
+            </Box>
+            <Button sx={{ mt: 1.3 }} variant="contained" color="primary" startIcon={<AddRoundedIcon />} onClick={handleAdd}>
+              Add Item
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      <Stack spacing={1.1}>
+        {filteredItems.map((item) => {
+          const isEditing = editingItemId === item.id;
+          return (
+            <Card key={item.id} sx={{ bgcolor: "#17100c", border: "1px solid rgba(212,178,95,0.14)", borderRadius: 4 }}>
+              <CardContent sx={{ p: 1.8 }}>
+                {!isEditing && (
+                  <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", md: "center" }} gap={1.2}>
+                    <Box>
+                      <Typography sx={{ fontWeight: 700 }}>{item.name}</Typography>
+                      <Typography sx={{ color: "text.secondary" }}>{item.category}</Typography>
+                      <Typography sx={{ color: "text.secondary", fontSize: 13, mt: 0.4 }}>
+                        {item.description}
+                      </Typography>
+                      <Stack direction="row" spacing={0.6} useFlexGap flexWrap="wrap" sx={{ mt: 0.7 }}>
+                        {Object.entries(item.portions || {}).map(([portion, price]) => (
+                          <Box
+                            key={`${item.id}-${portion}`}
+                            sx={{
+                              px: 0.8,
+                              py: 0.2,
+                              borderRadius: 1.2,
+                              bgcolor: "rgba(212,178,95,0.14)",
+                              border: "1px solid rgba(212,178,95,0.24)",
+                              color: "primary.main",
+                              fontSize: "0.75rem",
+                            }}
+                          >
+                            {portion}: {price}
+                          </Box>
+                        ))}
+                      </Stack>
+                    </Box>
+                    <Stack direction="row" spacing={0.6} alignItems="center" flexWrap="wrap" useFlexGap>
+                      <Typography sx={{ color: "text.secondary", fontSize: 14 }}>
+                        {item.outOfStock ? "Out of Stock" : "In Stock"}
+                      </Typography>
+                      <Switch
+                        checked={!item.outOfStock}
+                        onChange={(e) => updateMenuItem(item.id, { outOfStock: !e.target.checked })}
+                      />
+                      <Button
+                        variant="outlined"
+                        startIcon={<EditRoundedIcon />}
+                        onClick={() => startEdit(item)}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        color="error"
+                        variant="outlined"
+                        startIcon={<DeleteOutlineRoundedIcon />}
+                        onClick={() => deleteMenuItem(item.id)}
+                      >
+                        Delete
+                      </Button>
+                    </Stack>
+                  </Stack>
+                )}
+
+                {isEditing && (
+                  <Stack spacing={1}>
+                    <Typography sx={{ color: "primary.main", textTransform: "uppercase", fontWeight: 700 }}>
+                      Edit Menu Item
+                    </Typography>
+                    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 1 }}>
+                      <TextField
+                        value={editForm.name}
+                        onChange={(e) => setEditForm((current) => ({ ...current, name: e.target.value }))}
+                        placeholder="Item name"
+                        sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }}
+                      />
+                      <Select
+                        value={editForm.category}
+                        onChange={(e) => setEditForm((current) => ({ ...current, category: e.target.value }))}
+                        size="small"
+                        sx={{ bgcolor: "#0f1116" }}
+                      >
+                        {availableCategories.map((category) => (
+                          <MenuItem key={category} value={category}>
+                            {category}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                      <TextField
+                        value={editForm.description}
+                        onChange={(e) => setEditForm((current) => ({ ...current, description: e.target.value }))}
+                        placeholder="Description"
+                        sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }}
+                      />
+                      <TextField
+                        value={editForm.image}
+                        onChange={(e) => setEditForm((current) => ({ ...current, image: e.target.value }))}
+                        placeholder="Image URL/path"
+                        sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }}
+                      />
+                    </Box>
+
+                    <Stack spacing={0.8}>
+                      {editForm.portions.map((portion) => (
+                        <Stack key={portion.id} direction="row" spacing={0.7} alignItems="center">
+                          <TextField
+                            value={portion.name}
+                            onChange={(e) => updateEditPortionRow(portion.id, "name", e.target.value)}
+                            placeholder="Portion name"
+                            size="small"
+                            sx={{ flex: 1, "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }}
+                          />
+                          <TextField
+                            value={portion.price}
+                            onChange={(e) => updateEditPortionRow(portion.id, "price", e.target.value)}
+                            placeholder="Price"
+                            size="small"
+                            sx={{ flex: 1, "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }}
+                          />
+                          <IconButton color="error" onClick={() => removeEditPortionRow(portion.id)}>
+                            <RemoveCircleOutlineRoundedIcon />
+                          </IconButton>
+                        </Stack>
+                      ))}
+                      <Button size="small" variant="outlined" onClick={() => addEditPortionRow()}>
+                        + Add custom portion
+                      </Button>
+                    </Stack>
+
+                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                      <Typography sx={{ color: "text.secondary", fontSize: 14 }}>
+                        {editForm.outOfStock ? "Out of Stock" : "In Stock"}
+                      </Typography>
+                      <Switch
+                        checked={!editForm.outOfStock}
+                        onChange={(e) =>
+                          setEditForm((current) => ({ ...current, outOfStock: !e.target.checked }))
+                        }
+                      />
+                      <Button
+                        variant="contained"
+                        startIcon={<SaveRoundedIcon />}
+                        onClick={() => handleSaveEdit(item.id)}
+                      >
+                        Save
+                      </Button>
+                      <Button variant="outlined" onClick={cancelEdit}>
+                        Cancel
+                      </Button>
+                    </Stack>
+                  </Stack>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+        {filteredItems.length === 0 && (
+          <Typography sx={{ color: "text.secondary", textAlign: "center", py: 2 }}>
+            No items in this category.
+          </Typography>
+        )}
+      </Stack>
+      <Snackbar
+        open={notice.open}
+        autoHideDuration={2400}
+        onClose={() => setNotice((current) => ({ ...current, open: false }))}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert onClose={() => setNotice((current) => ({ ...current, open: false }))} severity={notice.severity} variant="filled">
+          {notice.message}
+        </Alert>
+      </Snackbar>
+    </Box>
+  );
+}
+
+export default AdminMenuManagementPanel;
