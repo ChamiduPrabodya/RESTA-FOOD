@@ -290,13 +290,14 @@ export function AuthProvider({ children }) {
     return { success: true, role: "user" };
   };
 
-  const updateUserProfile = ({ fullName, phone }) => {
+  const updateUserProfile = ({ fullName, phone, address }) => {
     if (!authUser || authUser.role !== "user") {
       return { success: false, message: "Only logged-in users can update profile." };
     }
 
     const normalizedFullName = String(fullName || "").trim();
     const normalizedPhone = String(phone || "").trim();
+    const normalizedAddress = String(address || "").trim();
 
     if (normalizedFullName.length < 2) {
       return { success: false, message: "Full name must be at least 2 characters." };
@@ -304,11 +305,14 @@ export function AuthProvider({ children }) {
     if (!/^[0-9+\-\s]{9,15}$/.test(normalizedPhone)) {
       return { success: false, message: "Please enter a valid phone number." };
     }
+    if (normalizedAddress.length < 6) {
+      return { success: false, message: "Please enter a valid address." };
+    }
 
     setUsers((current) =>
       current.map((user) =>
         user.email.toLowerCase() === authUser.email.toLowerCase()
-          ? { ...user, fullName: normalizedFullName, phone: normalizedPhone }
+          ? { ...user, fullName: normalizedFullName, phone: normalizedPhone, address: normalizedAddress }
           : user
       )
     );
@@ -318,6 +322,7 @@ export function AuthProvider({ children }) {
             ...current,
             fullName: normalizedFullName,
             phone: normalizedPhone,
+            address: normalizedAddress,
           }
         : current
     );
@@ -556,8 +561,12 @@ export function AuthProvider({ children }) {
     if (!booking) {
       return { success: false, message: "Booking not found." };
     }
-    if (String(booking.status || "").toLowerCase() === "cancelled") {
+    const normalizedStatus = String(booking.status || "Pending").trim().toLowerCase();
+    if (normalizedStatus === "cancelled") {
       return { success: false, message: "This booking is already cancelled." };
+    }
+    if (normalizedStatus === "confirmed") {
+      return { success: false, message: "Bookings cannot be cancelled after admin approval." };
     }
 
     const bookingDateTime = new Date(`${booking.date}T${booking.time}`);

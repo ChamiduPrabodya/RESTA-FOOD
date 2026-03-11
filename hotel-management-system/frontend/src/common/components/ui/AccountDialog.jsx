@@ -19,6 +19,14 @@ import GridViewRoundedIcon from "@mui/icons-material/GridViewRounded";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 import EmojiEventsOutlinedIcon from "@mui/icons-material/EmojiEventsOutlined";
 
+const normalizeOrderStatus = (status) => String(status || "").trim().toLowerCase();
+const isCancelledOrder = (status) => normalizeOrderStatus(status) === "cancelled";
+const isCompletedOrder = (status) => {
+  const normalized = normalizeOrderStatus(status);
+  return normalized === "delivered" || normalized.includes("ready");
+};
+const isActiveOrder = (status) => !isCancelledOrder(status) && !isCompletedOrder(status);
+
 function AccountDialog({
   open,
   onClose,
@@ -26,6 +34,7 @@ function AccountDialog({
   displayName,
   email,
   phone,
+  address,
   points,
   onLogout,
   ordersCount,
@@ -37,13 +46,38 @@ function AccountDialog({
 }) {
   const initial = displayName?.charAt(0)?.toUpperCase() || "U";
   const [activeSection, setActiveSection] = useState("profile");
+  const [ordersFilter, setOrdersFilter] = useState("active");
   const [notice, setNotice] = useState({ message: "", severity: "success" });
   const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [profileForm, setProfileForm] = useState({ fullName: displayName || "", phone: phone || "" });
+  const [profileForm, setProfileForm] = useState({ fullName: displayName || "", phone: phone || "", address: address || "" });
   const sortedOrders = useMemo(
     () => [...userOrders].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)),
     [userOrders]
   );
+  const normalizedOrders = useMemo(
+    () =>
+      sortedOrders.map((order) => ({
+        ...order,
+        status: order.status || "Pending",
+        quantity: order.quantity || 1,
+      })),
+    [sortedOrders]
+  );
+  const activeOrders = useMemo(() => normalizedOrders.filter((order) => isActiveOrder(order.status)), [normalizedOrders]);
+  const completedOrders = useMemo(
+    () => normalizedOrders.filter((order) => isCompletedOrder(order.status)),
+    [normalizedOrders]
+  );
+  const cancelledOrders = useMemo(
+    () => normalizedOrders.filter((order) => isCancelledOrder(order.status)),
+    [normalizedOrders]
+  );
+  const visibleOrders =
+    ordersFilter === "completed"
+      ? completedOrders
+      : ordersFilter === "cancelled"
+        ? cancelledOrders
+        : activeOrders;
   const cancelledOrderNotifications = useMemo(
     () =>
       sortedOrders.filter(
@@ -57,28 +91,26 @@ function AccountDialog({
     () => [...userBookings].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)),
     [userBookings]
   );
-  const canCancelBooking = (booking) => {
-    const bookingDateTime = new Date(`${booking.date}T${booking.time}`);
-    if (Number.isNaN(bookingDateTime.getTime())) return false;
-    if (String(booking.status || "").toLowerCase() === "cancelled") return false;
-    return bookingDateTime.getTime() - Date.now() >= 3 * 60 * 60 * 1000;
-  };
+  const normalizeBookingStatus = (status) => String(status || "Pending").trim().toLowerCase();
+  const canCancelBooking = (booking) => normalizeBookingStatus(booking?.status) === "pending";
   useEffect(() => {
     if (!open) {
       setActiveSection("profile");
+      setOrdersFilter("active");
       setIsEditingProfile(false);
       setNotice({ message: "", severity: "success" });
     }
   }, [open]);
 
   useEffect(() => {
-    setProfileForm({ fullName: displayName || "", phone: phone || "" });
-  }, [displayName, phone]);
+    setProfileForm({ fullName: displayName || "", phone: phone || "", address: address || "" });
+  }, [displayName, phone, address]);
 
   const handleSaveProfile = () => {
     const result = onSaveProfile?.({
       fullName: profileForm.fullName,
       phone: profileForm.phone,
+      address: profileForm.address,
     });
     setNotice({
       message: result?.message || "Unable to update profile.",
@@ -90,21 +122,25 @@ function AccountDialog({
   };
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth={false}
-      PaperProps={{
-        sx: {
-          width: { xs: "92vw", sm: 760 },
-          maxWidth: "92vw",
-          bgcolor: "#090d13",
-          borderRadius: 4,
-          border: "1px solid rgba(212,178,95,0.22)",
-          overflow: "hidden",
-        },
-      }}
-    >
+      <Dialog
+        open={open}
+        onClose={onClose}
+        maxWidth={false}
+        PaperProps={{
+          sx: {
+            width: { xs: "92vw", sm: 920, md: 980 },
+            maxWidth: "96vw",
+            height: { xs: "auto", md: 600 },
+            maxHeight: { xs: "92vh", md: "84vh" },
+            bgcolor: "#090d13",
+            borderRadius: 4,
+            border: "1px solid rgba(212,178,95,0.22)",
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+          },
+        }}
+      >
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ px: 3.5, py: 2.6, bgcolor: "#140f11" }}>
         <Typography variant="h3" sx={{ fontSize: "24px" }}>My Account</Typography>
         <Button onClick={onClose} sx={{ minWidth: 36, width: 36, height: 36, color: "text.secondary" }}>
@@ -112,8 +148,18 @@ function AccountDialog({
         </Button>
       </Stack>
 
-      <Box sx={{ p: 3.2, display: "grid", gap: 0, gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" } }}>
-        <Box sx={{ pr: { xs: 0, md: 2.2 }, borderRight: { xs: "none", md: "1px solid rgba(212,178,95,0.14)" }, mb: { xs: 2.2, md: 0 } }}>
+      <Box
+        sx={{
+          p: 3.2,
+          flex: 1,
+          minHeight: 0,
+          overflowY: "auto",
+          display: "grid",
+          gap: 0,
+          gridTemplateColumns: { xs: "1fr", md: "240px 1px minmax(0, 1fr)" },
+        }}
+      >
+        <Box sx={{ pr: { xs: 0, md: 2.2 }, mb: { xs: 2.2, md: 0 } }}>
           <Stack spacing={1.1}>
             <Button
               startIcon={<PersonOutlineRoundedIcon />}
@@ -148,6 +194,14 @@ function AccountDialog({
           </Stack>
         </Box>
 
+        <Box
+          sx={{
+            display: { xs: "none", md: "block" },
+            bgcolor: "rgba(212,178,95,0.14)",
+            borderRadius: 99,
+          }}
+        />
+
         <Stack spacing={2} sx={{ pl: { xs: 0, md: 2.2 } }}>
           {notice.message && (
             <Alert severity={notice.severity} onClose={() => setNotice({ message: "", severity: "success" })}>
@@ -174,8 +228,8 @@ function AccountDialog({
                   gap: 1.4,
                   gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
                   gridTemplateAreas: {
-                    xs: `"points" "email" "phone"`,
-                    sm: `"points email" "phone phone"`,
+                    xs: `"points" "email" "phone" "address"`,
+                    sm: `"points email" "phone address"`,
                   },
                 }}
               >
@@ -197,6 +251,12 @@ function AccountDialog({
                 <Box sx={{ gridArea: "phone", p: 2.1, minHeight: 86, borderRadius: 3, bgcolor: "#16100d", border: "1px solid rgba(212,178,95,0.14)" }}>
                   <Typography sx={{ color: "primary.main", fontSize: 13, fontWeight: 700, mb: 0.5 }}>PHONE</Typography>
                   <Typography variant="h3" sx={{ fontSize: "22px", lineHeight: 1.2 }}>{phone}</Typography>
+                </Box>
+                <Box sx={{ gridArea: "address", p: 2.1, minHeight: 86, borderRadius: 3, bgcolor: "#16100d", border: "1px solid rgba(212,178,95,0.14)" }}>
+                  <Typography sx={{ color: "primary.main", fontSize: 13, fontWeight: 700, mb: 0.5 }}>ADDRESS</Typography>
+                  <Typography sx={{ color: "text.primary", fontWeight: 700, wordBreak: "break-word" }}>
+                    {String(address || "").trim() || "—"}
+                  </Typography>
                 </Box>
               </Box>
               {!isAdmin && (
@@ -223,6 +283,16 @@ function AccountDialog({
                           setProfileForm((current) => ({ ...current, phone: event.target.value }))
                         }
                       />
+                      <TextField
+                        label="Address"
+                        size="small"
+                        multiline
+                        minRows={2}
+                        value={profileForm.address}
+                        onChange={(event) =>
+                          setProfileForm((current) => ({ ...current, address: event.target.value }))
+                        }
+                      />
                       <Stack direction="row" spacing={1}>
                         <Button variant="contained" onClick={handleSaveProfile}>
                           Save
@@ -230,7 +300,7 @@ function AccountDialog({
                         <Button
                           variant="text"
                           onClick={() => {
-                            setProfileForm({ fullName: displayName || "", phone: phone || "" });
+                            setProfileForm({ fullName: displayName || "", phone: phone || "", address: address || "" });
                             setIsEditingProfile(false);
                           }}
                         >
@@ -252,20 +322,50 @@ function AccountDialog({
                   {cancelledOrderNotifications.length} cancelled order notification(s). Check reason below.
                 </Alert>
               )}
-              {sortedOrders.length === 0 && <Typography sx={{ color: "text.secondary" }}>No orders yet.</Typography>}
-              {sortedOrders.slice(0, 8).map((order) => (
+              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                <Button
+                  size="small"
+                  variant={ordersFilter === "active" ? "contained" : "outlined"}
+                  color="primary"
+                  onClick={() => setOrdersFilter("active")}
+                >
+                  Active ({activeOrders.length})
+                </Button>
+                <Button
+                  size="small"
+                  variant={ordersFilter === "completed" ? "contained" : "outlined"}
+                  color="primary"
+                  onClick={() => setOrdersFilter("completed")}
+                >
+                  Completed ({completedOrders.length})
+                </Button>
+                <Button
+                  size="small"
+                  variant={ordersFilter === "cancelled" ? "contained" : "outlined"}
+                  color="primary"
+                  onClick={() => setOrdersFilter("cancelled")}
+                >
+                  Cancelled ({cancelledOrders.length})
+                </Button>
+              </Stack>
+
+              {normalizedOrders.length === 0 && <Typography sx={{ color: "text.secondary" }}>No orders yet.</Typography>}
+              {visibleOrders.slice(0, 8).map((order) => (
                 <Box key={order.id} sx={{ p: 1.4, borderRadius: 2.5, bgcolor: "#16100d", border: "1px solid rgba(212,178,95,0.14)" }}>
                   <Typography sx={{ fontWeight: 700 }}>{order.itemName} ({order.quantity}x)</Typography>
                   <Typography sx={{ color: "text.secondary", fontSize: 14 }}>
                     {order.price} • {order.status || "Pending"}
                   </Typography>
-                  {String(order.status || "").toLowerCase() === "cancelled" && String(order.cancelReason || "").trim() && (
+                  {isCancelledOrder(order.status) && String(order.cancelReason || "").trim() && (
                     <Typography sx={{ color: "#ff7a84", fontSize: 14, mt: 0.5 }}>
                       Cancellation reason: {order.cancelReason}
                     </Typography>
                   )}
                 </Box>
               ))}
+              {visibleOrders.length === 0 && normalizedOrders.length > 0 && (
+                <Typography sx={{ color: "text.secondary" }}>No {ordersFilter} orders found.</Typography>
+              )}
             </Box>
           )}
 
@@ -301,7 +401,7 @@ function AccountDialog({
                 </Box>
               ))}
               <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
-                You can cancel only up to 3 hours before the booking time.
+                You can cancel only before admin approval and at least 3 hours before the booking time.
               </Typography>
             </Box>
           )}

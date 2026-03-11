@@ -47,6 +47,7 @@ function AuthHeaderActions() {
     ? "Resta Admin"
     : authUser?.fullName || "John Doe";
   const phone = isAdmin ? "+94 77 123 4567" : authUser?.phone || "+94 71 987 6543";
+  const address = isAdmin ? "Admin Panel" : authUser?.address || "";
 
   const handleLogout = () => {
     setAccountOpen(false);
@@ -140,18 +141,19 @@ function AuthHeaderActions() {
         </Button>
       </Stack>
 
-      <AccountDialog
-        open={accountOpen}
-        onClose={() => setAccountOpen(false)}
-        isAdmin={isAdmin}
-        displayName={displayName}
-        email={authUser.email}
-        phone={phone}
-        points={points}
-        onLogout={handleLogout}
-        ordersCount={userPurchases.length}
-        bookingsCount={userBookings.length}
-        userOrders={userPurchases}
+        <AccountDialog
+          open={accountOpen}
+          onClose={() => setAccountOpen(false)}
+          isAdmin={isAdmin}
+          displayName={displayName}
+          email={authUser.email}
+          phone={phone}
+          address={address}
+          points={points}
+          onLogout={handleLogout}
+          ordersCount={userPurchases.length}
+          bookingsCount={userBookings.length}
+          userOrders={userPurchases}
         userBookings={userBookings}
         onCancelBooking={cancelVipBookingByUser}
         onSaveProfile={updateUserProfile}
