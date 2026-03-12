@@ -23,6 +23,7 @@ import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import RemoveCircleOutlineRoundedIcon from "@mui/icons-material/RemoveCircleOutlineRounded";
 import SaveRoundedIcon from "@mui/icons-material/SaveRounded";
+import ImagePicker from "../../../common/components/ui/ImagePicker.jsx";
 
 const DEFAULT_MENU_CATEGORIES = [
   "Kottu",
@@ -451,7 +452,13 @@ function AdminMenuManagementPanel({
                 ))}
               </Select>
               <TextField value={form.description} onChange={(e) => setForm((c) => ({ ...c, description: e.target.value }))} placeholder="Description" sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }} />
-              <TextField value={form.image} onChange={(e) => setForm((c) => ({ ...c, image: e.target.value }))} placeholder="Image URL/path" sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }} />
+            </Box>
+            <Box sx={{ mt: 1.1 }}>
+              <ImagePicker
+                label="Item Image"
+                value={form.image}
+                onChange={(nextValue) => setForm((current) => ({ ...current, image: nextValue }))}
+              />
             </Box>
             <Box sx={{ mt: 1.1 }}>
               <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.8 }}>
@@ -588,13 +595,12 @@ function AdminMenuManagementPanel({
                         placeholder="Description"
                         sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }}
                       />
-                      <TextField
-                        value={editForm.image}
-                        onChange={(e) => setEditForm((current) => ({ ...current, image: e.target.value }))}
-                        placeholder="Image URL/path"
-                        sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }}
-                      />
                     </Box>
+                    <ImagePicker
+                      label="Item Image"
+                      value={editForm.image}
+                      onChange={(nextValue) => setEditForm((current) => ({ ...current, image: nextValue }))}
+                    />
 
                     <Stack spacing={0.8}>
                       {editForm.portions.map((portion) => (

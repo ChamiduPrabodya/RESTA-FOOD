@@ -1,11 +1,20 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Box,
   Card,
   CardContent,
   Divider,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  IconButton,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
   Typography,
 } from "@mui/material";
 import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
@@ -21,6 +30,7 @@ import LocalOfferOutlinedIcon from "@mui/icons-material/LocalOfferOutlined";
 import TrendingUpRoundedIcon from "@mui/icons-material/TrendingUpRounded";
 import AccessTimeRoundedIcon from "@mui/icons-material/AccessTimeRounded";
 import RestaurantRoundedIcon from "@mui/icons-material/RestaurantRounded";
+import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import AuthHeaderActions from "../../../common/components/ui/AuthHeaderActions";
 import { useAuth } from "../../auth/context/AuthContext";
 import AdminBookingsPanel from "../components/AdminBookingsPanel";
@@ -36,9 +46,33 @@ const sectionPaddingX = { xs: 2.5, sm: 5, md: 8, lg: 12 };
 const getPriceNumber = (price) => Number(String(price).replace(/[^\d.]/g, "")) || 0;
 const isActiveOrder = (status) => !["Prepared (Ready)", "Delivered", "Cancelled"].includes(status);
 
-function StatCard({ title, value, icon, iconColor = "primary.main" }) {
+function StatCard({ title, value, icon, iconColor = "primary.main", onClick }) {
   return (
-    <Card sx={{ bgcolor: "#17100c", border: "1px solid rgba(212,178,95,0.14)", borderRadius: 4 }}>
+    <Card
+      onClick={onClick}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={(event) => {
+        if (!onClick) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+      sx={{
+        bgcolor: "#17100c",
+        border: "1px solid rgba(212,178,95,0.14)",
+        borderRadius: 4,
+        cursor: onClick ? "pointer" : "default",
+        outline: "none",
+        transition: "transform 160ms ease, border-color 160ms ease",
+        "&:hover": onClick
+          ? { transform: "translateY(-2px)", borderColor: "rgba(212,178,95,0.30)" }
+          : undefined,
+        "&:focus-visible": onClick
+          ? { boxShadow: "0 0 0 3px rgba(212,178,95,0.22)" }
+          : undefined,
+      }}
+    >
       <CardContent sx={{ p: 2.8 }}>
         <Box
           sx={{
@@ -131,6 +165,7 @@ function AdminDashboardPage() {
     deleteMenuItem,
   } = useAuth();
   const [activeSection, setActiveSection] = useState("dashboard");
+  const [dailySalesOpen, setDailySalesOpen] = useState(false);
 
   const normalizedPurchases = purchases.map((purchase) => ({
     ...purchase,
@@ -143,6 +178,19 @@ function AdminDashboardPage() {
   const activeOrders = normalizedPurchases.filter((purchase) => isActiveOrder(purchase.status));
   const pendingBookingsCount = vipBookings.filter((item) => String(item.status || "Pending") === "Pending").length;
   const feedbackCount = feedbacks.length;
+
+  const dailySalesRows = useMemo(() => {
+    const byDate = new Map();
+    purchases.forEach((purchase) => {
+      const createdAt = String(purchase.createdAt || "").trim();
+      const dateKey = createdAt ? createdAt.slice(0, 10) : "Unknown";
+      const current = byDate.get(dateKey) || { date: dateKey, orders: 0, sales: 0 };
+      current.orders += 1;
+      current.sales += getPriceNumber(purchase.price);
+      byDate.set(dateKey, current);
+    });
+    return [...byDate.values()].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  }, [purchases]);
 
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "background.default", color: "text.primary" }}>
@@ -252,7 +300,13 @@ function AdminDashboardPage() {
           {activeSection === "dashboard" && (
             <Box sx={{ display: "grid", gap: 2.2 }}>
               <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))", xl: "repeat(4, minmax(0, 1fr))" }, gap: 2 }}>
-                <StatCard title="Total Sales (SLR)" value={totalSales} icon={<TrendingUpRoundedIcon />} iconColor="#00d084" />
+                <StatCard
+                  title="Total Sales (SLR)"
+                  value={totalSales}
+                  icon={<TrendingUpRoundedIcon />}
+                  iconColor="#00d084"
+                  onClick={() => setDailySalesOpen(true)}
+                />
                 <StatCard title="Live Orders" value={activeOrders.length} icon={<AccessTimeRoundedIcon />} />
                 <StatCard title="Room Bookings" value={vipBookings.length} icon={<CalendarMonthOutlinedIcon />} iconColor="#2f8dff" />
                 <StatCard title="Active Ads" value={2} icon={<RestaurantRoundedIcon />} iconColor="#9a6a3f" />
@@ -307,6 +361,70 @@ function AdminDashboardPage() {
               </Box>
             </Box>
           )}
+
+          <Dialog
+            open={dailySalesOpen}
+            onClose={() => setDailySalesOpen(false)}
+            fullWidth
+            maxWidth="md"
+            PaperProps={{
+              sx: {
+                bgcolor: "#0a0d13",
+                border: "1px solid rgba(212,178,95,0.18)",
+                borderRadius: 4,
+                width: { xs: "94vw", md: 980 },
+                maxWidth: "94vw",
+              },
+            }}
+          >
+            <DialogTitle sx={{ bgcolor: "#0a0d13", borderBottom: "1px solid rgba(212,178,95,0.15)" }}>
+              <Stack direction="row" alignItems="center" justifyContent="space-between" gap={2}>
+                <Box>
+                  <Typography variant="h3" sx={{ fontSize: { xs: "2.15rem", sm: "2.45rem" }, fontWeight: 900, letterSpacing: -0.3 }}>
+                    Daily Sales
+                  </Typography>
+                  <Typography sx={{ color: "text.secondary", fontSize: 14 }}>
+                    Total: SLR {Math.round(totalSales).toLocaleString()}
+                  </Typography>
+                </Box>
+                <IconButton onClick={() => setDailySalesOpen(false)} aria-label="Close">
+                  <CloseRoundedIcon />
+                </IconButton>
+              </Stack>
+            </DialogTitle>
+            <DialogContent sx={{ bgcolor: "#0a0d13", maxHeight: "72vh" }}>
+              {dailySalesRows.length === 0 ? (
+                <Typography sx={{ color: "text.secondary", py: 4, textAlign: "center" }}>
+                  No sales yet
+                </Typography>
+              ) : (
+                <Table size="small" sx={{ mt: 1 }}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ color: "text.secondary", fontWeight: 800, fontSize: 15 }}>Date</TableCell>
+                      <TableCell sx={{ color: "text.secondary", fontWeight: 800, fontSize: 15 }} align="right">
+                        Orders
+                      </TableCell>
+                      <TableCell sx={{ color: "text.secondary", fontWeight: 800, fontSize: 15 }} align="right">
+                        Sales (SLR)
+                      </TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {dailySalesRows.map((row) => (
+                      <TableRow key={row.date} hover>
+                        <TableCell sx={{ fontWeight: 800, fontSize: 16 }}>{row.date}</TableCell>
+                        <TableCell align="right" sx={{ fontSize: 16 }}>{row.orders}</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 900, color: "primary.main", fontSize: 16 }}>
+                          {Math.round(row.sales).toLocaleString()}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </DialogContent>
+          </Dialog>
 
           {activeSection === "liveOrders" && (
             <AdminLiveOrdersPanel purchases={purchases} updatePurchaseStatus={updatePurchaseStatus} />

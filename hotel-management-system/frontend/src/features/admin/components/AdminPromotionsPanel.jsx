@@ -17,6 +17,7 @@ import CardGiftcardRoundedIcon from "@mui/icons-material/CardGiftcardRounded";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import CheckRoundedIcon from "@mui/icons-material/CheckRounded";
+import ImagePicker from "../../../common/components/ui/ImagePicker.jsx";
 
 const today = new Date();
 const toIsoDate = (date) => date.toISOString().slice(0, 10);
@@ -316,14 +317,14 @@ function AdminPromotionsPanel({ promotions, addPromotion, togglePromotionStatus 
 
               <Box>
                 <Typography sx={{ color: "text.secondary", textTransform: "uppercase", fontWeight: 700, mb: 0.6 }}>
-                  Promotion Image URL (for header display)
+                  Promotion Image (for header display)
                 </Typography>
-                <TextField
-                  fullWidth
+                <ImagePicker
+                  label="Promotion Image"
                   value={form.imageUrl}
-                  onChange={(event) => updateField("imageUrl", event.target.value)}
-                  placeholder="https://images.unsplash.com/..."
-                  sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116", borderRadius: 2.5 } }}
+                  onChange={(nextValue) => updateField("imageUrl", nextValue)}
+                  placeholder="Paste an image URL or drag & drop a file"
+                  sx={{ mt: 0.4 }}
                 />
               </Box>
 

@@ -10,6 +10,19 @@ import { useAuth } from "../../../features/auth/context/AuthContext";
 import AccountDialog from "./AccountDialog";
 import CartDialog from "./CartDialog";
 
+const getLoyaltyTier = (points) => {
+  if (points >= 10000) {
+    return { label: "Platinum", color: "#d8e4ff", bg: "rgba(120,150,255,0.22)", border: "rgba(160,186,255,0.45)" };
+  }
+  if (points >= 5000) {
+    return { label: "Gold", color: "#f3cf69", bg: "rgba(212,178,95,0.22)", border: "rgba(212,178,95,0.42)" };
+  }
+  if (points >= 2000) {
+    return { label: "Silver", color: "#d7dde8", bg: "rgba(180,190,210,0.18)", border: "rgba(180,190,210,0.38)" };
+  }
+  return { label: "Brown", color: "#d2a679", bg: "rgba(150,95,48,0.18)", border: "rgba(150,95,48,0.35)" };
+};
+
 function AuthHeaderActions() {
   const navigate = useNavigate();
   const {
@@ -43,6 +56,7 @@ function AuthHeaderActions() {
 
   const isAdmin = authUser?.role === "admin";
   const points = isAdmin ? 0 : 1250 + userPurchases.length * 50;
+  const tier = useMemo(() => getLoyaltyTier(points), [points]);
   const displayName = isAdmin
     ? "Resta Admin"
     : authUser?.fullName || "John Doe";
@@ -113,15 +127,16 @@ function AuthHeaderActions() {
             startIcon={<EmojiEventsOutlinedIcon />}
             sx={{
               borderRadius: 99,
-              borderColor: "rgba(212,178,95,0.35)",
-              color: "primary.main",
+              borderColor: tier.border,
+              color: tier.color,
+              bgcolor: tier.bg,
               px: 2.1,
               py: 0.8,
               textTransform: "none",
               fontWeight: 700,
             }}
           >
-            {points} pts
+            {tier.label}
           </Button>
         )}
 
