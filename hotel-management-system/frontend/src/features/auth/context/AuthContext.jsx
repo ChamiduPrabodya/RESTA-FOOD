@@ -701,6 +701,101 @@ export function AuthProvider({ children }) {
     return { success: true };
   };
 
+  const updatePromotion = (promotionId, updates) => {
+    if (!authUser || authUser.role !== "admin") {
+      return { success: false, message: "Only admins can update promotions." };
+    }
+
+    const existingPromotion = promotions.find((promotion) => promotion.id === promotionId);
+    if (!existingPromotion) {
+      return { success: false, message: "Promotion not found." };
+    }
+
+    const normalizedType = updates?.type === "vip" ? "vip" : "food";
+    const normalizedTitle = String(updates?.title ?? existingPromotion.title ?? "").trim();
+    const normalizedDescription = String(updates?.description ?? existingPromotion.description ?? "").trim();
+    const normalizedDiscountType =
+      updates?.discountType === "fixed"
+        ? "fixed"
+        : updates?.discountType === "percentage"
+          ? "percentage"
+          : existingPromotion.discountType === "fixed"
+            ? "fixed"
+            : "percentage";
+
+    const discountValueSource =
+      updates?.discountValue ?? existingPromotion.discountValue ?? existingPromotion.discount ?? 0;
+    const normalizedDiscountValue = Number(discountValueSource);
+    const normalizedMaxDiscount = Number(updates?.maxDiscount ?? existingPromotion.maxDiscount ?? 0) || 0;
+    const normalizedMinOrderValue = Number(updates?.minOrderValue ?? existingPromotion.minOrderValue ?? 0) || 0;
+    const normalizedPromoCode = String(updates?.promoCode ?? existingPromotion.promoCode ?? "")
+      .trim()
+      .toUpperCase();
+    const normalizedStartDate = String(updates?.startDate ?? existingPromotion.startDate ?? "").trim();
+    const normalizedEndDate = String(updates?.endDate ?? existingPromotion.endDate ?? "").trim();
+    const normalizedImageUrl = String(updates?.imageUrl ?? existingPromotion.imageUrl ?? "").trim();
+
+    const normalizedDisplayInHomeHeader =
+      typeof updates?.displayInHomeHeader === "boolean"
+        ? updates.displayInHomeHeader
+        : Boolean(existingPromotion.displayInHomeHeader);
+
+    const normalizedActive =
+      typeof updates?.activateNow === "boolean"
+        ? updates.activateNow
+        : typeof updates?.active === "boolean"
+          ? updates.active
+          : Boolean(existingPromotion.active);
+
+    if (!normalizedTitle || !normalizedDescription || !normalizedStartDate || !normalizedEndDate) {
+      return { success: false, message: "Please fill all required promotion fields." };
+    }
+    if (!Number.isFinite(normalizedDiscountValue) || normalizedDiscountValue <= 0) {
+      return { success: false, message: "Discount value must be greater than zero." };
+    }
+    if (new Date(normalizedEndDate).getTime() < new Date(normalizedStartDate).getTime()) {
+      return { success: false, message: "End date must be after start date." };
+    }
+
+    const normalizedDiscount =
+      normalizedDiscountType === "fixed"
+        ? `SLR ${Math.round(normalizedDiscountValue).toLocaleString()} OFF`
+        : `${normalizedDiscountValue}% OFF`;
+
+    const nextPromotion = {
+      ...existingPromotion,
+      type: normalizedType,
+      title: normalizedTitle,
+      description: normalizedDescription,
+      discountType: normalizedDiscountType,
+      discountValue: normalizedDiscountValue,
+      maxDiscount: normalizedMaxDiscount,
+      minOrderValue: normalizedMinOrderValue,
+      promoCode: normalizedPromoCode,
+      startDate: normalizedStartDate,
+      endDate: normalizedEndDate,
+      imageUrl: normalizedImageUrl,
+      displayInHomeHeader: normalizedDisplayInHomeHeader,
+      discountText: normalizedDiscount,
+      active: normalizedActive,
+      updatedAt: new Date().toISOString(),
+    };
+
+    setPromotions((current) =>
+      current.map((promotion) => (promotion.id === promotionId ? nextPromotion : promotion))
+    );
+
+    return { success: true };
+  };
+
+  const deletePromotion = (promotionId) => {
+    if (!authUser || authUser.role !== "admin") {
+      return { success: false, message: "Only admins can delete promotions." };
+    }
+    setPromotions((current) => current.filter((promotion) => promotion.id !== promotionId));
+    return { success: true };
+  };
+
   const addVipBooking = ({ suiteId, date, time, guests }) => {
     if (!authUser || authUser.role !== "user") {
       return { success: false, message: "Only logged-in users can book VIP rooms." };
@@ -923,6 +1018,8 @@ export function AuthProvider({ children }) {
     addFeedback,
     addPromotion,
     togglePromotionStatus,
+    updatePromotion,
+    deletePromotion,
     addMenuItem,
     addMenuCategory,
     updateMenuCategory,

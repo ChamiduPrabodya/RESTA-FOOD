@@ -17,6 +17,8 @@ import CardGiftcardRoundedIcon from "@mui/icons-material/CardGiftcardRounded";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import CheckRoundedIcon from "@mui/icons-material/CheckRounded";
+import EditRoundedIcon from "@mui/icons-material/EditRounded";
+import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
 import ImagePicker from "../../../common/components/ui/ImagePicker.jsx";
 
 const today = new Date();
@@ -57,7 +59,7 @@ function StatCard({ label, value, icon, valueColor = "text.primary" }) {
   );
 }
 
-function PromotionList({ title, icon, items, onToggle }) {
+function PromotionList({ title, icon, items, onToggle, onEdit, onDelete }) {
   return (
     <Box sx={{ display: "grid", gap: 1.2 }}>
       <Stack direction="row" spacing={1} alignItems="center">
@@ -87,14 +89,28 @@ function PromotionList({ title, icon, items, onToggle }) {
               >
                 <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
                   <Typography sx={{ fontWeight: 700 }}>{promo.title}</Typography>
-                  <Button
-                    size="small"
-                    variant={promo.active ? "contained" : "outlined"}
-                    color={promo.active ? "success" : "primary"}
-                    onClick={() => onToggle(promo.id)}
-                  >
-                    {promo.active ? "Active" : "Inactive"}
-                  </Button>
+                  <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                    <Button
+                      size="small"
+                      variant={promo.active ? "contained" : "outlined"}
+                      color={promo.active ? "success" : "primary"}
+                      onClick={() => onToggle(promo.id)}
+                    >
+                      {promo.active ? "Active" : "Inactive"}
+                    </Button>
+                    <Button size="small" variant="outlined" startIcon={<EditRoundedIcon />} onClick={() => onEdit(promo)}>
+                      Edit
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="error"
+                      startIcon={<DeleteRoundedIcon />}
+                      onClick={() => onDelete(promo)}
+                    >
+                      Delete
+                    </Button>
+                  </Stack>
                 </Stack>
                 <Typography sx={{ color: "text.secondary" }}>{promo.description}</Typography>
                 <Stack direction="row" spacing={1.2} useFlexGap flexWrap="wrap">
@@ -117,9 +133,33 @@ function PromotionList({ title, icon, items, onToggle }) {
   );
 }
 
-function AdminPromotionsPanel({ promotions, addPromotion, togglePromotionStatus }) {
-  const [adding, setAdding] = useState(false);
+const createFormFromPromotion = (promotion) => ({
+  title: String(promotion?.title || ""),
+  description: String(promotion?.description || ""),
+  type: promotion?.type === "vip" ? "vip" : "food",
+  discountType: promotion?.discountType === "fixed" ? "fixed" : "percentage",
+  discountValue: String(promotion?.discountValue ?? "0"),
+  maxDiscount: String(promotion?.maxDiscount ?? "0"),
+  minOrderValue: String(promotion?.minOrderValue ?? "0"),
+  promoCode: String(promotion?.promoCode || ""),
+  startDate: String(promotion?.startDate || toIsoDate(today)),
+  endDate: String(promotion?.endDate || plusDays(today, 7)),
+  imageUrl: String(promotion?.imageUrl || ""),
+  displayInHomeHeader: Boolean(promotion?.displayInHomeHeader),
+  activateNow: Boolean(promotion?.active),
+});
+
+function AdminPromotionsPanel({
+  promotions,
+  addPromotion,
+  togglePromotionStatus,
+  updatePromotion,
+  deletePromotion,
+}) {
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingPromotionId, setEditingPromotionId] = useState(null);
   const [form, setForm] = useState(createInitialForm());
+  const isEditing = Boolean(editingPromotionId);
 
   const stats = useMemo(() => {
     const activeCount = promotions.filter((item) => item.active).length;
@@ -140,11 +180,38 @@ function AdminPromotionsPanel({ promotions, addPromotion, togglePromotionStatus 
     setForm((current) => ({ ...current, [field]: value }));
   };
 
-  const handleAdd = () => {
-    const result = addPromotion(form);
-    if (!result.success) return;
+  const closeForm = () => {
+    setFormOpen(false);
+    setEditingPromotionId(null);
     setForm(createInitialForm());
-    setAdding(false);
+  };
+
+  const startAdd = () => {
+    setEditingPromotionId(null);
+    setForm(createInitialForm());
+    setFormOpen(true);
+  };
+
+  const startEdit = (promotion) => {
+    setEditingPromotionId(promotion.id);
+    setForm(createFormFromPromotion(promotion));
+    setFormOpen(true);
+  };
+
+  const handleSubmit = () => {
+    const result = isEditing ? updatePromotion(editingPromotionId, form) : addPromotion(form);
+    if (!result.success) return;
+    closeForm();
+  };
+
+  const handleDelete = (promotion) => {
+    const confirmed = window.confirm(`Delete promotion "${promotion.title}"? This can't be undone.`);
+    if (!confirmed) return;
+    const result = deletePromotion(promotion.id);
+    if (!result.success) return;
+    if (editingPromotionId === promotion.id) {
+      closeForm();
+    }
   };
 
   return (
@@ -161,20 +228,20 @@ function AdminPromotionsPanel({ promotions, addPromotion, togglePromotionStatus 
         <Button
           variant="contained"
           color="primary"
-          startIcon={adding ? <CloseRoundedIcon /> : <AddRoundedIcon />}
-          onClick={() => setAdding((current) => !current)}
+          startIcon={formOpen ? <CloseRoundedIcon /> : <AddRoundedIcon />}
+          onClick={() => (formOpen ? closeForm() : startAdd())}
         >
-          {adding ? "Cancel" : "Add Promotion"}
+          {formOpen ? "Cancel" : "Add Promotion"}
         </Button>
       </Stack>
 
-      {adding && (
+      {formOpen && (
         <Card sx={{ bgcolor: "#17100c", border: "1px solid rgba(212,178,95,0.14)", borderRadius: 4 }}>
           <CardContent sx={{ p: 2.4 }}>
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
               <CardGiftcardRoundedIcon sx={{ color: "primary.main" }} />
               <Typography sx={{ color: "primary.main", textTransform: "uppercase", fontWeight: 700, letterSpacing: 1.2 }}>
-                New Promotion
+                {isEditing ? "Edit Promotion" : "New Promotion"}
               </Typography>
             </Stack>
 
@@ -345,22 +412,19 @@ function AdminPromotionsPanel({ promotions, addPromotion, togglePromotionStatus 
                       onChange={(event) => updateField("activateNow", event.target.checked)}
                     />
                   }
-                  label="Activate promotion immediately"
+                  label={isEditing ? "Promotion active" : "Activate promotion immediately"}
                 />
               </Box>
 
               <Stack direction="row" spacing={1.5}>
-                <Button variant="contained" color="success" startIcon={<CheckRoundedIcon />} onClick={handleAdd}>
-                  Add Promotion
+                <Button variant="contained" color="success" startIcon={<CheckRoundedIcon />} onClick={handleSubmit}>
+                  {isEditing ? "Save Changes" : "Add Promotion"}
                 </Button>
                 <Button
                   variant="outlined"
                   color="primary"
                   startIcon={<CloseRoundedIcon />}
-                  onClick={() => {
-                    setAdding(false);
-                    setForm(createInitialForm());
-                  }}
+                  onClick={closeForm}
                 >
                   Cancel
                 </Button>
@@ -377,8 +441,22 @@ function AdminPromotionsPanel({ promotions, addPromotion, togglePromotionStatus 
         <StatCard label="VIP Promotions" value={stats.vip} icon={<CardGiftcardRoundedIcon />} valueColor="#a757ff" />
       </Box>
 
-      <PromotionList title="Food Promotions" icon={<LocalOfferOutlinedIcon />} items={foodPromotions} onToggle={togglePromotionStatus} />
-      <PromotionList title="VIP Room Promotions" icon={<CardGiftcardRoundedIcon />} items={vipPromotions} onToggle={togglePromotionStatus} />
+      <PromotionList
+        title="Food Promotions"
+        icon={<LocalOfferOutlinedIcon />}
+        items={foodPromotions}
+        onToggle={togglePromotionStatus}
+        onEdit={startEdit}
+        onDelete={handleDelete}
+      />
+      <PromotionList
+        title="VIP Room Promotions"
+        icon={<CardGiftcardRoundedIcon />}
+        items={vipPromotions}
+        onToggle={togglePromotionStatus}
+        onEdit={startEdit}
+        onDelete={handleDelete}
+      />
     </Box>
   );
 }

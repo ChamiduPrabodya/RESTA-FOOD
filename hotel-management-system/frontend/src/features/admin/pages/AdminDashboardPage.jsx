@@ -157,6 +157,8 @@ function AdminDashboardPage() {
     updateVipBookingStatus,
     addPromotion,
     togglePromotionStatus,
+    updatePromotion,
+    deletePromotion,
     addMenuItem,
     addMenuCategory,
     updateMenuCategory,
@@ -463,6 +465,8 @@ function AdminDashboardPage() {
               promotions={promotions}
               addPromotion={addPromotion}
               togglePromotionStatus={togglePromotionStatus}
+              updatePromotion={updatePromotion}
+              deletePromotion={deletePromotion}
             />
           )}
         </Box>
