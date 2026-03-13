@@ -363,7 +363,7 @@ export function AuthProvider({ children }) {
         (!menuItemId && item.name === itemName)
     );
     if (!menuItem) {
-      return { success: false, message: "Menu item not found." };
+      return { success: false, message: "Menu item not found ." };
     }
     if (menuItem.outOfStock) {
       return { success: false, message: "This item is currently out of stock." };
