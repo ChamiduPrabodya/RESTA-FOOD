@@ -9,6 +9,7 @@ import PersonOutlineRoundedIcon from "@mui/icons-material/PersonOutlineRounded";
 import { useAuth } from "../../../features/auth/context/AuthContext";
 import AccountDialog from "./AccountDialog";
 import CartDialog from "./CartDialog";
+import { parsePriceNumber } from "../../utils/pricing";
 
 const getLoyaltyTier = (points) => {
   if (points >= 10000) {
@@ -36,7 +37,7 @@ function AuthHeaderActions() {
     increaseCartQty,
     decreaseCartQty,
     removeFromCart,
-    placeOrderFromCart,
+    clearCart,
   } = useAuth();
   const [accountOpen, setAccountOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
@@ -55,7 +56,10 @@ function AuthHeaderActions() {
   );
 
   const isAdmin = authUser?.role === "admin";
-  const points = isAdmin ? 0 : 1250 + userPurchases.length * 50;
+  const points = useMemo(
+    () => (isAdmin ? 0 : userPurchases.reduce((sum, purchase) => sum + parsePriceNumber(purchase.price), 0)),
+    [isAdmin, userPurchases]
+  );
   const tier = useMemo(() => getLoyaltyTier(points), [points]);
   const displayName = isAdmin
     ? "Resta Admin"
@@ -180,7 +184,7 @@ function AuthHeaderActions() {
         onIncrease={increaseCartQty}
         onDecrease={decreaseCartQty}
         onRemove={removeFromCart}
-        onPlaceOrder={placeOrderFromCart}
+        onClear={clearCart}
       />
     </>
   );

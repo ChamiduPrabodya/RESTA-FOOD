@@ -12,14 +12,9 @@ import PercentRoundedIcon from "@mui/icons-material/PercentRounded";
 import CheckRoundedIcon from "@mui/icons-material/CheckRounded";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
+import { useAuth } from "../../auth/context/AuthContext";
+import { parsePriceNumber } from "../../../common/utils/pricing";
 
-const DEFAULT_RULES = [
-  { id: "r1", threshold: "2000", discount: "1" },
-  { id: "r2", threshold: "5000", discount: "3" },
-  { id: "r3", threshold: "10000", discount: "5" },
-];
-
-const getPriceNumber = (price) => Number(String(price).replace(/[^\d.]/g, "")) || 0;
 const getLoyaltyTier = (points) => {
   if (points >= 10000) {
     return { label: "Platinum", color: "#d8e4ff", bg: "rgba(120,150,255,0.22)", border: "rgba(160,186,255,0.45)" };
@@ -34,8 +29,8 @@ const getLoyaltyTier = (points) => {
 };
 
 function AdminCustomersPanel({ users, purchases }) {
+  const { loyaltyRules, updateLoyaltyRule, addLoyaltyRule, removeLoyaltyRule } = useAuth();
   const [isConfiguring, setIsConfiguring] = useState(false);
-  const [rules, setRules] = useState(DEFAULT_RULES);
 
   const rows = useMemo(() => {
     const byEmail = new Map();
@@ -45,7 +40,7 @@ function AdminCustomersPanel({ users, purchases }) {
       if (!email) return;
       const current = byEmail.get(email) || { email, orders: 0, points: 0 };
       current.orders += 1;
-      current.points += getPriceNumber(purchase.price);
+      current.points += parsePriceNumber(purchase.price);
       byEmail.set(email, current);
     });
 
@@ -57,7 +52,7 @@ function AdminCustomersPanel({ users, purchases }) {
     });
 
     const usersByEmail = new Map(users.map((user) => [String(user.email || "").trim().toLowerCase(), user]));
-    const sortedRules = [...rules]
+    const sortedRules = [...(Array.isArray(loyaltyRules) ? loyaltyRules : [])]
       .map((rule) => ({
         threshold: Number(rule.threshold) || 0,
         discount: Number(rule.discount) || 0,
@@ -80,22 +75,11 @@ function AdminCustomersPanel({ users, purchases }) {
       })
       .sort((a, b) => b.points - a.points)
       .slice(0, 8);
-  }, [purchases, rules, users]);
+  }, [purchases, loyaltyRules, users]);
 
-  const updateRule = (id, field, value) => {
-    setRules((current) =>
-      current.map((rule) => (rule.id === id ? { ...rule, [field]: value } : rule))
-    );
-  };
-
-  const addRule = () => {
-    const nextId = `r${Date.now()}`;
-    setRules((current) => [...current, { id: nextId, threshold: "", discount: "" }]);
-  };
-
-  const removeRule = (id) => {
-    setRules((current) => current.filter((rule) => rule.id !== id));
-  };
+  const updateRule = (id, field, value) => updateLoyaltyRule(id, field, value);
+  const addRule = () => addLoyaltyRule();
+  const removeRuleById = (id) => removeLoyaltyRule(id);
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
@@ -192,7 +176,7 @@ function AdminCustomersPanel({ users, purchases }) {
           </Stack>
 
           <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0, 1fr))" } }}>
-            {rules.map((rule) => (
+            {loyaltyRules.map((rule) => (
               <Box key={rule.id} sx={{ border: "1px solid rgba(212,178,95,0.15)", borderRadius: 3, p: 1.6 }}>
                 <Typography sx={{ color: "text.secondary", textTransform: "uppercase", fontSize: "0.8rem", mb: 0.6 }}>
                   Points Threshold
@@ -215,7 +199,7 @@ function AdminCustomersPanel({ users, purchases }) {
                     onChange={(event) => updateRule(rule.id, "discount", event.target.value)}
                     sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#110d0c", borderRadius: 2 } }}
                   />
-                  <IconButton color="error" onClick={() => removeRule(rule.id)}>
+                  <IconButton color="error" onClick={() => removeRuleById(rule.id)}>
                     <DeleteOutlineRoundedIcon />
                   </IconButton>
                 </Stack>

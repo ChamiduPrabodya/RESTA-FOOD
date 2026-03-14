@@ -6,6 +6,7 @@ import VipRoomsPage from "../../features/vip-reservations/pages/VipRoomsPage";
 import SignInPage from "../../features/auth/pages/SignInPage";
 import SignUpPage from "../../features/auth/pages/SignUpPage";
 import AdminDashboardPage from "../../features/admin/pages/AdminDashboardPage";
+import CheckoutPage from "../../features/checkout/pages/CheckoutPage";
 import ProtectedRoute from "./ProtectedRoute";
 
 function ScrollToTop() {
@@ -36,6 +37,14 @@ function AppRouter() {
         />
         <Route path="/menu" element={<MenuPage />} />
         <Route path="/vip-rooms" element={<VipRoomsPage />} />
+        <Route
+          path="/checkout"
+          element={
+            <ProtectedRoute roles={["user"]}>
+              <CheckoutPage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>

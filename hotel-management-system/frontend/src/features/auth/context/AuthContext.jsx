@@ -1,5 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useState } from "react";
+import { DEFAULT_LOYALTY_RULES, calculateCheckoutPricing, normalizeLoyaltyRules } from "../../../common/utils/pricing";
 
 const ADMIN_EMAIL = "admin@gmail.com";
 const ADMIN_PASSWORD = "admin123";
@@ -11,6 +12,7 @@ const PURCHASES_STORAGE_KEY = "hms_purchases";
 const BOOKINGS_STORAGE_KEY = "hms_vip_bookings";
 const FEEDBACK_STORAGE_KEY = "hms_feedbacks";
 const PROMOTIONS_STORAGE_KEY = "hms_promotions";
+const LOYALTY_RULES_STORAGE_KEY = "hms_loyalty_rules";
 const MENU_ITEMS_STORAGE_KEY = "hms_menu_items";
 const MENU_CATEGORIES_STORAGE_KEY = "hms_menu_categories";
 const CART_STORAGE_KEY = "hms_cart_items";
@@ -120,6 +122,9 @@ export function AuthProvider({ children }) {
   const [vipBookings, setVipBookings] = useState(() => parseStoredJson(BOOKINGS_STORAGE_KEY, []));
   const [feedbacks, setFeedbacks] = useState(() => parseStoredJson(FEEDBACK_STORAGE_KEY, []));
   const [promotions, setPromotions] = useState(() => parseStoredJson(PROMOTIONS_STORAGE_KEY, []));
+  const [loyaltyRules, setLoyaltyRules] = useState(() =>
+    normalizeLoyaltyRules(parseStoredJson(LOYALTY_RULES_STORAGE_KEY, DEFAULT_LOYALTY_RULES))
+  );
   const [menuItems, setMenuItems] = useState(() => {
     const stored = parseStoredJson(MENU_ITEMS_STORAGE_KEY, []);
     const source = Array.isArray(stored) && stored.length > 0 ? stored : DEFAULT_MENU_ITEMS;
@@ -162,6 +167,10 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     localStorage.setItem(PROMOTIONS_STORAGE_KEY, JSON.stringify(promotions));
   }, [promotions]);
+
+  useEffect(() => {
+    localStorage.setItem(LOYALTY_RULES_STORAGE_KEY, JSON.stringify(loyaltyRules));
+  }, [loyaltyRules]);
 
   useEffect(() => {
     localStorage.setItem(MENU_ITEMS_STORAGE_KEY, JSON.stringify(menuItems));
@@ -353,6 +362,35 @@ export function AuthProvider({ children }) {
   const parsePrice = (price) => Number(String(price).replace(/[^\d.]/g, "")) || 0;
   const formatPrice = (value) => `SLR ${Math.round(value).toLocaleString()}`;
 
+  const updateLoyaltyRule = (id, field, value) => {
+    const normalizedField = field === "discount" ? "discount" : "threshold";
+    const normalizedId = String(id || "");
+    setLoyaltyRules((current) =>
+      normalizeLoyaltyRules(
+        (Array.isArray(current) ? current : []).map((rule) =>
+          String(rule.id) === normalizedId ? { ...rule, [normalizedField]: value } : rule
+        )
+      )
+    );
+    return { success: true };
+  };
+
+  const addLoyaltyRule = () => {
+    const nextId = `r${Date.now()}`;
+    setLoyaltyRules((current) =>
+      normalizeLoyaltyRules([...(Array.isArray(current) ? current : []), { id: nextId, threshold: "", discount: "" }])
+    );
+    return { success: true };
+  };
+
+  const removeLoyaltyRule = (id) => {
+    const normalizedId = String(id || "");
+    setLoyaltyRules((current) =>
+      normalizeLoyaltyRules((Array.isArray(current) ? current : []).filter((rule) => String(rule.id) !== normalizedId))
+    );
+    return { success: true };
+  };
+
   const addToCart = ({ menuItemId, itemName, price, image, size = "Small" }) => {
     if (!authUser || authUser.role !== "user") {
       return { success: false, message: "Please login as user to use cart." };
@@ -485,12 +523,43 @@ export function AuthProvider({ children }) {
       }
     }
 
-    const orderRows = userCart.map((item) => {
-      const rowTotal = item.unitPrice * item.quantity;
+    const pricing = calculateCheckoutPricing({
+      cartItems: userCart,
+      userEmail: authUser.email,
+      purchases,
+      promotions,
+      loyaltyRules,
+    });
+
+    const orderId = crypto.randomUUID();
+    let remainingDiscount = Math.min(pricing.totalDiscount, pricing.subtotal);
+
+    const orderRows = userCart.map((item, index) => {
+      const rowSubtotal = item.unitPrice * item.quantity;
+      const share =
+        pricing.totalDiscount > 0 && pricing.subtotal > 0
+          ? index === userCart.length - 1
+            ? remainingDiscount
+            : Math.min(
+                remainingDiscount,
+                Math.min(
+                  rowSubtotal,
+                  Math.max(0, Math.round((rowSubtotal / pricing.subtotal) * pricing.totalDiscount))
+                )
+              )
+          : 0;
+      const safeShare = Math.min(rowSubtotal, Math.max(0, share));
+      remainingDiscount -= safeShare;
+      const finalRowTotal = Math.max(0, rowSubtotal - safeShare);
+
       return {
         id: crypto.randomUUID(),
+        orderId,
         itemName: item.itemName,
-        price: formatPrice(rowTotal),
+        originalPrice: formatPrice(rowSubtotal),
+        discountAmount: safeShare,
+        finalAmount: finalRowTotal,
+        price: formatPrice(finalRowTotal),
         size: item.size,
         quantity: item.quantity,
         status: "Pending",
@@ -499,6 +568,15 @@ export function AuthProvider({ children }) {
         paymentMethod,
         deliveryDetails: resolvedDeliveryDetails,
         createdAt: new Date().toISOString(),
+        orderSubtotal: pricing.subtotal,
+        orderTotalDiscount: pricing.totalDiscount,
+        orderTotal: pricing.total,
+        promotionId: pricing.promotion?.id || null,
+        promotionTitle: pricing.promotion?.title || null,
+        promotionDiscount: pricing.promotionDiscount,
+        loyaltyPointsAtPurchase: pricing.points,
+        loyaltyDiscountPercent: pricing.loyaltyPercent,
+        loyaltyDiscount: pricing.loyaltyDiscount,
       };
     });
 
@@ -1003,6 +1081,7 @@ export function AuthProvider({ children }) {
     vipBookings,
     feedbacks,
     promotions,
+    loyaltyRules,
     menuItems,
     menuCategories,
     login,
@@ -1020,6 +1099,9 @@ export function AuthProvider({ children }) {
     togglePromotionStatus,
     updatePromotion,
     deletePromotion,
+    updateLoyaltyRule,
+    addLoyaltyRule,
+    removeLoyaltyRule,
     addMenuItem,
     addMenuCategory,
     updateMenuCategory,
