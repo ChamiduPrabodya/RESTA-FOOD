@@ -19,6 +19,7 @@ import CreditCardRoundedIcon from "@mui/icons-material/CreditCardRounded";
 import ShoppingCartCheckoutRoundedIcon from "@mui/icons-material/ShoppingCartCheckoutRounded";
 import AuthHeaderActions from "../../../common/components/ui/AuthHeaderActions";
 import { useAuth } from "../../auth/context/AuthContext";
+import { calculateCheckoutPricing } from "../../../common/utils/pricing";
 
 const sectionPaddingX = { xs: 2.5, sm: 5, md: 8, lg: 12 };
 const toSLR = (value) => `SLR ${Math.round(value).toLocaleString()}`;
@@ -48,15 +49,22 @@ const detectCardBrand = (digits) => {
 
 function CheckoutPage() {
   const navigate = useNavigate();
-  const { authUser, cartItems, placeOrderFromCart } = useAuth();
+  const { authUser, cartItems, placeOrderFromCart, purchases, promotions, loyaltyRules } = useAuth();
 
   const userCartItems = useMemo(
     () => cartItems.filter((item) => item.userEmail === authUser?.email),
     [cartItems, authUser]
   );
-  const subtotal = useMemo(
-    () => userCartItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0),
-    [userCartItems]
+  const pricing = useMemo(
+    () =>
+      calculateCheckoutPricing({
+        cartItems: userCartItems,
+        userEmail: authUser?.email,
+        purchases,
+        promotions,
+        loyaltyRules,
+      }),
+    [userCartItems, authUser, purchases, promotions, loyaltyRules]
   );
 
   const [orderType, setOrderType] = useState("Delivery");
@@ -391,8 +399,28 @@ function CheckoutPage() {
                 <Stack spacing={1.1} sx={{ mb: 1.8 }}>
                   <Stack direction="row" justifyContent="space-between">
                     <Typography sx={{ color: "text.secondary" }}>Subtotal</Typography>
-                    <Typography sx={{ color: "text.primary", fontWeight: 800 }}>{toSLR(subtotal)}</Typography>
+                    <Typography sx={{ color: "text.primary", fontWeight: 800 }}>{toSLR(pricing.subtotal)}</Typography>
                   </Stack>
+                  {pricing.promotionDiscount > 0 && (
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography sx={{ color: "text.secondary" }}>
+                        Promotion{pricing.promotion?.title ? ` (${pricing.promotion.title})` : ""}
+                      </Typography>
+                      <Typography sx={{ color: "#7ce6a2", fontWeight: 800 }}>
+                        -{toSLR(pricing.promotionDiscount)}
+                      </Typography>
+                    </Stack>
+                  )}
+                  {pricing.loyaltyDiscount > 0 && (
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography sx={{ color: "text.secondary" }}>
+                        Loyalty Discount ({pricing.loyaltyPercent}%)
+                      </Typography>
+                      <Typography sx={{ color: "#7ce6a2", fontWeight: 800 }}>
+                        -{toSLR(pricing.loyaltyDiscount)}
+                      </Typography>
+                    </Stack>
+                  )}
                   <Stack direction="row" justifyContent="space-between">
                     <Typography sx={{ color: "text.secondary" }}>Delivery Fee</Typography>
                     <Typography sx={{ color: "primary.main", fontWeight: 800 }}>Free</Typography>
@@ -400,9 +428,14 @@ function CheckoutPage() {
                   <Stack direction="row" justifyContent="space-between" alignItems="center">
                     <Typography variant="h3" sx={{ fontSize: "18px" }}>Total</Typography>
                     <Typography variant="h2" sx={{ color: "primary.main", fontSize: "24px", lineHeight: 1.1 }}>
-                      {toSLR(subtotal)}
+                      {toSLR(pricing.total)}
                     </Typography>
                   </Stack>
+                  {pricing.loyaltyDiscount > 0 && (
+                    <Typography sx={{ color: "text.secondary", fontSize: 12 }}>
+                      Loyalty points: {pricing.points}
+                    </Typography>
+                  )}
                   {errorMessage && (
                     <Typography sx={{ color: "#ff6b7a", fontSize: 13 }}>{errorMessage}</Typography>
                   )}
@@ -430,4 +463,3 @@ function CheckoutPage() {
 }
 
 export default CheckoutPage;
-

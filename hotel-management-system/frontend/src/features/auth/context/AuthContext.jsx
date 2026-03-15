@@ -132,6 +132,10 @@ export function AuthProvider({ children }) {
       ...item,
       id: item.id || crypto.randomUUID(),
       outOfStock: Boolean(item.outOfStock),
+      loyaltyPoints:
+        item && Object.prototype.hasOwnProperty.call(item, "loyaltyPoints") && String(item.loyaltyPoints).trim() !== ""
+          ? Math.max(0, Math.round(Number(item.loyaltyPoints) || 0))
+          : undefined,
     }));
   });
   const [menuCategories, setMenuCategories] = useState(() => {
@@ -536,6 +540,14 @@ export function AuthProvider({ children }) {
 
     const orderRows = userCart.map((item, index) => {
       const rowSubtotal = item.unitPrice * item.quantity;
+      const matchingMenuItem = menuItems.find(
+        (menuItem) => (item.menuItemId && menuItem.id === item.menuItemId) || menuItem.name === item.itemName
+      );
+      const loyaltyPointsPerUnit =
+        typeof matchingMenuItem?.loyaltyPoints === "number"
+          ? matchingMenuItem.loyaltyPoints
+          : Math.max(0, Math.round(Number(item.unitPrice) || 0));
+      const loyaltyPointsEarned = Math.max(0, Math.round(loyaltyPointsPerUnit * (Number(item.quantity) || 0)));
       const share =
         pricing.totalDiscount > 0 && pricing.subtotal > 0
           ? index === userCart.length - 1
@@ -577,6 +589,8 @@ export function AuthProvider({ children }) {
         loyaltyPointsAtPurchase: pricing.points,
         loyaltyDiscountPercent: pricing.loyaltyPercent,
         loyaltyDiscount: pricing.loyaltyDiscount,
+        loyaltyPointsPerUnit,
+        loyaltyPointsEarned,
       };
     });
 
@@ -918,7 +932,7 @@ export function AuthProvider({ children }) {
     return { success: true };
   };
 
-  const addMenuItem = ({ name, category, description, portions, image, outOfStock = false }) => {
+  const addMenuItem = ({ name, category, description, portions, image, outOfStock = false, loyaltyPoints }) => {
     if (!authUser || authUser.role !== "admin") {
       return { success: false, message: "Only admins can add menu items." };
     }
@@ -945,6 +959,10 @@ export function AuthProvider({ children }) {
       portions,
       image: String(image || "").trim() || "/images/home/popular-01.svg",
       outOfStock: Boolean(outOfStock),
+      loyaltyPoints:
+        loyaltyPoints === undefined || loyaltyPoints === null || String(loyaltyPoints).trim() === ""
+          ? undefined
+          : Math.max(0, Math.round(Number(loyaltyPoints) || 0)),
     };
     setMenuItems((current) => [menuItem, ...current]);
     setMenuCategories((current) => {
@@ -1053,7 +1071,17 @@ export function AuthProvider({ children }) {
     }
     const normalizedCategory = String(updates?.category || "").trim();
     setMenuItems((current) =>
-      current.map((item) => (item.id === menuItemId ? { ...item, ...updates } : item))
+      current.map((item) => {
+        if (item.id !== menuItemId) return item;
+        const next = { ...item, ...updates };
+        if (updates && Object.prototype.hasOwnProperty.call(updates, "loyaltyPoints")) {
+          next.loyaltyPoints =
+            updates.loyaltyPoints === undefined || updates.loyaltyPoints === null || String(updates.loyaltyPoints).trim() === ""
+              ? undefined
+              : Math.max(0, Math.round(Number(updates.loyaltyPoints) || 0));
+        }
+        return next;
+      })
     );
     if (normalizedCategory) {
       setMenuCategories((current) => {

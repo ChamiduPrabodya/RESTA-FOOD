@@ -40,7 +40,9 @@ function AdminCustomersPanel({ users, purchases }) {
       if (!email) return;
       const current = byEmail.get(email) || { email, orders: 0, points: 0 };
       current.orders += 1;
-      current.points += parsePriceNumber(purchase.price);
+      current.points += Object.prototype.hasOwnProperty.call(purchase, "loyaltyPointsEarned")
+        ? Number(purchase.loyaltyPointsEarned) || 0
+        : parsePriceNumber(purchase.price);
       byEmail.set(email, current);
     });
 

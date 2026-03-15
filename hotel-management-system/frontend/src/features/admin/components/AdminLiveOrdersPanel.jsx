@@ -76,17 +76,18 @@ function AdminLiveOrdersPanel({ purchases, updatePurchaseStatus }) {
   };
 
   return (
-    <Box sx={{ display: "grid", gap: 1.8 }}>
+    <Box sx={{ display: "grid", gap: 1.8, alignContent: "start" }}>
       <Typography variant="h2" sx={{ fontSize: { xs: "22px", md: "24px" } }}>
         Live Kitchen Queue
       </Typography>
 
-      <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+      <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" alignItems="center">
         <Button
           size="small"
           variant={liveOrdersFilter === "active" ? "contained" : "outlined"}
           color="primary"
           onClick={() => setLiveOrdersFilter("active")}
+          sx={{ minWidth: 132, height: 36, px: 2, flex: "0 0 auto", whiteSpace: "nowrap" }}
         >
           Active ({activeOrders.length})
         </Button>
@@ -95,6 +96,7 @@ function AdminLiveOrdersPanel({ purchases, updatePurchaseStatus }) {
           variant={liveOrdersFilter === "completed" ? "contained" : "outlined"}
           color="primary"
           onClick={() => setLiveOrdersFilter("completed")}
+          sx={{ minWidth: 132, height: 36, px: 2, flex: "0 0 auto", whiteSpace: "nowrap" }}
         >
           Completed ({completedOrders.length})
         </Button>
@@ -103,6 +105,7 @@ function AdminLiveOrdersPanel({ purchases, updatePurchaseStatus }) {
           variant={liveOrdersFilter === "cancelled" ? "contained" : "outlined"}
           color="primary"
           onClick={() => setLiveOrdersFilter("cancelled")}
+          sx={{ minWidth: 132, height: 36, px: 2, flex: "0 0 auto", whiteSpace: "nowrap" }}
         >
           Cancelled ({cancelledOrders.length})
         </Button>

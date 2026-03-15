@@ -39,7 +39,12 @@ export const getUserPointsFromPurchases = (purchases, userEmail) => {
   if (!normalizedEmail) return 0;
   return (Array.isArray(purchases) ? purchases : [])
     .filter((purchase) => String(purchase?.userEmail || "").trim().toLowerCase() === normalizedEmail)
-    .reduce((sum, purchase) => sum + parsePriceNumber(purchase?.price), 0);
+    .reduce((sum, purchase) => {
+      if (purchase && Object.prototype.hasOwnProperty.call(purchase, "loyaltyPointsEarned")) {
+        return sum + (Number(purchase.loyaltyPointsEarned) || 0);
+      }
+      return sum + parsePriceNumber(purchase?.price);
+    }, 0);
 };
 
 const parsePromotionDate = (dateText, endOfDay = false) => {

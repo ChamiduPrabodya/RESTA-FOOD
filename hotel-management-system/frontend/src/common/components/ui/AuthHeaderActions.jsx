@@ -9,7 +9,7 @@ import PersonOutlineRoundedIcon from "@mui/icons-material/PersonOutlineRounded";
 import { useAuth } from "../../../features/auth/context/AuthContext";
 import AccountDialog from "./AccountDialog";
 import CartDialog from "./CartDialog";
-import { parsePriceNumber } from "../../utils/pricing";
+import { getUserPointsFromPurchases } from "../../utils/pricing";
 
 const getLoyaltyTier = (points) => {
   if (points >= 10000) {
@@ -57,8 +57,8 @@ function AuthHeaderActions() {
 
   const isAdmin = authUser?.role === "admin";
   const points = useMemo(
-    () => (isAdmin ? 0 : userPurchases.reduce((sum, purchase) => sum + parsePriceNumber(purchase.price), 0)),
-    [isAdmin, userPurchases]
+    () => (isAdmin ? 0 : getUserPointsFromPurchases(purchases, authUser?.email)),
+    [isAdmin, purchases, authUser]
   );
   const tier = useMemo(() => getLoyaltyTier(points), [points]);
   const displayName = isAdmin

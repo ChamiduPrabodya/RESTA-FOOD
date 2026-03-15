@@ -88,6 +88,7 @@ function AdminMenuManagementPanel({
     category: availableCategories[0] || "Kottu",
     description: "",
     image: "",
+    loyaltyPoints: "",
     portions: [{ id: crypto.randomUUID(), name: "Regular", price: "" }],
   });
   const [editForm, setEditForm] = useState({
@@ -95,6 +96,7 @@ function AdminMenuManagementPanel({
     category: availableCategories[0] || "Kottu",
     description: "",
     image: "",
+    loyaltyPoints: "",
     portions: [{ id: crypto.randomUUID(), name: "Regular", price: "" }],
     outOfStock: false,
   });
@@ -165,6 +167,7 @@ function AdminMenuManagementPanel({
       category: form.category,
       description: form.description,
       image: form.image,
+      loyaltyPoints: form.loyaltyPoints,
       portions: normalizePortions(form.portions),
     });
     if (!result.success) {
@@ -177,6 +180,7 @@ function AdminMenuManagementPanel({
       category: availableCategories[0] || "Kottu",
       description: "",
       image: "",
+      loyaltyPoints: "",
       portions: [{ id: crypto.randomUUID(), name: "Regular", price: "" }],
     });
   };
@@ -214,6 +218,10 @@ function AdminMenuManagementPanel({
       category: item.category || availableCategories[0] || "Kottu",
       description: item.description || "",
       image: item.image || "",
+      loyaltyPoints:
+        item && Object.prototype.hasOwnProperty.call(item, "loyaltyPoints") && item.loyaltyPoints !== undefined
+          ? String(item.loyaltyPoints)
+          : "",
       portions: toPortionRows(item.portions),
       outOfStock: Boolean(item.outOfStock),
     });
@@ -255,6 +263,7 @@ function AdminMenuManagementPanel({
       category: editForm.category,
       description: editForm.description,
       image: editForm.image,
+      loyaltyPoints: editForm.loyaltyPoints,
       portions: normalizePortions(editForm.portions),
       outOfStock: Boolean(editForm.outOfStock),
     });
@@ -437,22 +446,30 @@ function AdminMenuManagementPanel({
             <Typography sx={{ color: "primary.main", textTransform: "uppercase", fontWeight: 700, mb: 1.2 }}>
               Add Menu Item
             </Typography>
-            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 1.1 }}>
-              <TextField value={form.name} onChange={(e) => setForm((c) => ({ ...c, name: e.target.value }))} placeholder="Item name" sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }} />
-              <Select
-                value={form.category}
-                onChange={(e) => setForm((c) => ({ ...c, category: e.target.value }))}
-                size="small"
-                sx={{ bgcolor: "#0f1116" }}
-              >
-                {availableCategories.map((category) => (
-                  <MenuItem key={category} value={category}>
-                    {category}
-                  </MenuItem>
-                ))}
-              </Select>
-              <TextField value={form.description} onChange={(e) => setForm((c) => ({ ...c, description: e.target.value }))} placeholder="Description" sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }} />
-            </Box>
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 1.1 }}>
+                <TextField value={form.name} onChange={(e) => setForm((c) => ({ ...c, name: e.target.value }))} placeholder="Item name" sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }} />
+                <Select
+                  value={form.category}
+                  onChange={(e) => setForm((c) => ({ ...c, category: e.target.value }))}
+                  size="small"
+                  sx={{ bgcolor: "#0f1116" }}
+                >
+                  {availableCategories.map((category) => (
+                    <MenuItem key={category} value={category}>
+                      {category}
+                    </MenuItem>
+                  ))}
+                </Select>
+                <TextField value={form.description} onChange={(e) => setForm((c) => ({ ...c, description: e.target.value }))} placeholder="Description" sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }} />
+                <TextField
+                  value={form.loyaltyPoints}
+                  onChange={(e) => setForm((c) => ({ ...c, loyaltyPoints: e.target.value }))}
+                  placeholder="Loyalty points (per item)"
+                  type="number"
+                  inputProps={{ min: 0 }}
+                  sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }}
+                />
+              </Box>
             <Box sx={{ mt: 1.1 }}>
               <ImagePicker
                 label="Item Image"
@@ -519,6 +536,11 @@ function AdminMenuManagementPanel({
                       <Typography sx={{ color: "text.secondary", fontSize: 13, mt: 0.4 }}>
                         {item.description}
                       </Typography>
+                      {item && Object.prototype.hasOwnProperty.call(item, "loyaltyPoints") && item.loyaltyPoints !== undefined && (
+                        <Typography sx={{ color: "text.secondary", fontSize: 13, mt: 0.2 }}>
+                          Loyalty points: {item.loyaltyPoints}
+                        </Typography>
+                      )}
                       <Stack direction="row" spacing={0.6} useFlexGap flexWrap="wrap" sx={{ mt: 0.7 }}>
                         {Object.entries(item.portions || {}).map(([portion, price]) => (
                           <Box
@@ -593,6 +615,14 @@ function AdminMenuManagementPanel({
                         value={editForm.description}
                         onChange={(e) => setEditForm((current) => ({ ...current, description: e.target.value }))}
                         placeholder="Description"
+                        sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }}
+                      />
+                      <TextField
+                        value={editForm.loyaltyPoints}
+                        onChange={(e) => setEditForm((current) => ({ ...current, loyaltyPoints: e.target.value }))}
+                        placeholder="Loyalty points (per item)"
+                        type="number"
+                        inputProps={{ min: 0 }}
                         sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }}
                       />
                     </Box>
