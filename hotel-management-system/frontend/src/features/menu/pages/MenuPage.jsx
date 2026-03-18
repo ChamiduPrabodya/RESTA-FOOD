@@ -51,7 +51,17 @@ function MenuCard({ item, index, onBuy }) {
       whileHover={{ y: -6 }}
       sx={{ bgcolor: "#17100c", border: "1px solid rgba(212,178,95,0.24)", overflow: "hidden" }}
     >
-      <Box sx={{ height: 180, backgroundImage: `url(${item.image})`, backgroundSize: "cover", backgroundPosition: "center", position: "relative" }}>
+      <Box
+        sx={{
+          aspectRatio: "16 / 9",
+          backgroundImage: `url(${item.image})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+          bgcolor: "rgba(0,0,0,0.25)",
+          position: "relative",
+        }}
+      >
         <Chip
           label={item.category}
           sx={{ position: "absolute", top: 12, right: 12, bgcolor: "rgba(16,13,11,0.88)", color: "primary.main", border: "1px solid rgba(212,178,95,0.3)" }}

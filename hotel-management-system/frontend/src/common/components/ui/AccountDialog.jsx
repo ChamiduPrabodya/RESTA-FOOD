@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Alert,
@@ -35,6 +35,9 @@ function AccountDialog({
   email,
   phone,
   address,
+  streetAddress1 = "",
+  streetAddress2 = "",
+  cityTown = "",
   points,
   onLogout,
   ordersCount,
@@ -49,7 +52,23 @@ function AccountDialog({
   const [ordersFilter, setOrdersFilter] = useState("active");
   const [notice, setNotice] = useState({ message: "", severity: "success" });
   const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [profileForm, setProfileForm] = useState({ fullName: displayName || "", phone: phone || "", address: address || "" });
+  const defaultProfileForm = useMemo(
+    () => ({
+      fullName: displayName || "",
+      phone: phone || "",
+      streetAddress1: streetAddress1 || "",
+      streetAddress2: streetAddress2 || "",
+      cityTown: cityTown || "",
+    }),
+    [displayName, phone, streetAddress1, streetAddress2, cityTown]
+  );
+  const [profileForm, setProfileForm] = useState({
+    fullName: displayName || "",
+    phone: phone || "",
+    streetAddress1: streetAddress1 || "",
+    streetAddress2: streetAddress2 || "",
+    cityTown: cityTown || "",
+  });
   const sortedOrders = useMemo(
     () => [...userOrders].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)),
     [userOrders]
@@ -93,24 +112,22 @@ function AccountDialog({
   );
   const normalizeBookingStatus = (status) => String(status || "Pending").trim().toLowerCase();
   const canCancelBooking = (booking) => normalizeBookingStatus(booking?.status) === "pending";
-  useEffect(() => {
-    if (!open) {
-      setActiveSection("profile");
-      setOrdersFilter("active");
-      setIsEditingProfile(false);
-      setNotice({ message: "", severity: "success" });
-    }
-  }, [open]);
-
-  useEffect(() => {
-    setProfileForm({ fullName: displayName || "", phone: phone || "", address: address || "" });
-  }, [displayName, phone, address]);
+  const handleDialogClose = () => {
+    setActiveSection("profile");
+    setOrdersFilter("active");
+    setIsEditingProfile(false);
+    setNotice({ message: "", severity: "success" });
+    setProfileForm(defaultProfileForm);
+    onClose?.();
+  };
 
   const handleSaveProfile = () => {
     const result = onSaveProfile?.({
       fullName: profileForm.fullName,
       phone: profileForm.phone,
-      address: profileForm.address,
+      streetAddress1: profileForm.streetAddress1,
+      streetAddress2: profileForm.streetAddress2,
+      cityTown: profileForm.cityTown,
     });
     setNotice({
       message: result?.message || "Unable to update profile.",
@@ -124,7 +141,7 @@ function AccountDialog({
   return (
       <Dialog
         open={open}
-        onClose={onClose}
+        onClose={handleDialogClose}
         maxWidth={false}
         PaperProps={{
           sx: {
@@ -262,7 +279,13 @@ function AccountDialog({
               {!isAdmin && (
                 <Box sx={{ mt: 1 }}>
                   {!isEditingProfile ? (
-                    <Button variant="outlined" onClick={() => setIsEditingProfile(true)}>
+                    <Button
+                      variant="outlined"
+                      onClick={() => {
+                        setProfileForm(defaultProfileForm);
+                        setIsEditingProfile(true);
+                      }}
+                    >
                       Edit Profile
                     </Button>
                   ) : (
@@ -283,14 +306,32 @@ function AccountDialog({
                           setProfileForm((current) => ({ ...current, phone: event.target.value }))
                         }
                       />
+                      <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                        <TextField
+                          label="Street address"
+                          size="small"
+                          value={profileForm.streetAddress1}
+                          onChange={(event) =>
+                            setProfileForm((current) => ({ ...current, streetAddress1: event.target.value }))
+                          }
+                          fullWidth
+                        />
+                        <TextField
+                          label="Apt / Suite (optional)"
+                          size="small"
+                          value={profileForm.streetAddress2}
+                          onChange={(event) =>
+                            setProfileForm((current) => ({ ...current, streetAddress2: event.target.value }))
+                          }
+                          fullWidth
+                        />
+                      </Stack>
                       <TextField
-                        label="Address"
+                        label="Town / City"
                         size="small"
-                        multiline
-                        minRows={2}
-                        value={profileForm.address}
+                        value={profileForm.cityTown}
                         onChange={(event) =>
-                          setProfileForm((current) => ({ ...current, address: event.target.value }))
+                          setProfileForm((current) => ({ ...current, cityTown: event.target.value }))
                         }
                       />
                       <Stack direction="row" spacing={1}>
@@ -300,7 +341,7 @@ function AccountDialog({
                         <Button
                           variant="text"
                           onClick={() => {
-                            setProfileForm({ fullName: displayName || "", phone: phone || "", address: address || "" });
+                            setProfileForm(defaultProfileForm);
                             setIsEditingProfile(false);
                           }}
                         >

@@ -55,17 +55,6 @@ function CheckoutPage() {
     () => cartItems.filter((item) => item.userEmail === authUser?.email),
     [cartItems, authUser]
   );
-  const pricing = useMemo(
-    () =>
-      calculateCheckoutPricing({
-        cartItems: userCartItems,
-        userEmail: authUser?.email,
-        purchases,
-        promotions,
-        loyaltyRules,
-      }),
-    [userCartItems, authUser, purchases, promotions, loyaltyRules]
-  );
 
   const [orderType, setOrderType] = useState("Delivery");
   const [paymentMethod, setPaymentMethod] = useState("Card (Online)");
@@ -76,6 +65,39 @@ function CheckoutPage() {
   const [cardErrors, setCardErrors] = useState({ cardNumber: "", cardExpiry: "", cardCvv: "" });
   const [errorMessage, setErrorMessage] = useState("");
 
+  const profileDelivery = {
+    name: String(authUser?.fullName || "").trim(),
+    phone: String(authUser?.phone || "").trim(),
+    streetAddress1: String(authUser?.streetAddress1 || "").trim(),
+    streetAddress2: String(authUser?.streetAddress2 || "").trim(),
+    cityTown: String(authUser?.cityTown || "").trim(),
+    address: String(authUser?.address || "").trim(),
+  };
+  const formattedDeliveryAddress =
+    [profileDelivery.streetAddress1, profileDelivery.streetAddress2, profileDelivery.cityTown]
+      .filter(Boolean)
+      .join(", ") || profileDelivery.address;
+  const hasDeliveryProfile =
+    profileDelivery.name.length > 1 &&
+    /^[0-9+\-\s]{9,15}$/.test(profileDelivery.phone) &&
+    (profileDelivery.streetAddress1.length > 2 || profileDelivery.address.length > 5) &&
+    (profileDelivery.cityTown.length > 1 || profileDelivery.address.length > 5);
+
+  const pricing = useMemo(
+    () =>
+      calculateCheckoutPricing({
+        cartItems: userCartItems,
+        userEmail: authUser?.email,
+        purchases,
+        promotions,
+        loyaltyRules,
+        orderType,
+        deliveryAddress: formattedDeliveryAddress,
+        deliveryCityTown: profileDelivery.cityTown,
+      }),
+    [userCartItems, authUser, purchases, promotions, loyaltyRules, orderType, formattedDeliveryAddress, profileDelivery.cityTown]
+  );
+
   if (!authUser) {
     return <Navigate to="/sign-in" replace state={{ from: "/checkout" }} />;
   }
@@ -83,16 +105,6 @@ function CheckoutPage() {
   if (userCartItems.length === 0) {
     return <Navigate to="/menu" replace />;
   }
-
-  const profileDelivery = {
-    name: String(authUser?.fullName || "").trim(),
-    phone: String(authUser?.phone || "").trim(),
-    address: String(authUser?.address || "").trim(),
-  };
-  const hasDeliveryProfile =
-    profileDelivery.name.length > 1 &&
-    /^[0-9+\-\s]{9,15}$/.test(profileDelivery.phone) &&
-    profileDelivery.address.length > 5;
 
   const cardDigits = cardNumber.replace(/\D/g, "");
   const cardBrand = detectCardBrand(cardDigits);
@@ -242,7 +254,7 @@ function CheckoutPage() {
                       <Typography sx={{ color: "text.secondary", fontSize: 13 }}>Phone</Typography>
                       <Typography sx={{ fontWeight: 700 }}>{profileDelivery.phone || "-"}</Typography>
                       <Typography sx={{ color: "text.secondary", fontSize: 13 }}>Address</Typography>
-                      <Typography sx={{ fontWeight: 700 }}>{profileDelivery.address || "-"}</Typography>
+                      <Typography sx={{ fontWeight: 700 }}>{formattedDeliveryAddress || "-"}</Typography>
                     </Stack>
                     {!hasDeliveryProfile && (
                       <Typography sx={{ color: "#ff6b7a", fontSize: 13, mt: 1.4 }}>
@@ -423,12 +435,14 @@ function CheckoutPage() {
                   )}
                   <Stack direction="row" justifyContent="space-between">
                     <Typography sx={{ color: "text.secondary" }}>Delivery Fee</Typography>
-                    <Typography sx={{ color: "primary.main", fontWeight: 800 }}>Free</Typography>
+                    <Typography sx={{ color: "primary.main", fontWeight: 800 }}>
+                      {orderType !== "Delivery" || pricing.deliveryFee <= 0 ? "Free" : toSLR(pricing.deliveryFee)}
+                    </Typography>
                   </Stack>
                   <Stack direction="row" justifyContent="space-between" alignItems="center">
                     <Typography variant="h3" sx={{ fontSize: "18px" }}>Total</Typography>
                     <Typography variant="h2" sx={{ color: "primary.main", fontSize: "24px", lineHeight: 1.1 }}>
-                      {toSLR(pricing.total)}
+                      {toSLR(pricing.grandTotal ?? pricing.total)}
                     </Typography>
                   </Stack>
                   {pricing.loyaltyDiscount > 0 && (

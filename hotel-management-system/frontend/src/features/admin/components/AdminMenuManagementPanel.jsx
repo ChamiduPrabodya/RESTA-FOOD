@@ -28,13 +28,11 @@ import ImagePicker from "../../../common/components/ui/ImagePicker.jsx";
 const DEFAULT_MENU_CATEGORIES = [
   "Kottu",
   "Rice",
-  "Chicken",
-  "Prawns",
-  "Pork",
   "Biriyani",
   "Deviled",
   "Pasta",
   "Set Menu",
+  "family pack",
 ];
 
 const toPortionRows = (portions) => {

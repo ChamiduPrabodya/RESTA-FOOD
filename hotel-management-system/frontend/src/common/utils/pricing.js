@@ -4,6 +4,13 @@ export const DEFAULT_LOYALTY_RULES = [
   { id: "r3", threshold: "10000", discount: "5" },
 ];
 
+export const DELIVERY_ZONE_FEES = Object.freeze({
+  gonapola: 100,
+  koralima: 150,
+  olaboduwa: 150,
+  kubuka: 150,
+});
+
 export const parsePriceNumber = (value) => Number(String(value ?? "").replace(/[^\d.]/g, "")) || 0;
 
 export const formatSLR = (value) => `SLR ${Math.round(Number(value) || 0).toLocaleString()}`;
@@ -118,12 +125,40 @@ export const calculateCartSubtotal = (cartItems) =>
     0
   );
 
+export const detectDeliveryZoneFromAddress = (address, zoneFees = DELIVERY_ZONE_FEES) => {
+  const normalizedAddress = String(address || "").trim().toLowerCase();
+  if (!normalizedAddress) return null;
+
+  const entries = Object.entries(zoneFees || {});
+  for (const [zone] of entries) {
+    if (!zone) continue;
+    if (normalizedAddress.includes(String(zone).toLowerCase())) return zone;
+  }
+
+  return null;
+};
+
+export const calculateDeliveryFeeFromAddress = ({ orderType, address, cityTown, zoneFees } = {}) => {
+  if (String(orderType || "").trim().toLowerCase() !== "delivery") {
+    return { deliveryZone: null, deliveryFee: 0 };
+  }
+
+  const fees = zoneFees || DELIVERY_ZONE_FEES;
+  const deliveryZone = detectDeliveryZoneFromAddress(cityTown || address, fees);
+  const deliveryFee = deliveryZone ? Math.max(0, Number(fees?.[deliveryZone]) || 0) : 0;
+
+  return { deliveryZone, deliveryFee };
+};
+
 export const calculateCheckoutPricing = ({
   cartItems,
   userEmail,
   purchases,
   promotions,
   loyaltyRules,
+  orderType,
+  deliveryAddress,
+  deliveryCityTown,
   now,
 } = {}) => {
   const subtotal = calculateCartSubtotal(cartItems);
@@ -139,6 +174,13 @@ export const calculateCheckoutPricing = ({
   const totalDiscount = Math.min(subtotal, promotionDiscount + loyaltyDiscount);
   const total = Math.max(0, subtotal - totalDiscount);
 
+  const delivery = calculateDeliveryFeeFromAddress({
+    orderType,
+    address: deliveryAddress,
+    cityTown: deliveryCityTown,
+  });
+  const grandTotal = Math.max(0, total + (Number(delivery.deliveryFee) || 0));
+
   return {
     subtotal,
     points,
@@ -148,5 +190,8 @@ export const calculateCheckoutPricing = ({
     loyaltyDiscount,
     totalDiscount,
     total,
+    deliveryZone: delivery.deliveryZone,
+    deliveryFee: delivery.deliveryFee,
+    grandTotal,
   };
 };

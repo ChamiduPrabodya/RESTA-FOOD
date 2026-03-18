@@ -98,7 +98,14 @@ function MenuCard({ item, index }) {
           },
         }}
       >
-        <Box sx={{ height: 170, overflow: "hidden", position: "relative" }}>
+        <Box
+          sx={{
+            aspectRatio: "16 / 9",
+            overflow: "hidden",
+            position: "relative",
+            bgcolor: "rgba(0,0,0,0.25)",
+          }}
+        >
           <Box
             component={motion.div}
             whileHover={{ scale: 1.06 }}
@@ -109,6 +116,7 @@ function MenuCard({ item, index }) {
               backgroundImage: `url(${item.image})`,
               backgroundSize: "cover",
               backgroundPosition: "center",
+              backgroundRepeat: "no-repeat",
             }}
           />
           <Chip

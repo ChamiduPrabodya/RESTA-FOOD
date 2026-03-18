@@ -65,7 +65,10 @@ function AuthHeaderActions() {
     ? "Resta Admin"
     : authUser?.fullName || "John Doe";
   const phone = isAdmin ? "+94 77 123 4567" : authUser?.phone || "+94 71 987 6543";
-  const address = isAdmin ? "Admin Panel" : authUser?.address || "";
+  const address = isAdmin
+    ? "Admin Panel"
+    : authUser?.address ||
+      [authUser?.streetAddress1, authUser?.streetAddress2, authUser?.cityTown].filter(Boolean).join(", ");
 
   const handleLogout = () => {
     setAccountOpen(false);
@@ -160,7 +163,7 @@ function AuthHeaderActions() {
         </Button>
       </Stack>
 
-        <AccountDialog
+      <AccountDialog
           open={accountOpen}
           onClose={() => setAccountOpen(false)}
           isAdmin={isAdmin}
@@ -168,6 +171,9 @@ function AuthHeaderActions() {
           email={authUser.email}
           phone={phone}
           address={address}
+          streetAddress1={isAdmin ? "" : authUser?.streetAddress1 || ""}
+          streetAddress2={isAdmin ? "" : authUser?.streetAddress2 || ""}
+          cityTown={isAdmin ? "" : authUser?.cityTown || ""}
           points={points}
           onLogout={handleLogout}
           ordersCount={userPurchases.length}

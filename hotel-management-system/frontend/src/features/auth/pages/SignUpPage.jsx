@@ -27,7 +27,9 @@ function SignUpPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [address, setAddress] = useState("");
+  const [streetAddress1, setStreetAddress1] = useState("");
+  const [streetAddress2, setStreetAddress2] = useState("");
+  const [cityTown, setCityTown] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -43,7 +45,15 @@ function SignUpPage() {
       return;
     }
 
-    const result = signup(fullName, email, password, phone, address);
+    const result = signup({
+      fullName,
+      email,
+      password,
+      phone,
+      streetAddress1,
+      streetAddress2,
+      cityTown,
+    });
     if (!result.success) {
       setError(result.message);
       return;
@@ -199,17 +209,51 @@ function SignUpPage() {
             />
 
             <Typography sx={{ color: "primary.main", fontWeight: 700, letterSpacing: 0.8, mb: 1, textTransform: "uppercase" }}>
-              Address
+              Street Address
+            </Typography>
+            <Stack direction={{ xs: "column", md: "row" }} spacing={1.4} sx={{ mb: 2.2 }}>
+              <TextField
+                fullWidth
+                value={streetAddress1}
+                onChange={(event) => setStreetAddress1(event.target.value)}
+                placeholder="House number and street name"
+                type="text"
+                name="signup-street-1"
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: 3,
+                    bgcolor: "#06090f",
+                  },
+                  "& .MuiInputBase-input": { py: 1.2, fontSize: "15px" },
+                }}
+              />
+              <TextField
+                fullWidth
+                value={streetAddress2}
+                onChange={(event) => setStreetAddress2(event.target.value)}
+                placeholder="Apartment, suite, unit, etc. (optional)"
+                type="text"
+                name="signup-street-2"
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: 3,
+                    bgcolor: "#06090f",
+                  },
+                  "& .MuiInputBase-input": { py: 1.2, fontSize: "15px" },
+                }}
+              />
+            </Stack>
+
+            <Typography sx={{ color: "primary.main", fontWeight: 700, letterSpacing: 0.8, mb: 1, textTransform: "uppercase" }}>
+              Town / City
             </Typography>
             <TextField
               fullWidth
-              value={address}
-              onChange={(event) => setAddress(event.target.value)}
-              placeholder="Enter your delivery address"
+              value={cityTown}
+              onChange={(event) => setCityTown(event.target.value)}
+              placeholder="Enter your town or city"
               type="text"
-              name="signup-address"
-              multiline
-              minRows={2}
+              name="signup-city"
               sx={{
                 mb: 2.6,
                 "& .MuiOutlinedInput-root": {

@@ -73,13 +73,6 @@ function SiteFooter() {
     
       </Box>
 
-      <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" spacing={1.2} sx={{ pt: 2.2 }}>
-        <Typography sx={{ color: "text.secondary" }}>&copy; 2026 Resta Fast Food. All Rights Reserved.</Typography>
-        <Stack direction="row" spacing={2}>
-          <Typography sx={{ color: "text.secondary" }}>Privacy Policy</Typography>
-          <Typography sx={{ color: "text.secondary" }}>Terms of Service</Typography>
-        </Stack>
-      </Stack>
     </Box>
   );
 }

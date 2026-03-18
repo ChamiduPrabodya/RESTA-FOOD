@@ -192,6 +192,15 @@ export function AuthProvider({ children }) {
     localStorage.setItem(DELIVERY_DETAILS_STORAGE_KEY, JSON.stringify(deliveryDetailsByUser));
   }, [deliveryDetailsByUser]);
 
+  const formatAddress = ({ streetAddress1, streetAddress2, cityTown } = {}) => {
+    const parts = [
+      String(streetAddress1 || "").trim(),
+      String(streetAddress2 || "").trim(),
+      String(cityTown || "").trim(),
+    ].filter(Boolean);
+    return parts.join(", ");
+  };
+
   const login = (email, password) => {
     const normalizedEmail = email.trim().toLowerCase();
 
@@ -211,6 +220,9 @@ export function AuthProvider({ children }) {
         role: "user",
         fullName: "John Doe",
         phone: "+94 71 987 6543",
+        streetAddress1: "No. 25, Galle Road",
+        streetAddress2: "",
+        cityTown: "Colombo 03",
         address: "No. 25, Galle Road, Colombo 03",
       });
       return { success: true, role: "user" };
@@ -225,7 +237,10 @@ export function AuthProvider({ children }) {
         role: "user",
         fullName: registeredUser.fullName,
         phone: registeredUser.phone || "",
-        address: registeredUser.address || "",
+        streetAddress1: registeredUser.streetAddress1 || "",
+        streetAddress2: registeredUser.streetAddress2 || "",
+        cityTown: registeredUser.cityTown || "",
+        address: registeredUser.address || formatAddress(registeredUser) || "",
       });
       return { success: true, role: "user" };
     }
@@ -233,21 +248,28 @@ export function AuthProvider({ children }) {
     return { success: false, message: "Invalid credentials." };
   };
 
-  const signup = (fullName, email, password, phone, address) => {
-    const normalizedEmail = email.trim().toLowerCase();
+  const signup = ({ fullName, email, password, phone, streetAddress1, streetAddress2, cityTown } = {}) => {
+    const normalizedEmail = String(email || "").trim().toLowerCase();
     const normalizedPhone = String(phone || "").trim();
-    const normalizedAddress = String(address || "").trim();
+    const normalizedStreet1 = String(streetAddress1 || "").trim();
+    const normalizedStreet2 = String(streetAddress2 || "").trim();
+    const normalizedCityTown = String(cityTown || "").trim();
+    const normalizedAddress = formatAddress({
+      streetAddress1: normalizedStreet1,
+      streetAddress2: normalizedStreet2,
+      cityTown: normalizedCityTown,
+    });
 
-    if (!fullName.trim() || !normalizedEmail || !password.trim() || !normalizedPhone || !normalizedAddress) {
+    if (!String(fullName || "").trim() || !normalizedEmail || !String(password || "").trim() || !normalizedPhone || !normalizedStreet1 || !normalizedCityTown) {
       return { success: false, message: "Please fill all required fields." };
     }
-    if (fullName.trim().length < 2) {
+    if (String(fullName || "").trim().length < 2) {
       return { success: false, message: "Full name must be at least 2 characters." };
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
       return { success: false, message: "Please enter a valid email address." };
     }
-    if (password.length < 8) {
+    if (String(password || "").length < 8) {
       return { success: false, message: "Password must be at least 8 characters." };
     }
     if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/\d/.test(password)) {
@@ -256,8 +278,11 @@ export function AuthProvider({ children }) {
     if (!/^[0-9+\-\s]{9,15}$/.test(normalizedPhone)) {
       return { success: false, message: "Please enter a valid phone number." };
     }
-    if (normalizedAddress.length < 6) {
-      return { success: false, message: "Please enter a valid address." };
+    if (normalizedStreet1.length < 3) {
+      return { success: false, message: "Please enter a valid street address." };
+    }
+    if (normalizedCityTown.length < 2) {
+      return { success: false, message: "Please enter a valid town/city." };
     }
 
     if (normalizedEmail === ADMIN_EMAIL) {
@@ -270,10 +295,13 @@ export function AuthProvider({ children }) {
     }
 
     const nextUser = {
-      fullName: fullName.trim(),
+      fullName: String(fullName || "").trim(),
       email: normalizedEmail,
       password,
       phone: normalizedPhone,
+      streetAddress1: normalizedStreet1,
+      streetAddress2: normalizedStreet2,
+      cityTown: normalizedCityTown,
       address: normalizedAddress,
     };
     setUsers((current) => [...current, nextUser]);
@@ -288,6 +316,9 @@ export function AuthProvider({ children }) {
         email: GOOGLE_DEMO_EMAIL,
         password: "",
         phone: "+94 77 555 7788",
+        streetAddress1: "No. 12, Duplication Road",
+        streetAddress2: "",
+        cityTown: "Colombo 04",
         address: "No. 12, Duplication Road, Colombo 04",
       };
       setUsers((current) => [...current, googleUser]);
@@ -298,19 +329,29 @@ export function AuthProvider({ children }) {
       role: "user",
       fullName: "Google User",
       phone: "+94 77 555 7788",
+      streetAddress1: "No. 12, Duplication Road",
+      streetAddress2: "",
+      cityTown: "Colombo 04",
       address: "No. 12, Duplication Road, Colombo 04",
     });
     return { success: true, role: "user" };
   };
 
-  const updateUserProfile = ({ fullName, phone, address }) => {
+  const updateUserProfile = ({ fullName, phone, streetAddress1, streetAddress2, cityTown } = {}) => {
     if (!authUser || authUser.role !== "user") {
       return { success: false, message: "Only logged-in users can update profile." };
     }
 
     const normalizedFullName = String(fullName || "").trim();
     const normalizedPhone = String(phone || "").trim();
-    const normalizedAddress = String(address || "").trim();
+    const normalizedStreet1 = String(streetAddress1 || "").trim();
+    const normalizedStreet2 = String(streetAddress2 || "").trim();
+    const normalizedCityTown = String(cityTown || "").trim();
+    const normalizedAddress = formatAddress({
+      streetAddress1: normalizedStreet1,
+      streetAddress2: normalizedStreet2,
+      cityTown: normalizedCityTown,
+    });
 
     if (normalizedFullName.length < 2) {
       return { success: false, message: "Full name must be at least 2 characters." };
@@ -318,14 +359,25 @@ export function AuthProvider({ children }) {
     if (!/^[0-9+\-\s]{9,15}$/.test(normalizedPhone)) {
       return { success: false, message: "Please enter a valid phone number." };
     }
-    if (normalizedAddress.length < 6) {
-      return { success: false, message: "Please enter a valid address." };
+    if (normalizedStreet1.length < 3) {
+      return { success: false, message: "Please enter a valid street address." };
+    }
+    if (normalizedCityTown.length < 2) {
+      return { success: false, message: "Please enter a valid town/city." };
     }
 
     setUsers((current) =>
       current.map((user) =>
         user.email.toLowerCase() === authUser.email.toLowerCase()
-          ? { ...user, fullName: normalizedFullName, phone: normalizedPhone, address: normalizedAddress }
+          ? {
+              ...user,
+              fullName: normalizedFullName,
+              phone: normalizedPhone,
+              streetAddress1: normalizedStreet1,
+              streetAddress2: normalizedStreet2,
+              cityTown: normalizedCityTown,
+              address: normalizedAddress,
+            }
           : user
       )
     );
@@ -335,6 +387,9 @@ export function AuthProvider({ children }) {
             ...current,
             fullName: normalizedFullName,
             phone: normalizedPhone,
+            streetAddress1: normalizedStreet1,
+            streetAddress2: normalizedStreet2,
+            cityTown: normalizedCityTown,
             address: normalizedAddress,
           }
         : current
@@ -512,7 +567,15 @@ export function AuthProvider({ children }) {
         ? {
             name: String(authUser.fullName || storedUser?.fullName || "").trim(),
             phone: String(authUser.phone || storedUser?.phone || "").trim(),
-            location: String(authUser.address || storedUser?.address || "").trim(),
+            streetAddress1: String(authUser.streetAddress1 || storedUser?.streetAddress1 || "").trim(),
+            streetAddress2: String(authUser.streetAddress2 || storedUser?.streetAddress2 || "").trim(),
+            cityTown: String(authUser.cityTown || storedUser?.cityTown || "").trim(),
+            location:
+              formatAddress({
+                streetAddress1: authUser.streetAddress1 || storedUser?.streetAddress1,
+                streetAddress2: authUser.streetAddress2 || storedUser?.streetAddress2,
+                cityTown: authUser.cityTown || storedUser?.cityTown,
+              }) || String(authUser.address || storedUser?.address || "").trim(),
           }
         : null;
 
@@ -521,7 +584,8 @@ export function AuthProvider({ children }) {
         resolvedDeliveryDetails &&
         String(resolvedDeliveryDetails.name || "").trim() &&
         String(resolvedDeliveryDetails.phone || "").trim() &&
-        String(resolvedDeliveryDetails.location || "").trim();
+        (String(resolvedDeliveryDetails.streetAddress1 || "").trim() || String(resolvedDeliveryDetails.location || "").trim()) &&
+        (String(resolvedDeliveryDetails.cityTown || "").trim() || String(resolvedDeliveryDetails.location || "").trim());
       if (!hasAllDeliveryFields) {
         return { success: false, message: "Please complete your profile details before placing a delivery order." };
       }
@@ -533,6 +597,9 @@ export function AuthProvider({ children }) {
       purchases,
       promotions,
       loyaltyRules,
+      orderType,
+      deliveryAddress: resolvedDeliveryDetails?.location,
+      deliveryCityTown: resolvedDeliveryDetails?.cityTown,
     });
 
     const orderId = crypto.randomUUID();
@@ -585,7 +652,9 @@ export function AuthProvider({ children }) {
         createdAt: new Date().toISOString(),
         orderSubtotal: pricing.subtotal,
         orderTotalDiscount: pricing.totalDiscount,
-        orderTotal: pricing.total,
+        deliveryZone: pricing.deliveryZone,
+        deliveryFee: pricing.deliveryFee,
+        orderTotal: pricing.grandTotal ?? pricing.total,
         promotionId: pricing.promotion?.id || null,
         promotionTitle: pricing.promotion?.title || null,
         promotionDiscount: pricing.promotionDiscount,
@@ -603,6 +672,9 @@ export function AuthProvider({ children }) {
         [authUser.email]: {
           name: String(resolvedDeliveryDetails.name || "").trim(),
           phone: String(resolvedDeliveryDetails.phone || "").trim(),
+          streetAddress1: String(resolvedDeliveryDetails.streetAddress1 || "").trim(),
+          streetAddress2: String(resolvedDeliveryDetails.streetAddress2 || "").trim(),
+          cityTown: String(resolvedDeliveryDetails.cityTown || "").trim(),
           location: String(resolvedDeliveryDetails.location || "").trim(),
         },
       }));
