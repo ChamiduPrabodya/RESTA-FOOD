@@ -27,6 +27,13 @@ function SignUpPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+
+  const [phoneError, setPhoneError] = useState("");
+  const [streetAddress1, setStreetAddress1] = useState("");
+  const [streetAddress2, setStreetAddress2] = useState("");
+  const [cityTown, setCityTown] = useState("");
+
+
   const [streetAddress1, setStreetAddress1] = useState("");
   const [streetAddress2, setStreetAddress2] = useState("");
   const [cityTown, setCityTown] = useState("");
@@ -36,10 +43,37 @@ function SignUpPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
 
+  const validateSriLankaMobile = (value) => {
+    const digitsOnly = String(value || "").replace(/\D/g, "");
+    if (!digitsOnly) return "Mobile number is required.";
+    if (digitsOnly.length > 11) return "Mobile number is too long. Use 10 digits (0771234567) or +94771234567.";
+
+    let normalizedDigits = digitsOnly;
+    if (normalizedDigits.startsWith("0") && normalizedDigits.length === 10) {
+      normalizedDigits = `94${normalizedDigits.slice(1)}`;
+    } else if (normalizedDigits.startsWith("7") && normalizedDigits.length === 9) {
+      normalizedDigits = `94${normalizedDigits}`;
+    }
+
+    if (digitsOnly.length < 9) return "Mobile number is too short. Use 10 digits (0771234567) or +94771234567.";
+
+    if (!/^94[7]\d{8}$/.test(normalizedDigits)) {
+      return "Use a valid Sri Lankan mobile number (e.g. 0771234567 or +94771234567).";
+    }
+
+    return "";
+  };
+
   const handleSubmit = (event) => {
     event.preventDefault();
 
     setError("");
+    const nextPhoneError = validateSriLankaMobile(phone);
+    setPhoneError(nextPhoneError);
+    if (nextPhoneError) {
+      setError(nextPhoneError);
+      return;
+    }
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
       return;
@@ -194,10 +228,22 @@ function SignUpPage() {
             <TextField
               fullWidth
               value={phone}
-              onChange={(event) => setPhone(event.target.value)}
-              placeholder="Enter your phone number"
+              onChange={(event) => {
+                const nextValue = event.target.value;
+                const nextDigitsLength = String(nextValue || "").replace(/\D/g, "").length;
+                if (nextDigitsLength > 11) {
+                  setPhoneError(validateSriLankaMobile(nextValue));
+                  return;
+                }
+                setPhone(nextValue);
+                if (phoneError) setPhoneError(validateSriLankaMobile(nextValue));
+              }}
+              onBlur={() => setPhoneError(validateSriLankaMobile(phone))}
+              placeholder="e.g. 0771234567 or +94771234567"
               type="tel"
               name="signup-phone"
+              error={Boolean(phoneError)}
+              helperText={phoneError || " "}
               sx={{
                 mb: 2.6,
                 "& .MuiOutlinedInput-root": {
