@@ -24,6 +24,7 @@ import BackToTopButton from "../../../common/components/ui/BackToTopButton";
 import SiteFooter from "../../../common/components/ui/SiteFooter";
 import { useAuth } from "../../auth/context/AuthContext";
 import AuthHeaderActions from "../../../common/components/ui/AuthHeaderActions";
+import { buildPurchaseCounts, getMenuItemPurchasedCount } from "../../../common/utils/popularity";
 
 const sectionPaddingX = { xs: 2.5, sm: 5, md: 8, lg: 12 };
 const sectionReveal = {
@@ -113,19 +114,28 @@ function MenuPage() {
   const [notice, setNotice] = useState({ open: false, message: "", severity: "success" });
   const reduceMotion = useReducedMotion();
   const navigate = useNavigate();
-  const { authUser, menuItems, addToCart } = useAuth();
+  const { authUser, menuItems, purchases, addToCart } = useAuth();
   const categories = useMemo(
     () => ["All", ...new Set(menuItems.map((item) => item.category))],
     [menuItems]
   );
 
+  const purchaseCounts = useMemo(() => buildPurchaseCounts(purchases), [purchases]);
+
   const filteredItems = useMemo(() => {
-    return menuItems.filter((item) => {
+    const filtered = menuItems.filter((item) => {
       const categoryMatch = selectedCategory === "All" || item.category === selectedCategory;
       const searchMatch = item.name.toLowerCase().includes(search.toLowerCase());
       return categoryMatch && searchMatch;
     });
-  }, [search, selectedCategory]);
+
+    return [...filtered].sort((a, b) => {
+      const aSold = getMenuItemPurchasedCount(a, purchaseCounts);
+      const bSold = getMenuItemPurchasedCount(b, purchaseCounts);
+      if (bSold !== aSold) return bSold - aSold;
+      return String(a.name || "").localeCompare(String(b.name || ""));
+    });
+  }, [menuItems, purchaseCounts, search, selectedCategory]);
 
   const handleBuy = (item, size, price) => {
     if (!authUser) {

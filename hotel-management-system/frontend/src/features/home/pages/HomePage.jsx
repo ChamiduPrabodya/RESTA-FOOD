@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   Box,
@@ -23,6 +23,7 @@ import SiteFooter from "../../../common/components/ui/SiteFooter";
 import AuthHeaderActions from "../../../common/components/ui/AuthHeaderActions";
 import ReviewSection from "../components/ReviewSection";
 import { useAuth } from "../../auth/context/AuthContext";
+import { getMostBoughtMenuItems } from "../../../common/utils/popularity";
 
 // NOTE: Image files should be placed in: frontend/public/images/home/
 const heroImage = "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&q=80&w=1920";
@@ -70,7 +71,12 @@ const popularItems = [
 ];
 
 function MenuCard({ item, index }) {
-  const [selectedSize, setSelectedSize] = useState(item.sizes[0]);
+  const sizeOptions = Array.isArray(item?.sizes) && item.sizes.length > 0 ? item.sizes : Object.keys(item?.portions || {});
+  const [selectedSize, setSelectedSize] = useState(sizeOptions[0] || "Regular");
+  const displayPrice =
+    item && item.portions && Object.prototype.hasOwnProperty.call(item.portions, selectedSize)
+      ? item.portions[selectedSize]
+      : item?.price;
 
   return (
     <MotionBox
@@ -136,30 +142,32 @@ function MenuCard({ item, index }) {
             {item.description}
           </Typography>
 
-          <Stack direction="row" spacing={0.8} sx={{ mb: 1.4 }}>
-            {item.sizes.map((size) => (
-              <Button
-                key={size}
-                onClick={() => setSelectedSize(size)}
-                variant={selectedSize === size ? "contained" : "outlined"}
-                color="primary"
-                sx={{
-                  minWidth: 72,
-                  py: 0.35,
-                  borderRadius: 999,
-                  borderColor: "rgba(212,178,95,0.35)",
-                  color: selectedSize === size ? "#000" : "#d7dbe3",
-                  bgcolor: selectedSize === size ? "primary.main" : "transparent",
-                  "&:hover": {
-                    bgcolor: selectedSize === size ? "primary.main" : "rgba(212,178,95,0.12)",
-                    borderColor: "primary.main",
-                  },
-                }}
-              >
-                {size}
-              </Button>
-            ))}
-          </Stack>
+          {sizeOptions.length > 0 && (
+            <Stack direction="row" spacing={0.8} sx={{ mb: 1.4 }}>
+              {sizeOptions.map((size) => (
+                <Button
+                  key={size}
+                  onClick={() => setSelectedSize(size)}
+                  variant={selectedSize === size ? "contained" : "outlined"}
+                  color="primary"
+                  sx={{
+                    minWidth: 72,
+                    py: 0.35,
+                    borderRadius: 999,
+                    borderColor: "rgba(212,178,95,0.35)",
+                    color: selectedSize === size ? "#000" : "#d7dbe3",
+                    bgcolor: selectedSize === size ? "primary.main" : "transparent",
+                    "&:hover": {
+                      bgcolor: selectedSize === size ? "primary.main" : "rgba(212,178,95,0.12)",
+                      borderColor: "primary.main",
+                    },
+                  }}
+                >
+                  {size}
+                </Button>
+              ))}
+            </Stack>
+          )}
 
           <Stack direction="row" justifyContent="space-between" alignItems="flex-end">
             <Box>
@@ -167,7 +175,7 @@ function MenuCard({ item, index }) {
                 PRICE
               </Typography>
               <Typography variant="h3" sx={{ fontSize: { xs: "26px", md: "28px" } }}>
-                {item.price}
+                {displayPrice}
               </Typography>
             </Box>
             <Button
@@ -195,7 +203,7 @@ function MenuCard({ item, index }) {
 
 function HomePage() {
   const reduceMotion = useReducedMotion();
-  const { promotions } = useAuth();
+  const { promotions, menuItems, purchases } = useAuth();
   const activePromotion =
     promotions.find((item) => item.active && item.displayInHomeHeader) ||
     promotions.find((item) => item.active);
@@ -212,6 +220,10 @@ function HomePage() {
     : "Only this Saturday and Sunday. Grab yours now!";
   const promoTitleLines = promoTitle.split("\n");
   const heroBackgroundImage = activePromotion?.imageUrl || heroImage;
+  const customerFavorites = useMemo(() => {
+    const favorites = getMostBoughtMenuItems({ menuItems, purchases, limit: 3 });
+    return favorites.length > 0 ? favorites : popularItems;
+  }, [menuItems, purchases]);
 
   return (
     <Box sx={{ bgcolor: "background.default", color: "text.primary" }}>
@@ -368,7 +380,7 @@ function HomePage() {
             gap: 2,
           }}
         >
-          {popularItems.map((item, index) => (
+          {customerFavorites.map((item, index) => (
             <Box
               key={item.name}
               component={motion.div}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Alert,
@@ -17,29 +17,33 @@ import ChatBubbleOutlineRoundedIcon from "@mui/icons-material/ChatBubbleOutlineR
 import SendRoundedIcon from "@mui/icons-material/SendRounded";
 import { useAuth } from "../../auth/context/AuthContext";
 
-const mockReviews = [
-  {
-    name: "Nimal Perera",
-    rating: 5,
-    message: "Great food and fast service. The kottu was fresh and full of flavor.",
-  },
-  {
-    name: "Ayesha Fernando",
-    rating: 4,
-    message: "Loved the VIP room setup. Staff was friendly and very attentive.",
-  },
-  {
-    name: "Kasun Silva",
-    rating: 5,
-    message: "Clean place, good portions, and quick delivery. Highly recommended.",
-  },
-];
+const getInitialsFromName = (value) => {
+  const parts = String(value || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2);
+  if (parts.length === 0) return "";
+  return parts.map((part) => String(part[0] || "").toUpperCase()).join("");
+};
 
 function ReviewSection({ sectionPaddingX, sectionReveal }) {
   const [feedbackRating, setFeedbackRating] = useState(0);
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [notice, setNotice] = useState({ open: false, message: "", severity: "success" });
-  const { addFeedback } = useAuth();
+  const { addFeedback, feedbacks } = useAuth();
+
+  const reviewsToShow = useMemo(() => {
+    const source = Array.isArray(feedbacks) ? feedbacks : [];
+    return [...source]
+      .filter((review) => String(review?.message || "").trim())
+      .sort((a, b) => {
+        const aTime = new Date(a?.createdAt || 0).getTime();
+        const bTime = new Date(b?.createdAt || 0).getTime();
+        return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
+      })
+      .slice(0, 3);
+  }, [feedbacks]);
 
   const handleSubmitFeedback = () => {
     const result = addFeedback({
@@ -89,19 +93,52 @@ function ReviewSection({ sectionPaddingX, sectionReveal }) {
             What Our Customers <Box component="span" sx={{ color: "primary.main" }}>Say About Us</Box>
           </Typography>
           <Stack spacing={1.4}>
-            {mockReviews.map((review) => (
-              <Card key={review.name} sx={{ bgcolor: "#140d0a", border: "1px solid rgba(212,178,95,0.15)" }}>
+            {reviewsToShow.length === 0 ? (
+              <Card sx={{ bgcolor: "#140d0a", border: "1px solid rgba(212,178,95,0.15)" }}>
                 <CardContent sx={{ p: 2.2 }}>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-                    <Typography sx={{ fontWeight: 700 }}>{review.name}</Typography>
-                    <Rating value={review.rating} readOnly size="small" sx={{ color: "primary.main" }} />
-                  </Stack>
-                  <Typography sx={{ color: "text.secondary", fontStyle: "italic" }}>
-                    "{review.message}"
+                  <Typography sx={{ fontWeight: 700, mb: 0.6 }}>No testimonials yet</Typography>
+                  <Typography sx={{ color: "text.secondary" }}>
+                    Be the first to share your experience using the feedback form.
                   </Typography>
                 </CardContent>
               </Card>
-            ))}
+            ) : (
+              reviewsToShow.map((review) => (
+                <Card key={review.id} sx={{ bgcolor: "#140d0a", border: "1px solid rgba(212,178,95,0.15)" }}>
+                  <CardContent sx={{ p: 2.2 }}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+                      <Stack direction="row" spacing={1.1} alignItems="center">
+                        <Box
+                          sx={{
+                            width: 34,
+                            height: 34,
+                            borderRadius: "999px",
+                            display: "grid",
+                            placeItems: "center",
+                            bgcolor: "rgba(212,178,95,0.14)",
+                            border: "1px solid rgba(212,178,95,0.22)",
+                            color: "primary.main",
+                            fontWeight: 800,
+                            fontSize: 12,
+                            letterSpacing: 0.7,
+                            flex: "0 0 auto",
+                          }}
+                        >
+                          {getInitialsFromName(review.userName || review.userEmail)}
+                        </Box>
+                        <Typography sx={{ fontWeight: 700 }}>
+                          {String(review.userName || review.userEmail || "Customer")}
+                        </Typography>
+                      </Stack>
+                      <Rating value={Number(review.rating) || 0} readOnly size="small" sx={{ color: "primary.main" }} />
+                    </Stack>
+                    <Typography sx={{ color: "text.secondary", fontStyle: "italic" }}>
+                      "{String(review.message || "").trim()}"
+                    </Typography>
+                  </CardContent>
+                </Card>
+              ))
+            )}
           </Stack>
         </Box>
 
