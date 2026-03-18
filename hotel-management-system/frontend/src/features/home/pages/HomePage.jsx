@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   Box,
@@ -6,10 +6,7 @@ import {
   Card,
   CardContent,
   Chip,
-  Grid,
-  Rating,
   Stack,
-  TextField,
   Typography,
 } from "@mui/material";
 import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
@@ -20,13 +17,13 @@ import ArrowOutwardRoundedIcon from "@mui/icons-material/ArrowOutwardRounded";
 import WorkspacePremiumRoundedIcon from "@mui/icons-material/WorkspacePremiumRounded";
 import StarRoundedIcon from "@mui/icons-material/StarRounded";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
-import FormatQuoteRoundedIcon from "@mui/icons-material/FormatQuoteRounded";
-import ChatBubbleOutlineRoundedIcon from "@mui/icons-material/ChatBubbleOutlineRounded";
-import SendRoundedIcon from "@mui/icons-material/SendRounded";
 import { Link } from "react-router-dom";
 import BackToTopButton from "../../../common/components/ui/BackToTopButton";
 import SiteFooter from "../../../common/components/ui/SiteFooter";
 import AuthHeaderActions from "../../../common/components/ui/AuthHeaderActions";
+import ReviewSection from "../components/ReviewSection";
+import { useAuth } from "../../auth/context/AuthContext";
+import { getMostBoughtMenuItems } from "../../../common/utils/popularity";
 
 // NOTE: Image files should be placed in: frontend/public/images/home/
 const heroImage = "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&q=80&w=1920";
@@ -74,7 +71,12 @@ const popularItems = [
 ];
 
 function MenuCard({ item, index }) {
-  const [selectedSize, setSelectedSize] = useState(item.sizes[0]);
+  const sizeOptions = Array.isArray(item?.sizes) && item.sizes.length > 0 ? item.sizes : Object.keys(item?.portions || {});
+  const [selectedSize, setSelectedSize] = useState(sizeOptions[0] || "Regular");
+  const displayPrice =
+    item && item.portions && Object.prototype.hasOwnProperty.call(item.portions, selectedSize)
+      ? item.portions[selectedSize]
+      : item?.price;
 
   return (
     <MotionBox
@@ -96,7 +98,14 @@ function MenuCard({ item, index }) {
           },
         }}
       >
-        <Box sx={{ height: 170, overflow: "hidden", position: "relative" }}>
+        <Box
+          sx={{
+            aspectRatio: "16 / 9",
+            overflow: "hidden",
+            position: "relative",
+            bgcolor: "rgba(0,0,0,0.25)",
+          }}
+        >
           <Box
             component={motion.div}
             whileHover={{ scale: 1.06 }}
@@ -107,6 +116,7 @@ function MenuCard({ item, index }) {
               backgroundImage: `url(${item.image})`,
               backgroundSize: "cover",
               backgroundPosition: "center",
+              backgroundRepeat: "no-repeat",
             }}
           />
           <Chip
@@ -140,30 +150,32 @@ function MenuCard({ item, index }) {
             {item.description}
           </Typography>
 
-          <Stack direction="row" spacing={0.8} sx={{ mb: 1.4 }}>
-            {item.sizes.map((size) => (
-              <Button
-                key={size}
-                onClick={() => setSelectedSize(size)}
-                variant={selectedSize === size ? "contained" : "outlined"}
-                color="primary"
-                sx={{
-                  minWidth: 72,
-                  py: 0.35,
-                  borderRadius: 999,
-                  borderColor: "rgba(212,178,95,0.35)",
-                  color: selectedSize === size ? "#000" : "#d7dbe3",
-                  bgcolor: selectedSize === size ? "primary.main" : "transparent",
-                  "&:hover": {
-                    bgcolor: selectedSize === size ? "primary.main" : "rgba(212,178,95,0.12)",
-                    borderColor: "primary.main",
-                  },
-                }}
-              >
-                {size}
-              </Button>
-            ))}
-          </Stack>
+          {sizeOptions.length > 0 && (
+            <Stack direction="row" spacing={0.8} sx={{ mb: 1.4 }}>
+              {sizeOptions.map((size) => (
+                <Button
+                  key={size}
+                  onClick={() => setSelectedSize(size)}
+                  variant={selectedSize === size ? "contained" : "outlined"}
+                  color="primary"
+                  sx={{
+                    minWidth: 72,
+                    py: 0.35,
+                    borderRadius: 999,
+                    borderColor: "rgba(212,178,95,0.35)",
+                    color: selectedSize === size ? "#000" : "#d7dbe3",
+                    bgcolor: selectedSize === size ? "primary.main" : "transparent",
+                    "&:hover": {
+                      bgcolor: selectedSize === size ? "primary.main" : "rgba(212,178,95,0.12)",
+                      borderColor: "primary.main",
+                    },
+                  }}
+                >
+                  {size}
+                </Button>
+              ))}
+            </Stack>
+          )}
 
           <Stack direction="row" justifyContent="space-between" alignItems="flex-end">
             <Box>
@@ -171,7 +183,7 @@ function MenuCard({ item, index }) {
                 PRICE
               </Typography>
               <Typography variant="h3" sx={{ fontSize: { xs: "26px", md: "28px" } }}>
-                {item.price}
+                {displayPrice}
               </Typography>
             </Box>
             <Button
@@ -198,8 +210,16 @@ function MenuCard({ item, index }) {
 }
 
 function HomePage() {
-  const [feedbackRating, setFeedbackRating] = useState(0);
   const reduceMotion = useReducedMotion();
+  const { promotions, menuItems, purchases } = useAuth();
+  const heroBackgroundImage =
+    promotions.find((item) => item.active && item.displayInHomeHeader)?.imageUrl ||
+    promotions.find((item) => item.active)?.imageUrl ||
+    heroImage;
+  const customerFavorites = useMemo(() => {
+    const favorites = getMostBoughtMenuItems({ menuItems, purchases, limit: 3 });
+    return favorites.length > 0 ? favorites : popularItems;
+  }, [menuItems, purchases]);
 
   return (
     <Box sx={{ bgcolor: "background.default", color: "text.primary" }}>
@@ -211,7 +231,7 @@ function HomePage() {
         sx={{
           minHeight: "92vh",
           px: sectionPaddingX,
-          backgroundImage: `linear-gradient(90deg, rgba(6,8,12,0.95) 15%, rgba(7,9,13,0.65) 55%, rgba(7,9,13,0.25) 100%), url(${heroImage})`,
+          backgroundImage: `linear-gradient(90deg, rgba(6,8,12,0.95) 15%, rgba(7,9,13,0.65) 55%, rgba(7,9,13,0.25) 100%), url(${heroBackgroundImage})`,
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}
@@ -239,37 +259,23 @@ function HomePage() {
           <AuthHeaderActions />
         </Stack>
 
-        <Stack spacing={3} sx={{ maxWidth: 760, pt: { xs: 8, md: 12 }, pb: 8 }}>
-          <Box
-            component={motion.div}
-            initial={{ opacity: 0, x: -12 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.4, delay: 0.1 }}
-          >
-            <Chip
-              icon={<LocalOfferRoundedIcon />}
-              label="Limited Time Offer"
-              sx={{ alignSelf: "flex-start", bgcolor: "rgba(212,178,95,0.12)", color: "primary.main" }}
-            />
-          </Box>
-          <MotionBox initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
+        <Stack
+          component={motion.div}
+          spacing={2.2}
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, delay: 0.2 }}
+          sx={{ maxWidth: 760, pt: { xs: 8, md: 12 }, pb: 8 }}
+        >
+          <Box>
             <Typography variant="h1" sx={{ lineHeight: 1.08, fontSize: { xs: "44px", md: "64px" } }}>
-              Weekend Special:
-              <br />
-              20% Off All Kottu!
+              Resta Fast Food
             </Typography>
-          </MotionBox>
-          <Typography variant="body1" sx={{ color: "text.secondary" }}>
-            Only this Saturday and Sunday. Grab yours now!
-          </Typography>
-          <Stack
-            component={motion.div}
-            direction={{ xs: "column", sm: "row" }}
-            spacing={2}
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.45, delay: 0.2 }}
-          >
+            <Typography sx={{ mt: 1.1, color: "text.secondary", fontSize: { xs: "16px", md: "20px" } }}>
+              Serving Happiness in Every Bite
+            </Typography>
+          </Box>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                 <Button
                   component={Link}
                   to="/menu"
@@ -349,11 +355,11 @@ function HomePage() {
           }}
           sx={{
             display: "grid",
-            gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+            gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))", md: "repeat(3, minmax(0, 1fr))" },
             gap: 2,
           }}
         >
-          {popularItems.map((item, index) => (
+          {customerFavorites.map((item, index) => (
             <Box
               key={item.name}
               component={motion.div}
@@ -478,78 +484,7 @@ function HomePage() {
   </Box>
 </Box>
 
-      <Box
-        component={motion.div}
-        variants={sectionReveal}
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.1 }}
-        sx={{ px: sectionPaddingX, py: { xs: 8, md: 10 } }}
-      >
-        <Grid container spacing={{ xs: 3, md: 6 }} alignItems="stretch">
-          <Grid item xs={12} md={5}>
-            <Stack direction="row" alignItems="center" spacing={0.8} sx={{ mb: 2 }}>
-              <FormatQuoteRoundedIcon sx={{ color: "primary.main", fontSize: 18 }} />
-              <Typography sx={{ color: "primary.main", textTransform: "uppercase", fontWeight: 700 }}>
-                Testimonials
-              </Typography>
-            </Stack>
-            <Typography variant="h2" sx={{ fontSize: { xs: "38px", md: "56px" }, mb: 4, maxWidth: 620 }}>
-              What Our Customers <Box component="span" sx={{ color: "primary.main" }}>Say About Us</Box>
-            </Typography>
-            <Card sx={{ bgcolor: "#140d0a", border: "1px solid rgba(212,178,95,0.15)", minHeight: 180 }}>
-              <CardContent sx={{ p: 5, minHeight: 180, display: "grid", placeItems: "center" }}>
-                <Typography sx={{ color: "text.secondary", textAlign: "center", fontStyle: "italic" }}>
-                  Be the first to share your experience with us!
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          <Grid item xs={12} md={7}>
-            <Card sx={{ bgcolor: "#1a110d", border: "1px solid rgba(212,178,95,0.18)", borderRadius: 5, height: "100%",width: "150%" }}>
-              <CardContent sx={{ p: { xs: 3, md: 4.5 } }}>
-                <Stack direction="row" spacing={1.2} alignItems="center" sx={{ mb: 3 }}>
-                  <ChatBubbleOutlineRoundedIcon sx={{ color: "text.primary" }} />
-                  <Typography variant="h3">Share Your Thoughts</Typography>
-                </Stack>
-
-                <Typography sx={{ color: "primary.main", fontWeight: 700, mb: 1, textTransform: "uppercase", letterSpacing: 0.8 }}>
-                  Your Rating
-                </Typography>
-                <Rating
-                  name="user-feedback-rating"
-                  value={feedbackRating}
-                  onChange={(_, newValue) => setFeedbackRating(newValue ?? 0)}
-                  size="large"
-                  sx={{ color: "primary.main", mb: 3 }}
-                />
-
-                <Typography sx={{ color: "primary.main", fontWeight: 700, mb: 1, textTransform: "uppercase", letterSpacing: 0.8 }}>
-                  Your Message
-                </Typography>
-                <TextField
-                  fullWidth
-                  multiline
-                  minRows={4}
-                  placeholder="Tell us about your experience..."
-                  sx={{
-                    mb: 3,
-                    "& .MuiOutlinedInput-root": {
-                      bgcolor: "#07090d",
-                      borderRadius: 3,
-                    },
-                  }}
-                />
-
-                <Button variant="contained" color="primary" startIcon={<SendRoundedIcon />} fullWidth sx={{ py: 1.5 }}>
-                  Submit Feedback
-                </Button>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-      </Box>
+      <ReviewSection sectionPaddingX={sectionPaddingX} sectionReveal={sectionReveal} />
       
       <SiteFooter />
       <BackToTopButton />

@@ -1,13 +1,20 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Box,
   Card,
   CardContent,
   Divider,
-  MenuItem,
-  Select,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  IconButton,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
   Typography,
 } from "@mui/material";
 import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
@@ -23,25 +30,67 @@ import LocalOfferOutlinedIcon from "@mui/icons-material/LocalOfferOutlined";
 import TrendingUpRoundedIcon from "@mui/icons-material/TrendingUpRounded";
 import AccessTimeRoundedIcon from "@mui/icons-material/AccessTimeRounded";
 import RestaurantRoundedIcon from "@mui/icons-material/RestaurantRounded";
+import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import AuthHeaderActions from "../../../common/components/ui/AuthHeaderActions";
 import { useAuth } from "../../auth/context/AuthContext";
+import AdminBookingsPanel from "../components/AdminBookingsPanel";
+import AdminLiveOrdersPanel from "../components/AdminLiveOrdersPanel";
+import AdminCustomersPanel from "../components/AdminCustomersPanel";
+import AdminQrSystemPanel from "../components/AdminQrSystemPanel";
+import AdminFeedbackPanel from "../components/AdminFeedbackPanel";
+
+const formatVipBookingTime = (booking) => {
+  const rawSlots = Array.isArray(booking?.timeSlots) && booking.timeSlots.length > 0
+    ? booking.timeSlots
+    : String(booking?.time || "").includes("|")
+      ? String(booking.time || "").split("|")
+      : [booking?.time];
+  const slots = rawSlots.map((value) => String(value || "").trim()).filter(Boolean);
+  if (slots.length === 0) return String(booking?.time || "").trim();
+
+  const first = slots[0];
+  const last = slots[slots.length - 1];
+  if (!first.includes("-")) return first;
+
+  const start = first.split("-")[0].trim();
+  const end = last.includes("-") ? last.split("-")[1].trim() : last;
+  return slots.length > 1 ? `${start} - ${end} (${slots.length} slots)` : `${start} - ${end}`;
+};
+import AdminPromotionsPanel from "../components/AdminPromotionsPanel";
+import AdminMenuManagementPanel from "../components/AdminMenuManagementPanel";
 
 const sectionPaddingX = { xs: 2.5, sm: 5, md: 8, lg: 12 };
-const ORDER_STATUSES = [
-  "Pending",
-  "Preparing",
-  "Prepared (Ready)",
-  "Out for Delivery",
-  "Delivered",
-  "Cancelled",
-];
 
 const getPriceNumber = (price) => Number(String(price).replace(/[^\d.]/g, "")) || 0;
-const isActiveOrder = (status) => !["Delivered", "Cancelled"].includes(status);
+const isActiveOrder = (status) => !["Prepared (Ready)", "Delivered", "Cancelled"].includes(status);
 
-function StatCard({ title, value, icon, iconColor = "primary.main" }) {
+function StatCard({ title, value, icon, iconColor = "primary.main", onClick }) {
   return (
-    <Card sx={{ bgcolor: "#17100c", border: "1px solid rgba(212,178,95,0.14)", borderRadius: 4 }}>
+    <Card
+      onClick={onClick}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={(event) => {
+        if (!onClick) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+      sx={{
+        bgcolor: "#17100c",
+        border: "1px solid rgba(212,178,95,0.14)",
+        borderRadius: 4,
+        cursor: onClick ? "pointer" : "default",
+        outline: "none",
+        transition: "transform 160ms ease, border-color 160ms ease",
+        "&:hover": onClick
+          ? { transform: "translateY(-2px)", borderColor: "rgba(212,178,95,0.30)" }
+          : undefined,
+        "&:focus-visible": onClick
+          ? { boxShadow: "0 0 0 3px rgba(212,178,95,0.22)" }
+          : undefined,
+      }}
+    >
       <CardContent sx={{ p: 2.8 }}>
         <Box
           sx={{
@@ -60,7 +109,7 @@ function StatCard({ title, value, icon, iconColor = "primary.main" }) {
           <Typography sx={{ color: "text.secondary", textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 700 }}>
             {title}
           </Typography>
-          <Typography variant="h2" sx={{ fontSize: { xs: "40px", md: "44px" } }}>
+          <Typography variant="h2" sx={{ fontSize: { xs: "30px", md: "34px" } }}>
             {value}
           </Typography>
         </Stack>
@@ -114,8 +163,30 @@ function SideItem({ icon, label, active = false, badge, onClick }) {
 }
 
 function AdminDashboardPage() {
-  const { purchases, vipBookings, updatePurchaseStatus } = useAuth();
+  const {
+    purchases,
+    vipBookings,
+    users,
+    feedbacks,
+    promotions,
+    menuItems,
+    menuCategories,
+    updatePurchaseStatus,
+    updateOrderStatus,
+    updateVipBookingStatus,
+    addPromotion,
+    togglePromotionStatus,
+    updatePromotion,
+    deletePromotion,
+    addMenuItem,
+    addMenuCategory,
+    updateMenuCategory,
+    deleteMenuCategory,
+    updateMenuItem,
+    deleteMenuItem,
+  } = useAuth();
   const [activeSection, setActiveSection] = useState("dashboard");
+  const [dailySalesOpen, setDailySalesOpen] = useState(false);
 
   const normalizedPurchases = purchases.map((purchase) => ({
     ...purchase,
@@ -126,12 +197,27 @@ function AdminDashboardPage() {
 
   const totalSales = normalizedPurchases.reduce((sum, purchase) => sum + getPriceNumber(purchase.price), 0);
   const activeOrders = normalizedPurchases.filter((purchase) => isActiveOrder(purchase.status));
+  const pendingBookingsCount = vipBookings.filter((item) => String(item.status || "Pending") === "Pending").length;
+  const feedbackCount = feedbacks.length;
+
+  const dailySalesRows = useMemo(() => {
+    const byDate = new Map();
+    purchases.forEach((purchase) => {
+      const createdAt = String(purchase.createdAt || "").trim();
+      const dateKey = createdAt ? createdAt.slice(0, 10) : "Unknown";
+      const current = byDate.get(dateKey) || { date: dateKey, orders: 0, sales: 0 };
+      current.orders += 1;
+      current.sales += getPriceNumber(purchase.price);
+      byDate.set(dateKey, current);
+    });
+    return [...byDate.values()].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  }, [purchases]);
 
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "background.default", color: "text.primary" }}>
       <Box sx={{ px: sectionPaddingX, borderBottom: "1px solid rgba(212,178,95,0.2)", bgcolor: "rgba(7,9,13,0.92)" }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ py: 2.5 }}>
-          <Typography sx={{ fontWeight: 800, fontSize: 26, color: "primary.main" }}>RESTA FAST FOOD</Typography>
+          <Typography sx={{ fontWeight: 800, fontSize: 23, color: "primary.main" }}>RESTA FAST FOOD</Typography>
           <Stack direction="row" spacing={3} sx={{ display: { xs: "none", md: "flex" } }}>
             <Stack direction="row" spacing={0.6} alignItems="center">
               <HomeRoundedIcon sx={{ fontSize: 18, color: "text.secondary" }} />
@@ -157,13 +243,25 @@ function AdminDashboardPage() {
       </Box>
 
       <Box sx={{ px: sectionPaddingX, py: { xs: 3.5, md: 4.5 } }}>
-        <Typography variant="h1" sx={{ fontSize: { xs: "44px", md: "58px" }, mb: 2.4 }}>
+        <Typography variant="h1" sx={{ fontSize: { xs: "34px", md: "44px" }, mb: 2.1 }}>
           Admin Dashboard
         </Typography>
 
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "300px 1fr" }, gap: 2.4 }}>
-          <Card sx={{ bgcolor: "#0a0d13", border: "1px solid rgba(212,178,95,0.15)", borderRadius: 4, p: 1.4, height: "fit-content" }}>
-            <Stack spacing={0.6}>
+          <Card
+            sx={{
+              bgcolor: "#0a0d13",
+              border: "1px solid rgba(212,178,95,0.15)",
+              borderRadius: 4,
+              p: 1.4,
+              height: "fit-content",
+              minHeight: { lg: "calc(100vh - 190px)" },
+              position: { lg: "sticky" },
+              top: { lg: 16 },
+              alignSelf: "start",
+            }}
+          >
+            <Stack spacing={0.6} sx={{ height: "100%" }}>
               <SideItem
                 icon={<GridViewRoundedIcon fontSize="small" />}
                 label="Dashboard"
@@ -177,18 +275,59 @@ function AdminDashboardPage() {
                 badge={activeOrders.length}
                 onClick={() => setActiveSection("liveOrders")}
               />
-              <SideItem icon={<CalendarMonthOutlinedIcon fontSize="small" />} label="Bookings" />
-              <SideItem icon={<GroupOutlinedIcon fontSize="small" />} label="Customers" />
-              <SideItem icon={<QrCode2OutlinedIcon fontSize="small" />} label="QR System" />
-              <SideItem icon={<ChatBubbleOutlineRoundedIcon fontSize="small" />} label="Feedback" />
-              <SideItem icon={<LocalOfferOutlinedIcon fontSize="small" />} label="Promotions" />
+              <SideItem
+                icon={<RestaurantMenuRoundedIcon fontSize="small" />}
+                label="Menu Manage"
+                active={activeSection === "menuManagement"}
+                badge={menuItems.filter((item) => item.outOfStock).length}
+                onClick={() => setActiveSection("menuManagement")}
+              />
+              <SideItem
+                icon={<CalendarMonthOutlinedIcon fontSize="small" />}
+                label="Bookings"
+                active={activeSection === "bookings"}
+                badge={pendingBookingsCount}
+                onClick={() => setActiveSection("bookings")}
+              />
+              <SideItem
+                icon={<GroupOutlinedIcon fontSize="small" />}
+                label="Customers"
+                active={activeSection === "customers"}
+                onClick={() => setActiveSection("customers")}
+              />
+              <SideItem
+                icon={<QrCode2OutlinedIcon fontSize="small" />}
+                label="QR System"
+                active={activeSection === "qrSystem"}
+                onClick={() => setActiveSection("qrSystem")}
+              />
+              <SideItem
+                icon={<ChatBubbleOutlineRoundedIcon fontSize="small" />}
+                label="Feedback"
+                active={activeSection === "feedback"}
+                badge={feedbackCount}
+                onClick={() => setActiveSection("feedback")}
+              />
+              <SideItem
+                icon={<LocalOfferOutlinedIcon fontSize="small" />}
+                label="Promotions"
+                active={activeSection === "promotions"}
+                badge={promotions.filter((item) => item.active).length}
+                onClick={() => setActiveSection("promotions")}
+              />
             </Stack>
           </Card>
 
           {activeSection === "dashboard" && (
             <Box sx={{ display: "grid", gap: 2.2 }}>
               <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))", xl: "repeat(4, minmax(0, 1fr))" }, gap: 2 }}>
-                <StatCard title="Total Sales (SLR)" value={totalSales} icon={<TrendingUpRoundedIcon />} iconColor="#00d084" />
+                <StatCard
+                  title="Total Sales (SLR)"
+                  value={totalSales}
+                  icon={<TrendingUpRoundedIcon />}
+                  iconColor="#00d084"
+                  onClick={() => setDailySalesOpen(true)}
+                />
                 <StatCard title="Live Orders" value={activeOrders.length} icon={<AccessTimeRoundedIcon />} />
                 <StatCard title="Room Bookings" value={vipBookings.length} icon={<CalendarMonthOutlinedIcon />} iconColor="#2f8dff" />
                 <StatCard title="Active Ads" value={2} icon={<RestaurantRoundedIcon />} iconColor="#9a6a3f" />
@@ -230,7 +369,7 @@ function AdminDashboardPage() {
                         <Box key={booking.id}>
                           <Typography sx={{ fontWeight: 700 }}>{booking.suiteId}</Typography>
                           <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                            {booking.userEmail} - {booking.date} {booking.time}
+                            {booking.userEmail} - {booking.date} {formatVipBookingTime(booking)}
                           </Typography>
                         </Box>
                       ))}
@@ -244,91 +383,114 @@ function AdminDashboardPage() {
             </Box>
           )}
 
-          {activeSection === "liveOrders" && (
-            <Box sx={{ display: "grid", gap: 1.8 }}>
-              <Typography variant="h2" sx={{ fontSize: { xs: "36px", md: "42px" } }}>
-                Live Kitchen Queue
-              </Typography>
-
-              {normalizedPurchases.map((purchase, index) => (
-                <Card key={purchase.id} sx={{ bgcolor: "#17100c", border: "1px solid rgba(212,178,95,0.14)", borderRadius: 4 }}>
-                  <CardContent sx={{ p: 3 }}>
-                    <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={2}>
-                      <Box>
-                        <Typography variant="h3" sx={{ fontSize: "42px" }}>
-                          ORD-{3046 + index}
-                        </Typography>
-                        <Typography sx={{ color: "text.secondary", textTransform: "uppercase", letterSpacing: 0.8 }}>
-                          Delivery
-                        </Typography>
-                      </Box>
-                      <Select
-                        size="small"
-                        value={purchase.status}
-                        onChange={(event) => updatePurchaseStatus(purchase.id, event.target.value)}
-                        sx={{
-                          minWidth: 180,
-                          borderRadius: 99,
-                          bgcolor: "#080c12",
-                          color: "primary.main",
-                          "& .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(212,178,95,0.7)" },
-                          "& .MuiSelect-icon": { color: "primary.main" },
-                        }}
-                        MenuProps={{
-                          PaperProps: {
-                            sx: {
-                              bgcolor: "#080c12",
-                              border: "1px solid rgba(212,178,95,0.35)",
-                              color: "primary.main",
-                            },
-                          },
-                        }}
-                      >
-                        {ORDER_STATUSES.map((status) => (
-                          <MenuItem key={status} value={status}>
-                            {status}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </Stack>
-
-                    <Box sx={{ mt: 2.2, p: 2.2, borderRadius: 2.5, border: "1px solid rgba(212,178,95,0.12)", bgcolor: "#120d0c" }}>
-                      <Stack direction="row" justifyContent="space-between" alignItems="center">
-                        <Box>
-                          <Typography variant="h3" sx={{ fontSize: "34px", lineHeight: 1.2 }}>
-                            {purchase.quantity}x {purchase.itemName}
-                          </Typography>
-                          <Typography sx={{ color: "text.secondary", textTransform: "uppercase" }}>
-                            {purchase.size}
-                          </Typography>
-                        </Box>
-                        <Typography sx={{ fontWeight: 700, color: "text.secondary" }}>{purchase.price}</Typography>
-                      </Stack>
-                    </Box>
-
-                    <Divider sx={{ borderColor: "rgba(212,178,95,0.12)", my: 2.3 }} />
-                    <Stack direction="row" justifyContent="space-between" alignItems="center">
-                      <Typography sx={{ color: "text.secondary", textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 700 }}>
-                        Grand Total
-                      </Typography>
-                      <Typography variant="h2" sx={{ color: "primary.main", fontSize: "46px" }}>
-                        {purchase.price}
-                      </Typography>
-                    </Stack>
-                  </CardContent>
-                </Card>
-              ))}
-
-              {normalizedPurchases.length === 0 && (
-                <Card sx={{ bgcolor: "#17100c", border: "1px solid rgba(212,178,95,0.14)", borderRadius: 4 }}>
-                  <CardContent sx={{ p: 4 }}>
-                    <Typography sx={{ color: "text.secondary", textAlign: "center" }}>
-                      No orders yet. Add an item as user to see live orders here.
-                    </Typography>
-                  </CardContent>
-                </Card>
+          <Dialog
+            open={dailySalesOpen}
+            onClose={() => setDailySalesOpen(false)}
+            fullWidth
+            maxWidth="md"
+            PaperProps={{
+              sx: {
+                bgcolor: "#0a0d13",
+                border: "1px solid rgba(212,178,95,0.18)",
+                borderRadius: 4,
+                width: { xs: "94vw", md: 980 },
+                maxWidth: "94vw",
+              },
+            }}
+          >
+            <DialogTitle sx={{ bgcolor: "#0a0d13", borderBottom: "1px solid rgba(212,178,95,0.15)" }}>
+              <Stack direction="row" alignItems="center" justifyContent="space-between" gap={2}>
+                <Box>
+                  <Typography variant="h3" sx={{ fontSize: { xs: "2.15rem", sm: "2.45rem" }, fontWeight: 900, letterSpacing: -0.3 }}>
+                    Daily Sales
+                  </Typography>
+                  <Typography sx={{ color: "text.secondary", fontSize: 14 }}>
+                    Total: SLR {Math.round(totalSales).toLocaleString()}
+                  </Typography>
+                </Box>
+                <IconButton onClick={() => setDailySalesOpen(false)} aria-label="Close">
+                  <CloseRoundedIcon />
+                </IconButton>
+              </Stack>
+            </DialogTitle>
+            <DialogContent sx={{ bgcolor: "#0a0d13", maxHeight: "72vh" }}>
+              {dailySalesRows.length === 0 ? (
+                <Typography sx={{ color: "text.secondary", py: 4, textAlign: "center" }}>
+                  No sales yet
+                </Typography>
+              ) : (
+                <Table size="small" sx={{ mt: 1 }}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ color: "text.secondary", fontWeight: 800, fontSize: 15 }}>Date</TableCell>
+                      <TableCell sx={{ color: "text.secondary", fontWeight: 800, fontSize: 15 }} align="right">
+                        Orders
+                      </TableCell>
+                      <TableCell sx={{ color: "text.secondary", fontWeight: 800, fontSize: 15 }} align="right">
+                        Sales (SLR)
+                      </TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {dailySalesRows.map((row) => (
+                      <TableRow key={row.date} hover>
+                        <TableCell sx={{ fontWeight: 800, fontSize: 16 }}>{row.date}</TableCell>
+                        <TableCell align="right" sx={{ fontSize: 16 }}>{row.orders}</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 900, color: "primary.main", fontSize: 16 }}>
+                          {Math.round(row.sales).toLocaleString()}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
-            </Box>
+            </DialogContent>
+          </Dialog>
+
+          {activeSection === "liveOrders" && (
+            <AdminLiveOrdersPanel
+              purchases={purchases}
+              updateOrderStatus={updateOrderStatus}
+              updatePurchaseStatus={updatePurchaseStatus}
+            />
+          )}
+          {activeSection === "menuManagement" && (
+            <AdminMenuManagementPanel
+              menuItems={menuItems}
+              menuCategories={menuCategories}
+              addMenuItem={addMenuItem}
+              addMenuCategory={addMenuCategory}
+              updateMenuCategory={updateMenuCategory}
+              deleteMenuCategory={deleteMenuCategory}
+              updateMenuItem={updateMenuItem}
+              deleteMenuItem={deleteMenuItem}
+            />
+          )}
+
+          {activeSection === "bookings" && (
+            <AdminBookingsPanel
+              vipBookings={vipBookings}
+              users={users}
+              updateVipBookingStatus={updateVipBookingStatus}
+            />
+          )}
+
+          {activeSection === "customers" && (
+            <AdminCustomersPanel users={users} purchases={purchases} />
+          )}
+
+          {activeSection === "qrSystem" && <AdminQrSystemPanel />}
+
+          {activeSection === "feedback" && <AdminFeedbackPanel feedbacks={feedbacks} />}
+
+          {activeSection === "promotions" && (
+            <AdminPromotionsPanel
+              promotions={promotions}
+              addPromotion={addPromotion}
+              togglePromotionStatus={togglePromotionStatus}
+              updatePromotion={updatePromotion}
+              deletePromotion={deletePromotion}
+            />
           )}
         </Box>
       </Box>

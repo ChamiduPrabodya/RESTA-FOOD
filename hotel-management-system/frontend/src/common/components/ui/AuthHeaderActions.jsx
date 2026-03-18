@@ -9,19 +9,35 @@ import PersonOutlineRoundedIcon from "@mui/icons-material/PersonOutlineRounded";
 import { useAuth } from "../../../features/auth/context/AuthContext";
 import AccountDialog from "./AccountDialog";
 import CartDialog from "./CartDialog";
+import { getUserPointsFromPurchases } from "../../utils/pricing";
+
+const getLoyaltyTier = (points) => {
+  if (points >= 10000) {
+    return { label: "Platinum", color: "#d8e4ff", bg: "rgba(120,150,255,0.22)", border: "rgba(160,186,255,0.45)" };
+  }
+  if (points >= 5000) {
+    return { label: "Gold", color: "#f3cf69", bg: "rgba(212,178,95,0.22)", border: "rgba(212,178,95,0.42)" };
+  }
+  if (points >= 2000) {
+    return { label: "Silver", color: "#d7dde8", bg: "rgba(180,190,210,0.18)", border: "rgba(180,190,210,0.38)" };
+  }
+  return { label: "Brown", color: "#d2a679", bg: "rgba(150,95,48,0.18)", border: "rgba(150,95,48,0.35)" };
+};
 
 function AuthHeaderActions() {
   const navigate = useNavigate();
   const {
     authUser,
     logout,
+    updateUserProfile,
     purchases,
     vipBookings,
+    cancelVipBookingByUser,
     cartItems,
     increaseCartQty,
     decreaseCartQty,
     removeFromCart,
-    placeOrderFromCart,
+    clearCart,
   } = useAuth();
   const [accountOpen, setAccountOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
@@ -40,11 +56,19 @@ function AuthHeaderActions() {
   );
 
   const isAdmin = authUser?.role === "admin";
-  const points = isAdmin ? 0 : 1250 + userPurchases.length * 50;
+  const points = useMemo(
+    () => (isAdmin ? 0 : getUserPointsFromPurchases(purchases, authUser?.email)),
+    [isAdmin, purchases, authUser]
+  );
+  const tier = useMemo(() => getLoyaltyTier(points), [points]);
   const displayName = isAdmin
     ? "Resta Admin"
     : authUser?.fullName || "John Doe";
   const phone = isAdmin ? "+94 77 123 4567" : authUser?.phone || "+94 71 987 6543";
+  const address = isAdmin
+    ? "Admin Panel"
+    : authUser?.address ||
+      [authUser?.streetAddress1, authUser?.streetAddress2, authUser?.cityTown].filter(Boolean).join(", ");
 
   const handleLogout = () => {
     setAccountOpen(false);
@@ -110,15 +134,16 @@ function AuthHeaderActions() {
             startIcon={<EmojiEventsOutlinedIcon />}
             sx={{
               borderRadius: 99,
-              borderColor: "rgba(212,178,95,0.35)",
-              color: "primary.main",
+              borderColor: tier.border,
+              color: tier.color,
+              bgcolor: tier.bg,
               px: 2.1,
               py: 0.8,
               textTransform: "none",
               fontWeight: 700,
             }}
           >
-            {points} pts
+            {tier.label}
           </Button>
         )}
 
@@ -139,16 +164,24 @@ function AuthHeaderActions() {
       </Stack>
 
       <AccountDialog
-        open={accountOpen}
-        onClose={() => setAccountOpen(false)}
-        isAdmin={isAdmin}
-        displayName={displayName}
-        email={authUser.email}
-        phone={phone}
-        points={points}
-        onLogout={handleLogout}
-        ordersCount={userPurchases.length}
-        bookingsCount={userBookings.length}
+          open={accountOpen}
+          onClose={() => setAccountOpen(false)}
+          isAdmin={isAdmin}
+          displayName={displayName}
+          email={authUser.email}
+          phone={phone}
+          address={address}
+          streetAddress1={isAdmin ? "" : authUser?.streetAddress1 || ""}
+          streetAddress2={isAdmin ? "" : authUser?.streetAddress2 || ""}
+          cityTown={isAdmin ? "" : authUser?.cityTown || ""}
+          points={points}
+          onLogout={handleLogout}
+          ordersCount={userPurchases.length}
+          bookingsCount={userBookings.length}
+          userOrders={userPurchases}
+        userBookings={userBookings}
+        onCancelBooking={cancelVipBookingByUser}
+        onSaveProfile={updateUserProfile}
       />
       <CartDialog
         open={cartOpen}
@@ -157,7 +190,7 @@ function AuthHeaderActions() {
         onIncrease={increaseCartQty}
         onDecrease={decreaseCartQty}
         onRemove={removeFromCart}
-        onPlaceOrder={placeOrderFromCart}
+        onClear={clearCart}
       />
     </>
   );

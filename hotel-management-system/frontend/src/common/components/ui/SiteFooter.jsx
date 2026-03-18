@@ -27,20 +27,37 @@ function SiteFooter() {
         }}
       >
         <Box>
-          <Typography sx={{ fontWeight: 800, fontSize: 34, color: "primary.main", lineHeight: 1 }}>RESTA</Typography>
-          <Typography sx={{ color: "primary.main", fontWeight: 700, letterSpacing: 1.2, mb: 2 }}>FAST FOOD</Typography>
-          <Typography variant="body1" sx={{ color: "text.secondary", maxWidth: 350, mb: 2.2 }}>
-            Bringing premium Sri Lankan fast food to your doorstep. Experience the perfect blend of spice,
-            aroma, and luxury.
-          </Typography>
-          <Stack direction="row" spacing={1.2}>
-            {[<WhatsAppIcon key="wa" />, <FacebookOutlinedIcon key="fb" />].map((icon, index) => (
-              <IconButton key={index} sx={{ bgcolor: "#2a170d", color: "primary.main", "&:hover": { bgcolor: "#3a2213" } }}>
-                {icon}
-              </IconButton>
-            ))}
-          </Stack>
-        </Box>
+  <Typography sx={{ fontWeight: 800, fontSize: 34, color: "primary.main", lineHeight: 1 }}>
+    RESTA
+  </Typography>
+
+  <Typography sx={{ color: "primary.main", fontWeight: 700, letterSpacing: 1.2, mb: 2 }}>
+    FAST FOOD
+  </Typography>
+
+  <Typography variant="body1" sx={{ color: "text.secondary", maxWidth: 350, mb: 2.2 }}>
+    Bringing premium Sri Lankan fast food to your doorstep. Experience the perfect blend of spice,
+    aroma, and luxury.
+  </Typography>
+
+  <Stack direction="row" spacing={1.2}>
+    <IconButton
+      sx={{ bgcolor: "#2a170d", color: "primary.main", "&:hover": { bgcolor: "#3a2213" } }}
+    >
+      <WhatsAppIcon />
+    </IconButton>
+
+    <IconButton
+      component="a"
+      href="https://web.facebook.com/profile.php?id=61552283702106"
+      target="_blank"
+      rel="noopener noreferrer"
+      sx={{ bgcolor: "#2a170d", color: "primary.main", "&:hover": { bgcolor: "#3a2213" } }}
+    >
+      <FacebookOutlinedIcon />
+    </IconButton>
+  </Stack>
+</Box>
 
         <Box>
           <Typography sx={{ fontWeight: 700, mb: 1.8 }}>QUICK LINKS</Typography>
@@ -73,13 +90,6 @@ function SiteFooter() {
     
       </Box>
 
-      <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" spacing={1.2} sx={{ pt: 2.2 }}>
-        <Typography sx={{ color: "text.secondary" }}>&copy; 2026 Resta Fast Food. All Rights Reserved.</Typography>
-        <Stack direction="row" spacing={2}>
-          <Typography sx={{ color: "text.secondary" }}>Privacy Policy</Typography>
-          <Typography sx={{ color: "text.secondary" }}>Terms of Service</Typography>
-        </Stack>
-      </Stack>
     </Box>
   );
 }
