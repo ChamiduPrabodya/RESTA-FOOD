@@ -708,6 +708,34 @@ export function AuthProvider({ children }) {
     return { success: true };
   };
 
+  const updateOrderStatus = (orderId, status, cancelReason = "") => {
+    const normalizedOrderId = String(orderId || "").trim();
+    if (!normalizedOrderId) {
+      return { success: false, message: "Order id is required." };
+    }
+
+    const nextStatus = String(status || "").trim();
+    const normalizedReason = String(cancelReason || "").trim();
+    if (nextStatus === "Cancelled" && !normalizedReason) {
+      return { success: false, message: "Please provide a cancellation reason." };
+    }
+
+    setPurchases((current) =>
+      current.map((purchase) => {
+        const purchaseOrderId = String(purchase.orderId || "").trim();
+        const purchaseId = String(purchase.id || "").trim();
+        if (purchaseOrderId !== normalizedOrderId && purchaseId !== normalizedOrderId) return purchase;
+        return {
+          ...purchase,
+          status: nextStatus,
+          cancelReason: nextStatus === "Cancelled" ? normalizedReason : purchase.cancelReason || "",
+          statusUpdatedAt: new Date().toISOString(),
+        };
+      })
+    );
+    return { success: true };
+  };
+
   const updateVipBookingStatus = (bookingId, status) => {
     setVipBookings((current) =>
       current.map((booking) =>
@@ -1264,6 +1292,7 @@ export function AuthProvider({ children }) {
     logout,
     addPurchase,
     updatePurchaseStatus,
+    updateOrderStatus,
     updateVipBookingStatus,
     cancelVipBookingByUser,
     addVipBooking,

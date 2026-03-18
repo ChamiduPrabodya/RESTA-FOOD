@@ -172,6 +172,7 @@ function AdminDashboardPage() {
     menuItems,
     menuCategories,
     updatePurchaseStatus,
+    updateOrderStatus,
     updateVipBookingStatus,
     addPromotion,
     togglePromotionStatus,
@@ -447,7 +448,11 @@ function AdminDashboardPage() {
           </Dialog>
 
           {activeSection === "liveOrders" && (
-            <AdminLiveOrdersPanel purchases={purchases} updatePurchaseStatus={updatePurchaseStatus} />
+            <AdminLiveOrdersPanel
+              purchases={purchases}
+              updateOrderStatus={updateOrderStatus}
+              updatePurchaseStatus={updatePurchaseStatus}
+            />
           )}
           {activeSection === "menuManagement" && (
             <AdminMenuManagementPanel

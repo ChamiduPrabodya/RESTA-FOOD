@@ -212,22 +212,10 @@ function MenuCard({ item, index }) {
 function HomePage() {
   const reduceMotion = useReducedMotion();
   const { promotions, menuItems, purchases } = useAuth();
-  const activePromotion =
-    promotions.find((item) => item.active && item.displayInHomeHeader) ||
-    promotions.find((item) => item.active);
-  const promoBadgeText = activePromotion
-    ? activePromotion.type === "vip"
-      ? "VIP Room Promotion"
-      : "Food Promotion"
-    : "Limited Time Offer";
-  const promoTitle = activePromotion
-    ? activePromotion.title
-    : "Weekend Special:\n20% Off All Kottu!";
-  const promoDescription = activePromotion
-    ? activePromotion.description
-    : "Only this Saturday and Sunday. Grab yours now!";
-  const promoTitleLines = promoTitle.split("\n");
-  const heroBackgroundImage = activePromotion?.imageUrl || heroImage;
+  const heroBackgroundImage =
+    promotions.find((item) => item.active && item.displayInHomeHeader)?.imageUrl ||
+    promotions.find((item) => item.active)?.imageUrl ||
+    heroImage;
   const customerFavorites = useMemo(() => {
     const favorites = getMostBoughtMenuItems({ menuItems, purchases, limit: 3 });
     return favorites.length > 0 ? favorites : popularItems;
@@ -271,40 +259,23 @@ function HomePage() {
           <AuthHeaderActions />
         </Stack>
 
-        <Stack spacing={3} sx={{ maxWidth: 760, pt: { xs: 8, md: 12 }, pb: 8 }}>
-          <Box
-            component={motion.div}
-            initial={{ opacity: 0, x: -12 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.4, delay: 0.1 }}
-          >
-            <Chip
-              icon={<LocalOfferRoundedIcon />}
-              label={promoBadgeText}
-              sx={{ alignSelf: "flex-start", bgcolor: "rgba(212,178,95,0.12)", color: "primary.main" }}
-            />
-          </Box>
-          <MotionBox initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
+        <Stack
+          component={motion.div}
+          spacing={2.2}
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, delay: 0.2 }}
+          sx={{ maxWidth: 760, pt: { xs: 8, md: 12 }, pb: 8 }}
+        >
+          <Box>
             <Typography variant="h1" sx={{ lineHeight: 1.08, fontSize: { xs: "44px", md: "64px" } }}>
-              {promoTitleLines.map((line, index) => (
-                <Box key={`${line}-${index}`} component="span">
-                  {line}
-                  {index < promoTitleLines.length - 1 && <br />}
-                </Box>
-              ))}
+              Resta Fast Food
             </Typography>
-          </MotionBox>
-          <Typography variant="body1" sx={{ color: "text.secondary" }}>
-            {promoDescription}
-          </Typography>
-          <Stack
-            component={motion.div}
-            direction={{ xs: "column", sm: "row" }}
-            spacing={2}
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.45, delay: 0.2 }}
-          >
+            <Typography sx={{ mt: 1.1, color: "text.secondary", fontSize: { xs: "16px", md: "20px" } }}>
+              Serving Happiness in Every Bite
+            </Typography>
+          </Box>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                 <Button
                   component={Link}
                   to="/menu"
