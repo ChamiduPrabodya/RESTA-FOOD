@@ -22,6 +22,23 @@ const formatSuite = (suiteId) => {
   if (suiteId === "gold") return "VIP GOLD";
   return String(suiteId || "VIP");
 };
+const formatBookingTime = (booking) => {
+  const rawSlots = Array.isArray(booking?.timeSlots) && booking.timeSlots.length > 0
+    ? booking.timeSlots
+    : String(booking?.time || "").includes("|")
+      ? String(booking.time || "").split("|")
+      : [booking?.time];
+  const slots = rawSlots.map((value) => String(value || "").trim()).filter(Boolean);
+  if (slots.length === 0) return String(booking?.time || "").trim();
+
+  const first = slots[0];
+  const last = slots[slots.length - 1];
+  if (!first.includes("-")) return first;
+
+  const start = first.split("-")[0].trim();
+  const end = last.includes("-") ? last.split("-")[1].trim() : last;
+  return slots.length > 1 ? `${start} - ${end} (${slots.length} slots)` : `${start} - ${end}`;
+};
 
 function AdminBookingsPanel({ vipBookings, users, updateVipBookingStatus }) {
   const pending = vipBookings.filter((item) => normalizeStatus(item.status) === "Pending");
@@ -131,7 +148,7 @@ function AdminBookingsPanel({ vipBookings, users, updateVipBookingStatus }) {
                         </Box>
                         <Box>
                           <Typography sx={{ color: "text.secondary", textTransform: "uppercase", fontSize: "0.75rem" }}>Time</Typography>
-                          <Typography sx={{ fontWeight: 700 }}>{booking.time}</Typography>
+                          <Typography sx={{ fontWeight: 700 }}>{formatBookingTime(booking)}</Typography>
                         </Box>
                         <Box>
                           <Typography sx={{ color: "text.secondary", textTransform: "uppercase", fontSize: "0.75rem" }}>Guests</Typography>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
 import {
@@ -61,28 +61,76 @@ const suites = [
   },
 ];
 const TIME_SLOTS = [
-  { value: "10:00-12:00", label: "10:00 AM - 12:00 PM" },
-  { value: "12:00-15:00", label: "12:00 PM - 03:00 PM" },
-  { value: "15:00-18:00", label: "03:00 PM - 06:00 PM" },
-  { value: "18:00-21:00", label: "06:00 PM - 09:00 PM" },
+  { value: "11:00-13:00", label: "11:00 AM - 01:00 PM" },
+  { value: "13:00-16:00", label: "01:00 PM - 04:00 PM" },
+  { value: "16:00-19:00", label: "04:00 PM - 07:00 PM" },
+  { value: "19:00-22:00", label: "07:00 PM - 10:00 PM" },
 ];
+const LEGACY_SLOT_MAP = {
+  "10:00-12:00": "11:00-13:00",
+  "12:00-15:00": "13:00-16:00",
+  "15:00-18:00": "16:00-19:00",
+  "18:00-21:00": "19:00-22:00",
+  "10:00": "11:00-13:00",
+  "12:00": "13:00-16:00",
+  "15:00": "16:00-19:00",
+  "18:00": "19:00-22:00",
+};
+const getTomorrowDateText = () => {
+  const now = new Date();
+  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  return tomorrow.toISOString().slice(0, 10);
+};
 const mapLegacyTimeToSlot = (timeValue) => {
   if (!timeValue) return "";
   const normalized = String(timeValue).trim();
+  if (Object.prototype.hasOwnProperty.call(LEGACY_SLOT_MAP, normalized)) {
+    return LEGACY_SLOT_MAP[normalized];
+  }
   if (normalized.includes("-")) return normalized;
   const found = TIME_SLOTS.find((slot) => slot.value.startsWith(normalized));
   return found ? found.value : normalized;
 };
 
+const getBookingSlots = (booking) => {
+  if (!booking) return [];
+  const rawSlots = Array.isArray(booking.timeSlots)
+    ? booking.timeSlots
+    : String(booking.time || "").includes("|")
+      ? String(booking.time || "")
+        .split("|")
+        .map((value) => value.trim())
+        .filter(Boolean)
+      : [booking.time];
+
+  return rawSlots
+    .map((value) => mapLegacyTimeToSlot(value))
+    .filter(Boolean);
+};
+
 function VipRoomsPage() {
   const [suiteId, setSuiteId] = useState("platinum");
   const [bookingDate, setBookingDate] = useState("");
-  const [bookingTime, setBookingTime] = useState("");
+  const [startSlot, setStartSlot] = useState("");
+  const [endSlot, setEndSlot] = useState("");
   const [guests, setGuests] = useState(4);
   const [notice, setNotice] = useState({ open: false, message: "", severity: "success" });
   const reduceMotion = useReducedMotion();
   const navigate = useNavigate();
   const { authUser, vipBookings, addVipBooking } = useAuth();
+  const minBookingDate = useMemo(() => getTomorrowDateText(), []);
+  const slotIndexByValue = useMemo(() => {
+    const map = new Map();
+    TIME_SLOTS.forEach((slot, index) => map.set(slot.value, index));
+    return map;
+  }, []);
+  const selectedSlots = useMemo(() => {
+    const startIndex = slotIndexByValue.get(startSlot);
+    const endIndex = slotIndexByValue.get(endSlot);
+    if (typeof startIndex !== "number" || typeof endIndex !== "number") return [];
+    if (endIndex < startIndex) return [];
+    return TIME_SLOTS.slice(startIndex, endIndex + 1).map((slot) => slot.value);
+  }, [startSlot, endSlot, slotIndexByValue]);
   const bookedDateStats = useMemo(() => {
     const byDate = new Map();
     vipBookings
@@ -92,9 +140,10 @@ function VipRoomsPage() {
           String(booking.status || "").toLowerCase() !== "cancelled"
       )
       .forEach((booking) => {
-        const slotValue = mapLegacyTimeToSlot(booking.time);
+        const slots = getBookingSlots(booking);
         if (!byDate.has(booking.date)) byDate.set(booking.date, new Set());
-        byDate.get(booking.date).add(slotValue);
+        const set = byDate.get(booking.date);
+        slots.forEach((slotValue) => set.add(slotValue));
       });
 
     return [...byDate.entries()]
@@ -115,15 +164,24 @@ function VipRoomsPage() {
             booking.date === bookingDate &&
             String(booking.status || "").toLowerCase() !== "cancelled"
         )
-        .map((booking) => mapLegacyTimeToSlot(booking.time))
+        .flatMap((booking) => getBookingSlots(booking))
     );
   }, [vipBookings, suiteId, bookingDate]);
   const isSelectedDateFullyBooked = bookingDate && bookedSlotsForSelectedDate.size >= TIME_SLOTS.length;
-  useEffect(() => {
-    if (bookingTime && bookedSlotsForSelectedDate.has(bookingTime)) {
-      setBookingTime("");
+  const isSelectedRangeBooked = useMemo(
+    () => selectedSlots.some((slotValue) => bookedSlotsForSelectedDate.has(slotValue)),
+    [selectedSlots, bookedSlotsForSelectedDate]
+  );
+
+  const formatSelectedSlots = () => {
+    if (selectedSlots.length === 0) return "";
+    if (selectedSlots.length === 1) {
+      return TIME_SLOTS.find((slot) => slot.value === selectedSlots[0])?.label || selectedSlots[0];
     }
-  }, [bookingTime, bookedSlotsForSelectedDate]);
+    const first = TIME_SLOTS.find((slot) => slot.value === selectedSlots[0])?.label || selectedSlots[0];
+    const last = TIME_SLOTS.find((slot) => slot.value === selectedSlots[selectedSlots.length - 1])?.label || selectedSlots[selectedSlots.length - 1];
+    return `${first} to ${last}`;
+  };
 
   const handleCheckAvailability = () => {
     if (!authUser) {
@@ -149,22 +207,22 @@ function VipRoomsPage() {
       return;
     }
 
-    if (bookingDate && bookingTime && bookedSlotsForSelectedDate.has(bookingTime)) {
+    if (bookingDate && selectedSlots.length > 0 && isSelectedRangeBooked) {
       setNotice({
         open: true,
-        message: "This time slot is already booked. Please choose another slot.",
+        message: "Selected time range includes a booked slot. Please choose another range.",
         severity: "error",
       });
       return;
     }
 
-    if (!bookingDate || !bookingTime || !guests) {
+    if (!bookingDate || selectedSlots.length === 0 || !guests) {
       setNotice({
         open: true,
         message: !bookingDate
           ? "Please select a booking date."
-          : !bookingTime
-            ? "Please select an available time slot."
+          : selectedSlots.length === 0
+            ? "Please select an available start/end time."
             : "Please add guest count.",
         severity: "error",
       });
@@ -174,7 +232,8 @@ function VipRoomsPage() {
     const result = addVipBooking({
       suiteId,
       date: bookingDate,
-      time: bookingTime,
+      timeSlots: selectedSlots,
+      time: selectedSlots[0],
       guests,
     });
 
@@ -283,7 +342,12 @@ function VipRoomsPage() {
               <Select
                 value={suiteId}
                 label="Room Type"
-                onChange={(event) => setSuiteId(event.target.value)}
+                onChange={(event) => {
+                  setSuiteId(event.target.value);
+                  setBookingDate("");
+                  setStartSlot("");
+                  setEndSlot("");
+                }}
                 sx={{ borderRadius: 3, bgcolor: "#07090d" }}
               >
                 {suites.map((item) => (
@@ -294,15 +358,21 @@ function VipRoomsPage() {
               </Select>
             </FormControl>
 
-            <Stack direction="row" spacing={1.8} sx={{ mb: 2.5 }}>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.8} sx={{ mb: 2.5 }}>
               <TextField
                 fullWidth
                 label="Date"
                 type="date"
                 value={bookingDate}
-                onChange={(event) => setBookingDate(event.target.value)}
+                onChange={(event) => {
+                  setBookingDate(event.target.value);
+                  setStartSlot("");
+                  setEndSlot("");
+                }}
+                inputProps={{ min: minBookingDate }}
                 slotProps={{ inputLabel: { shrink: true } }}
                 sx={{
+                  flex: 1,
                   "& .MuiOutlinedInput-root": { bgcolor: "#07090d", borderRadius: 3 },
                   "& input::-webkit-calendar-picker-indicator": {
                     filter: "invert(1)",
@@ -310,24 +380,83 @@ function VipRoomsPage() {
                   },
                 }}
               />
-              <FormControl fullWidth>
-                <InputLabel sx={{ color: "primary.main", textTransform: "uppercase", fontWeight: 700, letterSpacing: 0.9 }}>
-                  Time Slot
-                </InputLabel>
-                <Select
-                  value={bookingTime}
-                  label="Time Slot"
-                  onChange={(event) => setBookingTime(event.target.value)}
-                  sx={{ borderRadius: 3, bgcolor: "#07090d" }}
-                >
-                  {TIME_SLOTS.map((slot) => (
-                    <MenuItem key={slot.value} value={slot.value} disabled={bookedSlotsForSelectedDate.has(slot.value)}>
-                      {slot.label} {bookedSlotsForSelectedDate.has(slot.value) ? "(Booked)" : ""}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <Stack spacing={1} sx={{ flex: 1, minWidth: { sm: 280 } }}>
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                  <FormControl fullWidth>
+                    <InputLabel sx={{ color: "primary.main", textTransform: "uppercase", fontWeight: 700, letterSpacing: 0.9 }}>
+                      Start Time
+                    </InputLabel>
+                    <Select
+                      value={startSlot}
+                      label="Start Time"
+                      onChange={(event) => {
+                        const nextStart = event.target.value;
+                        const nextStartIndex = slotIndexByValue.get(nextStart);
+                        const currentEndIndex = slotIndexByValue.get(endSlot);
+                        setStartSlot(nextStart);
+                        setEndSlot(
+                          typeof nextStartIndex === "number" && typeof currentEndIndex === "number" && currentEndIndex >= nextStartIndex
+                            ? endSlot
+                            : nextStart
+                        );
+                      }}
+                      sx={{ borderRadius: 3, bgcolor: "#07090d" }}
+                    >
+                      {TIME_SLOTS.map((slot) => (
+                        <MenuItem key={slot.value} value={slot.value} disabled={bookedSlotsForSelectedDate.has(slot.value)}>
+                          {slot.label} {bookedSlotsForSelectedDate.has(slot.value) ? "(Booked)" : ""}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <FormControl fullWidth>
+                    <InputLabel sx={{ color: "primary.main", textTransform: "uppercase", fontWeight: 700, letterSpacing: 0.9 }}>
+                      End Time
+                    </InputLabel>
+                    <Select
+                      value={endSlot}
+                      label="End Time"
+                      onChange={(event) => setEndSlot(event.target.value)}
+                      sx={{ borderRadius: 3, bgcolor: "#07090d" }}
+                      disabled={!startSlot}
+                    >
+                      {TIME_SLOTS.map((slot) => {
+                        const startIndex = slotIndexByValue.get(startSlot);
+                        const candidateEndIndex = slotIndexByValue.get(slot.value);
+                        if (typeof startIndex !== "number" || typeof candidateEndIndex !== "number") {
+                          return (
+                            <MenuItem key={slot.value} value={slot.value} disabled>
+                              {slot.label}
+                            </MenuItem>
+                          );
+                        }
+                        if (candidateEndIndex < startIndex) {
+                          return (
+                            <MenuItem key={slot.value} value={slot.value} disabled>
+                              {slot.label}
+                            </MenuItem>
+                          );
+                        }
+
+                        const candidateRange = TIME_SLOTS.slice(startIndex, candidateEndIndex + 1).map((item) => item.value);
+                        const hasBooked = candidateRange.some((value) => bookedSlotsForSelectedDate.has(value));
+                        return (
+                          <MenuItem key={slot.value} value={slot.value} disabled={hasBooked}>
+                            {slot.label} {hasBooked ? "(Includes booked slot)" : ""}
+                          </MenuItem>
+                        );
+                      })}
+                    </Select>
+                  </FormControl>
+                </Stack>
+              </Stack>
             </Stack>
+            {selectedSlots.length > 0 && (
+              <Typography sx={{ color: isSelectedRangeBooked ? "#ff7a84" : "text.secondary", mb: 1.2 }}>
+                Selected: {formatSelectedSlots()} ({selectedSlots.length} slot{selectedSlots.length === 1 ? "" : "s"})
+              </Typography>
+            )}
             {bookingDate && (
               <Typography sx={{ color: "text.secondary", mb: 1.8 }}>
                 Booked slots for selected date:{" "}

@@ -736,7 +736,18 @@ export function AuthProvider({ children }) {
       return { success: false, message: "Bookings cannot be cancelled after admin approval." };
     }
 
-    const bookingDateTime = new Date(`${booking.date}T${booking.time}`);
+    const resolveVipBookingStartTime = (value) => {
+      const text = String(value || "").trim();
+      if (!text) return "";
+      if (text.includes("-")) return text.split("-")[0].trim();
+      if (text.includes("|")) return text.split("|")[0].split("-")[0].trim();
+      return text;
+    };
+
+    const startSlot = Array.isArray(booking.timeSlots) && booking.timeSlots.length > 0 ? booking.timeSlots[0] : booking.time;
+    const startTime = resolveVipBookingStartTime(startSlot);
+    const startTimeText = /^\d{2}:\d{2}$/.test(startTime) ? `${startTime}:00` : startTime;
+    const bookingDateTime = new Date(`${booking.date}T${startTimeText}`);
     if (Number.isNaN(bookingDateTime.getTime())) {
       return { success: false, message: "Booking time is invalid." };
     }
@@ -963,29 +974,87 @@ export function AuthProvider({ children }) {
     return { success: true };
   };
 
-  const addVipBooking = ({ suiteId, date, time, guests }) => {
+  const addVipBooking = ({ suiteId, date, time, timeSlots, guests } = {}) => {
     if (!authUser || authUser.role !== "user") {
       return { success: false, message: "Only logged-in users can book VIP rooms." };
     }
 
     const normalizedSuiteId = String(suiteId || "").trim().toLowerCase();
     const normalizedDate = String(date || "").trim();
-    const normalizedTime = String(time || "").trim();
+    const normalizedTimeSlots = (Array.isArray(timeSlots) ? timeSlots : [time])
+      .map((value) => String(value || "").trim())
+      .filter(Boolean);
+    const normalizedTime = normalizedTimeSlots[0] || "";
     const guestsCount = Number(guests);
 
-    if (!normalizedSuiteId || !normalizedDate || !normalizedTime) {
+    if (!normalizedSuiteId || !normalizedDate || normalizedTimeSlots.length === 0) {
       return { success: false, message: "Please add room type, date, and time." };
     }
     if (!Number.isFinite(guestsCount) || guestsCount <= 0) {
       return { success: false, message: "Please enter a valid guest count." };
     }
 
-    const slotTaken = vipBookings.some(
-      (booking) =>
-        String(booking.suiteId || "").trim().toLowerCase() === normalizedSuiteId &&
-        String(booking.date || "").trim() === normalizedDate &&
-        String(booking.time || "").trim() === normalizedTime
-    );
+    const bookingDay = new Date(`${normalizedDate}T00:00:00`);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (Number.isNaN(bookingDay.getTime()) || bookingDay.getTime() <= today.getTime()) {
+      return { success: false, message: "Please select a booking date after today." };
+    }
+
+    const legacySlotMap = {
+      "10:00-12:00": "11:00-13:00",
+      "12:00-15:00": "13:00-16:00",
+      "15:00-18:00": "16:00-19:00",
+      "18:00-21:00": "19:00-22:00",
+      "10:00": "11:00-13:00",
+      "12:00": "13:00-16:00",
+      "15:00": "16:00-19:00",
+      "18:00": "19:00-22:00",
+    };
+    const allowedSlotOrder = ["11:00-13:00", "13:00-16:00", "16:00-19:00", "19:00-22:00"];
+    const slotIndexByValue = allowedSlotOrder.reduce((acc, value, index) => {
+      acc[value] = index;
+      return acc;
+    }, {});
+    const normalizeSlotValue = (value) => {
+      const text = String(value || "").trim();
+      if (!text) return "";
+      if (Object.prototype.hasOwnProperty.call(legacySlotMap, text)) return legacySlotMap[text];
+      return text;
+    };
+
+    const uniqueRequestedSlots = [...new Set(normalizedTimeSlots.map(normalizeSlotValue).filter(Boolean))];
+    const slotIndexes = uniqueRequestedSlots
+      .map((slotValue) => slotIndexByValue[slotValue])
+      .filter((index) => typeof index === "number");
+
+    if (slotIndexes.length !== uniqueRequestedSlots.length) {
+      return { success: false, message: "Please select a valid VIP time slot." };
+    }
+
+    const sortedIndexes = [...slotIndexes].sort((a, b) => a - b);
+    const isConsecutiveRange = sortedIndexes.every((value, i) => i === 0 || value === sortedIndexes[i - 1] + 1);
+    if (!isConsecutiveRange) {
+      return { success: false, message: "Please select consecutive time slots only." };
+    }
+
+    const requested = new Set(uniqueRequestedSlots);
+    const slotTaken = vipBookings.some((booking) => {
+      if (String(booking.suiteId || "").trim().toLowerCase() !== normalizedSuiteId) return false;
+      if (String(booking.date || "").trim() !== normalizedDate) return false;
+      if (String(booking.status || "").trim().toLowerCase() === "cancelled") return false;
+
+      const existingSlots = Array.isArray(booking.timeSlots) && booking.timeSlots.length > 0
+        ? booking.timeSlots
+        : String(booking.time || "").includes("|")
+          ? String(booking.time || "").split("|")
+          : [booking.time];
+
+      return existingSlots
+        .map(normalizeSlotValue)
+        .filter(Boolean)
+        .some((slotValue) => requested.has(slotValue));
+    });
     if (slotTaken) {
       return {
         success: false,
@@ -998,6 +1067,7 @@ export function AuthProvider({ children }) {
       suiteId: normalizedSuiteId,
       date: normalizedDate,
       time: normalizedTime,
+      timeSlots: uniqueRequestedSlots,
       guests: guestsCount,
       status: "Pending",
       userEmail: authUser.email,

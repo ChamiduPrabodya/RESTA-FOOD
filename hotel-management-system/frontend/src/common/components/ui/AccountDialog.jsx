@@ -26,6 +26,23 @@ const isCompletedOrder = (status) => {
   return normalized === "delivered" || normalized.includes("ready");
 };
 const isActiveOrder = (status) => !isCancelledOrder(status) && !isCompletedOrder(status);
+const formatVipBookingTime = (booking) => {
+  const rawSlots = Array.isArray(booking?.timeSlots) && booking.timeSlots.length > 0
+    ? booking.timeSlots
+    : String(booking?.time || "").includes("|")
+      ? String(booking.time || "").split("|")
+      : [booking?.time];
+  const slots = rawSlots.map((value) => String(value || "").trim()).filter(Boolean);
+  if (slots.length === 0) return String(booking?.time || "").trim();
+
+  const first = slots[0];
+  const last = slots[slots.length - 1];
+  if (!first.includes("-")) return first;
+
+  const start = first.split("-")[0].trim();
+  const end = last.includes("-") ? last.split("-")[1].trim() : last;
+  return slots.length > 1 ? `${start} - ${end} (${slots.length} slots)` : `${start} - ${end}`;
+};
 
 function AccountDialog({
   open,
@@ -420,7 +437,7 @@ function AccountDialog({
                     <Box>
                       <Typography sx={{ fontWeight: 700 }}>{String(booking.suiteId || "").toUpperCase()} • {booking.guests} guests</Typography>
                       <Typography sx={{ color: "text.secondary", fontSize: 14 }}>
-                        {booking.date} {booking.time} • {booking.status || "Pending"}
+                        {booking.date} {formatVipBookingTime(booking)} • {booking.status || "Pending"}
                       </Typography>
                     </Box>
                     <Button

@@ -38,6 +38,24 @@ import AdminLiveOrdersPanel from "../components/AdminLiveOrdersPanel";
 import AdminCustomersPanel from "../components/AdminCustomersPanel";
 import AdminQrSystemPanel from "../components/AdminQrSystemPanel";
 import AdminFeedbackPanel from "../components/AdminFeedbackPanel";
+
+const formatVipBookingTime = (booking) => {
+  const rawSlots = Array.isArray(booking?.timeSlots) && booking.timeSlots.length > 0
+    ? booking.timeSlots
+    : String(booking?.time || "").includes("|")
+      ? String(booking.time || "").split("|")
+      : [booking?.time];
+  const slots = rawSlots.map((value) => String(value || "").trim()).filter(Boolean);
+  if (slots.length === 0) return String(booking?.time || "").trim();
+
+  const first = slots[0];
+  const last = slots[slots.length - 1];
+  if (!first.includes("-")) return first;
+
+  const start = first.split("-")[0].trim();
+  const end = last.includes("-") ? last.split("-")[1].trim() : last;
+  return slots.length > 1 ? `${start} - ${end} (${slots.length} slots)` : `${start} - ${end}`;
+};
 import AdminPromotionsPanel from "../components/AdminPromotionsPanel";
 import AdminMenuManagementPanel from "../components/AdminMenuManagementPanel";
 
@@ -350,7 +368,7 @@ function AdminDashboardPage() {
                         <Box key={booking.id}>
                           <Typography sx={{ fontWeight: 700 }}>{booking.suiteId}</Typography>
                           <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                            {booking.userEmail} - {booking.date} {booking.time}
+                            {booking.userEmail} - {booking.date} {formatVipBookingTime(booking)}
                           </Typography>
                         </Box>
                       ))}
