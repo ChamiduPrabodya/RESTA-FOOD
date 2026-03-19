@@ -602,6 +602,10 @@ export function AuthProvider({ children }) {
       deliveryCityTown: resolvedDeliveryDetails?.cityTown,
     });
 
+    if (orderType === "Delivery" && pricing.deliveryAllowed === false) {
+      return { success: false, message: "Delivery is not available for this area. Please choose Takeaway." };
+    }
+
     const orderId = crypto.randomUUID();
     let remainingDiscount = Math.min(pricing.totalDiscount, pricing.subtotal);
 

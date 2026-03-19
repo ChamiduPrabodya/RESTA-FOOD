@@ -268,9 +268,16 @@ function HomePage() {
           sx={{ maxWidth: 760, pt: { xs: 8, md: 12 }, pb: 8 }}
         >
           <Box>
-            <Typography variant="h1" sx={{ lineHeight: 1.08, fontSize: { xs: "44px", md: "64px" } }}>
-              Resta Fast Food
-            </Typography>
+            <Typography
+  variant="h1"
+  sx={{
+    fontWeight: 800,
+    lineHeight: 1.1,
+    fontSize: { xs: "42px", md: "68px" },
+  }}
+>
+  Welcome To <br /> Resta Fast Food
+</Typography>
             <Typography sx={{ mt: 1.1, color: "text.secondary", fontSize: { xs: "16px", md: "20px" } }}>
               Serving Happiness in Every Bite
             </Typography>

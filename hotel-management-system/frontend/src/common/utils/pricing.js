@@ -140,14 +140,15 @@ export const detectDeliveryZoneFromAddress = (address, zoneFees = DELIVERY_ZONE_
 
 export const calculateDeliveryFeeFromAddress = ({ orderType, address, cityTown, zoneFees } = {}) => {
   if (String(orderType || "").trim().toLowerCase() !== "delivery") {
-    return { deliveryZone: null, deliveryFee: 0 };
+    return { deliveryZone: null, deliveryFee: 0, deliveryAllowed: true };
   }
 
   const fees = zoneFees || DELIVERY_ZONE_FEES;
   const deliveryZone = detectDeliveryZoneFromAddress(cityTown || address, fees);
-  const deliveryFee = deliveryZone ? Math.max(0, Number(fees?.[deliveryZone]) || 0) : 0;
+  const deliveryAllowed = Boolean(deliveryZone);
+  const deliveryFee = deliveryAllowed ? Math.max(0, Number(fees?.[deliveryZone]) || 0) : 0;
 
-  return { deliveryZone, deliveryFee };
+  return { deliveryZone, deliveryFee, deliveryAllowed };
 };
 
 export const calculateCheckoutPricing = ({
@@ -192,6 +193,7 @@ export const calculateCheckoutPricing = ({
     total,
     deliveryZone: delivery.deliveryZone,
     deliveryFee: delivery.deliveryFee,
+    deliveryAllowed: delivery.deliveryAllowed,
     grandTotal,
   };
 };

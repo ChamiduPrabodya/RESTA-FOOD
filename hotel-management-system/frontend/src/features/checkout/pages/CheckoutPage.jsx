@@ -155,6 +155,11 @@ function CheckoutPage() {
       return;
     }
 
+    if (orderType === "Delivery" && pricing && pricing.deliveryAllowed === false) {
+      setErrorMessage("Delivery is not available for the selected area. Please choose Takeaway.");
+      return;
+    }
+
     if (paymentMethod === "Card (Online)") {
       if (!validateCardDetails()) {
         setErrorMessage("Please enter valid card details.");
@@ -436,7 +441,13 @@ function CheckoutPage() {
                   <Stack direction="row" justifyContent="space-between">
                     <Typography sx={{ color: "text.secondary" }}>Delivery Fee</Typography>
                     <Typography sx={{ color: "primary.main", fontWeight: 800 }}>
-                      {orderType !== "Delivery" || pricing.deliveryFee <= 0 ? "Free" : toSLR(pricing.deliveryFee)}
+                      {orderType !== "Delivery"
+                        ? "Free"
+                        : pricing.deliveryAllowed === false
+                          ? "Not available"
+                          : pricing.deliveryFee <= 0
+                            ? "Free"
+                            : toSLR(pricing.deliveryFee)}
                     </Typography>
                   </Stack>
                   <Stack direction="row" justifyContent="space-between" alignItems="center">
@@ -461,12 +472,18 @@ function CheckoutPage() {
                   disabled={
                     userCartItems.length === 0 ||
                     (orderType === "Delivery" && !hasDeliveryProfile) ||
+                    (orderType === "Delivery" && pricing.deliveryAllowed === false) ||
                     (paymentMethod === "Card (Online)" && !cardFormComplete)
                   }
                   sx={{ py: 1.5, borderRadius: 3.2, bgcolor: "primary.main", color: "#111214", fontWeight: 900, fontSize: "18px", "&:hover": { bgcolor: "#d4b25f" } }}
                 >
                   Place Order
                 </Button>
+                {orderType === "Delivery" && pricing.deliveryAllowed === false && (
+                  <Typography sx={{ color: "#ff6b7a", fontSize: 13, mt: 1.2 }}>
+                    Delivery is not available for your city/town. Please switch to Takeaway or update your address.
+                  </Typography>
+                )}
               </CardContent>
             </Card>
           </Box>
