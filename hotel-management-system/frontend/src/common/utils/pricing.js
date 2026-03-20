@@ -65,7 +65,7 @@ const parsePromotionDate = (dateText, endOfDay = false) => {
   return date;
 };
 
-const isPromotionActiveNow = (promotion, now) => {
+export const isPromotionActiveNow = (promotion, now) => {
   if (!promotion || !promotion.active) return false;
   const start = parsePromotionDate(promotion.startDate, false);
   const end = parsePromotionDate(promotion.endDate, true);

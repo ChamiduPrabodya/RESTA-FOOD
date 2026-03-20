@@ -32,11 +32,6 @@ function SignUpPage() {
   const [streetAddress1, setStreetAddress1] = useState("");
   const [streetAddress2, setStreetAddress2] = useState("");
   const [cityTown, setCityTown] = useState("");
-
-
-  const [streetAddress1, setStreetAddress1] = useState("");
-  const [streetAddress2, setStreetAddress2] = useState("");
-  const [cityTown, setCityTown] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);

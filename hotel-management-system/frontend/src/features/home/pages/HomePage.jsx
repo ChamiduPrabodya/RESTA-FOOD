@@ -1,11 +1,13 @@
 import { useMemo, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import {
+  Alert,
   Box,
   Button,
   Card,
   CardContent,
   Chip,
+  Snackbar,
   Stack,
   Typography,
 } from "@mui/material";
@@ -17,7 +19,7 @@ import ArrowOutwardRoundedIcon from "@mui/icons-material/ArrowOutwardRounded";
 import WorkspacePremiumRoundedIcon from "@mui/icons-material/WorkspacePremiumRounded";
 import StarRoundedIcon from "@mui/icons-material/StarRounded";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import BackToTopButton from "../../../common/components/ui/BackToTopButton";
 import SiteFooter from "../../../common/components/ui/SiteFooter";
 import AuthHeaderActions from "../../../common/components/ui/AuthHeaderActions";
@@ -70,7 +72,7 @@ const popularItems = [
   },
 ];
 
-function MenuCard({ item, index }) {
+function MenuCard({ item, index, onBuy }) {
   const sizeOptions = Array.isArray(item?.sizes) && item.sizes.length > 0 ? item.sizes : Object.keys(item?.portions || {});
   const [selectedSize, setSelectedSize] = useState(sizeOptions[0] || "Regular");
   const displayPrice =
@@ -188,6 +190,8 @@ function MenuCard({ item, index }) {
             </Box>
             <Button
               aria-label={`Add ${item.name}`}
+              onClick={() => onBuy?.(item, selectedSize, displayPrice)}
+              disabled={!onBuy || Boolean(item?.outOfStock)}
               sx={{
                 minWidth: 48,
                 width: 48,
@@ -211,15 +215,70 @@ function MenuCard({ item, index }) {
 
 function HomePage() {
   const reduceMotion = useReducedMotion();
-  const { promotions, menuItems, purchases } = useAuth();
-  const heroBackgroundImage =
-    promotions.find((item) => item.active && item.displayInHomeHeader)?.imageUrl ||
-    promotions.find((item) => item.active)?.imageUrl ||
-    heroImage;
+  const navigate = useNavigate();
+  const { authUser, addToCart, promotions, menuItems, purchases } = useAuth();
+  const [notice, setNotice] = useState({ open: false, message: "", severity: "success" });
+
+  const activePromotion = useMemo(() => {
+    const list = Array.isArray(promotions) ? promotions : [];
+
+    const getPromoTimestamp = (promotion) => {
+      const value = promotion?.updatedAt || promotion?.createdAt || "";
+      const timestamp = new Date(value).getTime();
+      return Number.isFinite(timestamp) ? timestamp : 0;
+    };
+
+    const pickLatest = (predicate) =>
+      list
+        .filter((promotion) => predicate(promotion))
+        .sort((a, b) => getPromoTimestamp(b) - getPromoTimestamp(a))[0] || null;
+
+    return pickLatest((promotion) => promotion?.active && promotion?.displayInHomeHeader) || pickLatest((promotion) => promotion?.active) || null;
+  }, [promotions]);
+
+  const heroBackgroundImage = String(activePromotion?.imageUrl || "").trim() || heroImage;
+  const primaryCta =
+    activePromotion?.type === "vip"
+      ? { to: "/vip-rooms", label: "Book VIP Room" }
+      : { to: "/menu", label: "Explore Menu" };
+  const secondaryCta =
+    activePromotion?.type === "vip"
+      ? { to: "/menu", label: "Explore Menu" }
+      : { to: "/vip-rooms", label: "Book VIP Room" };
   const customerFavorites = useMemo(() => {
     const favorites = getMostBoughtMenuItems({ menuItems, purchases, limit: 3 });
     return favorites.length > 0 ? favorites : popularItems;
   }, [menuItems, purchases]);
+
+  const handleBuy = (item, size, price) => {
+    if (!authUser) {
+      navigate("/sign-in", { state: { from: "/" } });
+      return;
+    }
+
+    if (authUser.role !== "user") {
+      setNotice({
+        open: true,
+        message: "Admin accounts cannot buy items. Use a user account.",
+        severity: "warning",
+      });
+      return;
+    }
+
+    const result = addToCart({
+      menuItemId: item?.id,
+      itemName: item?.name,
+      price,
+      image: item?.image,
+      size,
+    });
+
+    setNotice({
+      open: true,
+      message: result.success ? `${item?.name} (${size}) added to cart.` : result.message,
+      severity: result.success ? "success" : "error",
+    });
+  };
 
   return (
     <Box sx={{ bgcolor: "background.default", color: "text.primary" }}>
@@ -268,24 +327,71 @@ function HomePage() {
           sx={{ maxWidth: 760, pt: { xs: 8, md: 12 }, pb: 8 }}
         >
           <Box>
-            <Typography
-  variant="h1"
-  sx={{
-    fontWeight: 800,
-    lineHeight: 1.1,
-    fontSize: { xs: "42px", md: "68px" },
-  }}
->
-  Welcome To <br /> Resta Fast Food
-</Typography>
-            <Typography sx={{ mt: 1.1, color: "text.secondary", fontSize: { xs: "16px", md: "20px" } }}>
-              Serving Happiness in Every Bite
-            </Typography>
+            {activePromotion ? (
+              <>
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>
+                  <Chip
+                    label="LIMITED TIME OFFER"
+                    sx={{
+                      bgcolor: "rgba(212,178,95,0.14)",
+                      border: "1px solid rgba(212,178,95,0.28)",
+                      color: "primary.main",
+                      fontWeight: 800,
+                      letterSpacing: 0.8,
+                      px: 0.4,
+                    }}
+                  />
+                  {activePromotion.discountText && (
+                    <Chip
+                      icon={<LocalOfferRoundedIcon sx={{ color: "primary.main" }} />}
+                      label={activePromotion.discountText}
+                      sx={{
+                        bgcolor: "rgba(15,20,30,0.55)",
+                        border: "1px solid rgba(212,178,95,0.22)",
+                        color: "text.primary",
+                        fontWeight: 700,
+                      }}
+                    />
+                  )}
+                </Stack>
+
+                <Typography
+                  variant="h1"
+                  sx={{
+                    fontWeight: 900,
+                    lineHeight: 1.04,
+                    fontSize: { xs: "44px", md: "74px" },
+                    letterSpacing: -0.8,
+                  }}
+                >
+                  {activePromotion.title}
+                </Typography>
+                <Typography sx={{ mt: 1.1, color: "text.secondary", fontSize: { xs: "16px", md: "20px" }, maxWidth: 640 }}>
+                  {activePromotion.description}
+                </Typography>
+              </>
+            ) : (
+              <>
+                <Typography
+                  variant="h1"
+                  sx={{
+                    fontWeight: 800,
+                    lineHeight: 1.1,
+                    fontSize: { xs: "42px", md: "68px" },
+                  }}
+                >
+                  Welcome To <br /> Resta Fast Food
+                </Typography>
+                <Typography sx={{ mt: 1.1, color: "text.secondary", fontSize: { xs: "16px", md: "20px" } }}>
+                  Serving Happiness in Every Bite
+                </Typography>
+              </>
+            )}
           </Box>
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                 <Button
                   component={Link}
-                  to="/menu"
+                  to={primaryCta.to}
                   variant="contained"
                   color="primary"
                   endIcon={<ArrowOutwardRoundedIcon />}
@@ -301,12 +407,12 @@ function HomePage() {
                     },
                   }}
                 >
-                  Explore Menu
+                  {primaryCta.label}
                 </Button>
 
                 <Button
                   component={Link}
-                  to="/vip-rooms"
+                  to={secondaryCta.to}
                   variant="outlined"
                   sx={{
                     px: 4,
@@ -325,7 +431,7 @@ function HomePage() {
                     },
                   }}
                 >
-                  Book VIP Room
+                  {secondaryCta.label}
                 </Button>
           </Stack>
         </Stack>
@@ -375,11 +481,22 @@ function HomePage() {
                 visible: { opacity: 1, y: 0, transition: { duration: 0.35 } },
               }}
             >
-              <MenuCard item={item} index={index} />
+              <MenuCard item={item} index={index} onBuy={handleBuy} />
             </Box>
           ))}
         </Box>
       </Box>
+
+      <Snackbar
+        open={notice.open}
+        autoHideDuration={2600}
+        onClose={() => setNotice((current) => ({ ...current, open: false }))}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert severity={notice.severity} variant="filled" sx={{ width: "100%" }}>
+          {notice.message}
+        </Alert>
+      </Snackbar>
 
     <Box
   component={motion.div}

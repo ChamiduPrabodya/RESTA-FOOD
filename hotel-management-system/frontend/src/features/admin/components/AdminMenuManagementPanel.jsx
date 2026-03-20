@@ -30,10 +30,43 @@ const DEFAULT_MENU_CATEGORIES = [
   "Rice",
   "Biriyani",
   "Deviled",
+  "Black Curry",
   "Pasta",
   "Set Menu",
   "family pack",
 ];
+
+const normalizeCategoryKey = (value) => String(value || "").toLowerCase().replace(/[\s_-]+/g, "");
+
+const PORTION_PRESETS = Object.freeze({
+  smallMediumLarge: ["Small", "Medium", "Large"],
+  weights: ["300g", "500g", "1kg"],
+  regular: ["Regular"],
+});
+
+const getPortionPresetNames = (category) => {
+  const key = normalizeCategoryKey(category);
+  if (key === "deviled" || key === "blackcurry" || key === "blackcurrybeef") return PORTION_PRESETS.weights;
+  if (key === "kottu" || key === "rice" || key === "biriyani") return PORTION_PRESETS.smallMediumLarge;
+  return PORTION_PRESETS.regular;
+};
+
+const buildPortionRowsFromNames = (names) =>
+  (Array.isArray(names) ? names : []).map((name) => ({
+    id: crypto.randomUUID(),
+    name,
+    price: "",
+  }));
+
+const shouldReplacePortionsWithPreset = (rows) => {
+  const list = Array.isArray(rows) ? rows : [];
+  if (list.length !== 1) return false;
+  const onlyRow = list[0] || {};
+  const name = String(onlyRow.name || "").trim().toLowerCase();
+  const price = String(onlyRow.price || "").trim();
+  const isDefaultName = !name || name === "regular";
+  return isDefaultName && !price;
+};
 
 const toPortionRows = (portions) => {
   const rows = Object.entries(portions || {}).map(([name, price]) => ({
@@ -444,11 +477,21 @@ function AdminMenuManagementPanel({
             <Typography sx={{ color: "primary.main", textTransform: "uppercase", fontWeight: 700, mb: 1.2 }}>
               Add Menu Item
             </Typography>
-              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 1.1 }}>
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 1.1 }}>
                 <TextField value={form.name} onChange={(e) => setForm((c) => ({ ...c, name: e.target.value }))} placeholder="Item name" sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }} />
                 <Select
                   value={form.category}
-                  onChange={(e) => setForm((c) => ({ ...c, category: e.target.value }))}
+                  onChange={(e) => {
+                    const nextCategory = e.target.value;
+                    const presetNames = getPortionPresetNames(nextCategory);
+                    setForm((current) => ({
+                      ...current,
+                      category: nextCategory,
+                      portions: shouldReplacePortionsWithPreset(current.portions)
+                        ? buildPortionRowsFromNames(presetNames)
+                        : current.portions,
+                    }));
+                  }}
                   size="small"
                   sx={{ bgcolor: "#0f1116" }}
                 >
@@ -481,9 +524,11 @@ function AdminMenuManagementPanel({
                   Portions & Prices
                 </Typography>
                 <Stack direction="row" spacing={0.6}>
-                  <Button size="small" variant="outlined" onClick={() => addPortionRow("Small", "")}>+ Small</Button>
-                  <Button size="small" variant="outlined" onClick={() => addPortionRow("Medium", "")}>+ Medium</Button>
-                  <Button size="small" variant="outlined" onClick={() => addPortionRow("Large", "")}>+ Large</Button>
+                  {getPortionPresetNames(form.category).map((name) => (
+                    <Button key={name} size="small" variant="outlined" onClick={() => addPortionRow(name, "")}>
+                      + {name}
+                    </Button>
+                  ))}
                 </Stack>
               </Stack>
               <Stack spacing={0.8}>
@@ -597,13 +642,23 @@ function AdminMenuManagementPanel({
                         placeholder="Item name"
                         sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }}
                       />
-                      <Select
-                        value={editForm.category}
-                        onChange={(e) => setEditForm((current) => ({ ...current, category: e.target.value }))}
-                        size="small"
-                        sx={{ bgcolor: "#0f1116" }}
-                      >
-                        {availableCategories.map((category) => (
+                       <Select
+                         value={editForm.category}
+                         onChange={(e) => {
+                           const nextCategory = e.target.value;
+                           const presetNames = getPortionPresetNames(nextCategory);
+                           setEditForm((current) => ({
+                             ...current,
+                             category: nextCategory,
+                             portions: shouldReplacePortionsWithPreset(current.portions)
+                               ? buildPortionRowsFromNames(presetNames)
+                               : current.portions,
+                           }));
+                         }}
+                         size="small"
+                         sx={{ bgcolor: "#0f1116" }}
+                       >
+                         {availableCategories.map((category) => (
                           <MenuItem key={category} value={category}>
                             {category}
                           </MenuItem>
@@ -624,16 +679,29 @@ function AdminMenuManagementPanel({
                         sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }}
                       />
                     </Box>
-                    <ImagePicker
-                      label="Item Image"
-                      value={editForm.image}
-                      onChange={(nextValue) => setEditForm((current) => ({ ...current, image: nextValue }))}
-                    />
+                     <ImagePicker
+                       label="Item Image"
+                       value={editForm.image}
+                       onChange={(nextValue) => setEditForm((current) => ({ ...current, image: nextValue }))}
+                     />
 
-                    <Stack spacing={0.8}>
-                      {editForm.portions.map((portion) => (
-                        <Stack key={portion.id} direction="row" spacing={0.7} alignItems="center">
-                          <TextField
+                     <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.8, mt: 0.8 }}>
+                       <Typography sx={{ color: "primary.main", fontWeight: 700, textTransform: "uppercase", fontSize: "0.85rem" }}>
+                         Portions & Prices
+                       </Typography>
+                       <Stack direction="row" spacing={0.6}>
+                         {getPortionPresetNames(editForm.category).map((name) => (
+                           <Button key={name} size="small" variant="outlined" onClick={() => addEditPortionRow(name, "")}>
+                             + {name}
+                           </Button>
+                         ))}
+                       </Stack>
+                     </Stack>
+
+                     <Stack spacing={0.8}>
+                       {editForm.portions.map((portion) => (
+                         <Stack key={portion.id} direction="row" spacing={0.7} alignItems="center">
+                           <TextField
                             value={portion.name}
                             onChange={(e) => updateEditPortionRow(portion.id, "name", e.target.value)}
                             placeholder="Portion name"

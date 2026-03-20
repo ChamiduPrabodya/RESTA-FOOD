@@ -104,6 +104,11 @@ const DEFAULT_MENU_ITEMS = [
   },
 ];
 
+const VIP_SUITE_CAPACITY = Object.freeze({
+  platinum: 15,
+  gold: 6,
+});
+
 const AuthContext = createContext(null);
 
 const parseStoredJson = (key, fallback) => {
@@ -169,8 +174,23 @@ export function AuthProvider({ children }) {
   }, [feedbacks]);
 
   useEffect(() => {
-    localStorage.setItem(PROMOTIONS_STORAGE_KEY, JSON.stringify(promotions));
+    try {
+      localStorage.setItem(PROMOTIONS_STORAGE_KEY, JSON.stringify(promotions));
+    } catch {
+      // ignore quota errors for large embedded images
+    }
   }, [promotions]);
+
+  useEffect(() => {
+    const handleStorage = (event) => {
+      if (!event) return;
+      if (event.key !== PROMOTIONS_STORAGE_KEY) return;
+      setPromotions(parseStoredJson(PROMOTIONS_STORAGE_KEY, []));
+    };
+
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(LOYALTY_RULES_STORAGE_KEY, JSON.stringify(loyaltyRules));
@@ -557,7 +577,8 @@ export function AuthProvider({ children }) {
       };
     }
 
-    const { orderType = "Delivery", paymentMethod = "Cash" } = checkoutDetails;
+    const { orderType = "Delivery", paymentMethod = "Cash", deliveryDetails } = checkoutDetails;
+    const normalizedDeliveryDetails = deliveryDetails && typeof deliveryDetails === "object" ? deliveryDetails : null;
 
     const storedUser = users.find(
       (item) => String(item.email || "").toLowerCase() === String(authUser.email || "").toLowerCase()
@@ -566,16 +587,21 @@ export function AuthProvider({ children }) {
       orderType === "Delivery"
         ? {
             name: String(authUser.fullName || storedUser?.fullName || "").trim(),
-            phone: String(authUser.phone || storedUser?.phone || "").trim(),
-            streetAddress1: String(authUser.streetAddress1 || storedUser?.streetAddress1 || "").trim(),
-            streetAddress2: String(authUser.streetAddress2 || storedUser?.streetAddress2 || "").trim(),
-            cityTown: String(authUser.cityTown || storedUser?.cityTown || "").trim(),
+            phone: String(normalizedDeliveryDetails?.phone ?? authUser.phone ?? storedUser?.phone ?? "").trim(),
+            streetAddress1: String(
+              normalizedDeliveryDetails?.streetAddress1 ?? authUser.streetAddress1 ?? storedUser?.streetAddress1 ?? ""
+            ).trim(),
+            streetAddress2: String(
+              normalizedDeliveryDetails?.streetAddress2 ?? authUser.streetAddress2 ?? storedUser?.streetAddress2 ?? ""
+            ).trim(),
+            cityTown: String(normalizedDeliveryDetails?.cityTown ?? authUser.cityTown ?? storedUser?.cityTown ?? "").trim(),
             location:
               formatAddress({
-                streetAddress1: authUser.streetAddress1 || storedUser?.streetAddress1,
-                streetAddress2: authUser.streetAddress2 || storedUser?.streetAddress2,
-                cityTown: authUser.cityTown || storedUser?.cityTown,
-              }) || String(authUser.address || storedUser?.address || "").trim(),
+                streetAddress1: normalizedDeliveryDetails?.streetAddress1 ?? authUser.streetAddress1 ?? storedUser?.streetAddress1,
+                streetAddress2: normalizedDeliveryDetails?.streetAddress2 ?? authUser.streetAddress2 ?? storedUser?.streetAddress2,
+                cityTown: normalizedDeliveryDetails?.cityTown ?? authUser.cityTown ?? storedUser?.cityTown,
+              }) ||
+              String(normalizedDeliveryDetails?.location ?? authUser.address ?? storedUser?.address ?? "").trim(),
           }
         : null;
 
@@ -1018,32 +1044,47 @@ export function AuthProvider({ children }) {
       .filter(Boolean);
     const normalizedTime = normalizedTimeSlots[0] || "";
     const guestsCount = Number(guests);
+    const maxGuests = Math.max(1, Number(VIP_SUITE_CAPACITY[normalizedSuiteId]) || 0);
 
     if (!normalizedSuiteId || !normalizedDate || normalizedTimeSlots.length === 0) {
       return { success: false, message: "Please add room type, date, and time." };
     }
+    if (!Object.prototype.hasOwnProperty.call(VIP_SUITE_CAPACITY, normalizedSuiteId)) {
+      return { success: false, message: "Invalid VIP room type." };
+    }
     if (!Number.isFinite(guestsCount) || guestsCount <= 0) {
       return { success: false, message: "Please enter a valid guest count." };
+    }
+    if (guestsCount > maxGuests) {
+      return { success: false, message: `Guest count exceeds the suite capacity (${maxGuests}).` };
     }
 
     const bookingDay = new Date(`${normalizedDate}T00:00:00`);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    if (Number.isNaN(bookingDay.getTime()) || bookingDay.getTime() <= today.getTime()) {
-      return { success: false, message: "Please select a booking date after today." };
+    if (Number.isNaN(bookingDay.getTime()) || bookingDay.getTime() < today.getTime()) {
+      return { success: false, message: "Please select a booking date from today onwards." };
     }
 
     const legacySlotMap = {
-      "10:00-12:00": "11:00-13:00",
-      "12:00-15:00": "13:00-16:00",
-      "15:00-18:00": "16:00-19:00",
-      "18:00-21:00": "19:00-22:00",
-      "10:00": "11:00-13:00",
-      "12:00": "13:00-16:00",
-      "15:00": "16:00-19:00",
-      "18:00": "19:00-22:00",
+      "10:00-12:00": "11:00-14:00",
+      "11:00-13:00": "11:00-14:00",
+      "12:00-15:00": "14:00-17:00",
+      "13:00-16:00": "14:00-17:00",
+      "15:00-18:00": "17:00-20:00",
+      "16:00-19:00": "17:00-20:00",
+      "18:00-21:00": "20:00-23:00",
+      "19:00-22:00": "20:00-23:00",
+      "10:00": "11:00-14:00",
+      "11:00": "11:00-14:00",
+      "12:00": "14:00-17:00",
+      "13:00": "14:00-17:00",
+      "15:00": "17:00-20:00",
+      "16:00": "17:00-20:00",
+      "18:00": "20:00-23:00",
+      "19:00": "20:00-23:00",
     };
-    const allowedSlotOrder = ["11:00-13:00", "13:00-16:00", "16:00-19:00", "19:00-22:00"];
+    const allowedSlotOrder = ["11:00-14:00", "14:00-17:00", "17:00-20:00", "20:00-23:00"];
     const slotIndexByValue = allowedSlotOrder.reduce((acc, value, index) => {
       acc[value] = index;
       return acc;
@@ -1068,6 +1109,22 @@ export function AuthProvider({ children }) {
     const isConsecutiveRange = sortedIndexes.every((value, i) => i === 0 || value === sortedIndexes[i - 1] + 1);
     if (!isConsecutiveRange) {
       return { success: false, message: "Please select consecutive time slots only." };
+    }
+
+    if (normalizedDate === new Date().toISOString().slice(0, 10)) {
+      const resolveVipBookingStartTime = (value) => {
+        const text = String(value || "").trim();
+        if (!text) return "";
+        if (text.includes("-")) return text.split("-")[0].trim();
+        if (text.includes("|")) return text.split("|")[0].split("-")[0].trim();
+        return text;
+      };
+      const startTime = resolveVipBookingStartTime(uniqueRequestedSlots[0]);
+      const startTimeText = /^\d{2}:\d{2}$/.test(startTime) ? `${startTime}:00` : startTime;
+      const bookingDateTime = new Date(`${normalizedDate}T${startTimeText}`);
+      if (!Number.isNaN(bookingDateTime.getTime()) && Date.now() >= bookingDateTime.getTime()) {
+        return { success: false, message: "Selected time slot has already started. Please choose a later slot." };
+      }
     }
 
     const requested = new Set(uniqueRequestedSlots);
