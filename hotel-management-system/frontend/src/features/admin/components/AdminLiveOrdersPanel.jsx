@@ -18,7 +18,7 @@ import {
   Typography,
 } from "@mui/material";
 
-const ORDER_STATUSES = [
+const ITEM_STATUSES = [
   "Pending",
   "Preparing",
   "Prepared (Ready)",
@@ -27,32 +27,35 @@ const ORDER_STATUSES = [
   "Cancelled",
 ];
 
+const ORDER_STATUSES = ["Mixed", ...ITEM_STATUSES];
+
 const isCompletedOrder = (status) => ["Prepared (Ready)", "Delivered"].includes(status);
 const isCancelledOrder = (status) => status === "Cancelled";
 
 const parsePriceNumber = (value) => Number(String(value ?? "").replace(/[^\d.]/g, "")) || 0;
 const formatSLR = (value) => `SLR ${Math.round(Number(value) || 0).toLocaleString()}`;
-const normalizeStatus = (status) => String(status || "Pending").trim() || "Pending";
+const normalizeStatus = (status) => {
+  const text = String(status || "").trim();
+  if (!text) return "Pending";
+  const lower = text.toLowerCase();
+  if (lower === "pending") return "Pending";
+  if (lower === "preparing") return "Preparing";
+  if (lower === "prepared" || lower === "prepared (ready)" || lower === "ready") return "Prepared (Ready)";
+  if (lower === "out for delivery" || lower === "outfordelivery") return "Out for Delivery";
+  if (lower === "delivered") return "Delivered";
+  if (lower === "cancelled" || lower === "canceled" || lower === "canceled by admin" || lower === "cancelled by admin")
+    return "Cancelled";
+  return text;
+};
 
 const deriveOrderStatus = (items) => {
   const list = Array.isArray(items) ? items : [];
   if (list.length === 0) return "Pending";
 
-  const ranks = ORDER_STATUSES.reduce((acc, value, index) => {
-    acc[value] = index;
-    return acc;
-  }, {});
-
-  const activeItems = list.filter((item) => normalizeStatus(item.status) !== "Cancelled");
-  if (activeItems.length === 0) return "Cancelled";
-
-  const minRank = activeItems.reduce((best, item) => {
-    const status = normalizeStatus(item.status);
-    const rank = typeof ranks[status] === "number" ? ranks[status] : 0;
-    return Math.min(best, rank);
-  }, Number.POSITIVE_INFINITY);
-
-  return ORDER_STATUSES[minRank] || normalizeStatus(activeItems[0]?.status);
+  const normalizedStatuses = list.map((item) => normalizeStatus(item.status));
+  const unique = [...new Set(normalizedStatuses)];
+  if (unique.length === 1) return unique[0] || "Pending";
+  return "Mixed";
 };
 
 const isOrderCancelled = (items) => {
@@ -152,6 +155,11 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus, updatePurchaseStat
       setNotice({ open: true, message: result.message || "Unable to update order status.", severity: "error" });
       return;
     }
+    if (liveOrdersFilter === "cancelled" || liveOrdersFilter === "completed") {
+      setLiveOrdersFilter("active");
+      setNotice({ open: true, message: "Order status updated (moved to Active).", severity: "success" });
+      return;
+    }
     setNotice({ open: true, message: "Order status updated.", severity: "success" });
   };
   const handleItemStatusChange = (purchaseId, nextStatus) => {
@@ -166,6 +174,11 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus, updatePurchaseStat
     const result = updatePurchaseStatus(purchaseId, nextStatus);
     if (!result.success) {
       setNotice({ open: true, message: result.message || "Unable to update item status.", severity: "error" });
+      return;
+    }
+    if (liveOrdersFilter === "cancelled" || liveOrdersFilter === "completed") {
+      setLiveOrdersFilter("active");
+      setNotice({ open: true, message: "Item status updated (moved to Active).", severity: "success" });
       return;
     }
     setNotice({ open: true, message: "Item status updated.", severity: "success" });
@@ -235,11 +248,11 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus, updatePurchaseStat
                   {String(order.orderType || "Delivery")}
                 </Typography>
               </Box>
-              <Select
-                size="small"
-                value={order.status}
-                onChange={(event) => handleOrderStatusChange(order.orderId, event.target.value)}
-                sx={{
+                <Select
+                  size="small"
+                  value={order.status}
+                  onChange={(event) => handleOrderStatusChange(order.orderId, event.target.value)}
+                  sx={{
                   minWidth: 180,
                   borderRadius: 99,
                   bgcolor: "#080c12",
@@ -255,14 +268,14 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus, updatePurchaseStat
                       color: "primary.main",
                     },
                   },
-                }}
-              >
-                {ORDER_STATUSES.map((status) => (
-                  <MenuItem key={status} value={status}>
-                    {status}
-                  </MenuItem>
-                ))}
-              </Select>
+                  }}
+                >
+                  {ORDER_STATUSES.map((status) => (
+                    <MenuItem key={status} value={status} disabled={status === "Mixed"}>
+                      {status}
+                    </MenuItem>
+                  ))}
+                </Select>
             </Stack>
 
             <Box sx={{ mt: 2.2, display: "grid", gap: 1, p: 2.2, borderRadius: 2.5, border: "1px solid rgba(212,178,95,0.12)", bgcolor: "#120d0c" }}>
@@ -302,7 +315,7 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus, updatePurchaseStat
                         },
                       }}
                     >
-                      {ORDER_STATUSES.map((status) => (
+                      {ITEM_STATUSES.map((status) => (
                         <MenuItem key={status} value={status}>
                           {status}
                         </MenuItem>

@@ -439,6 +439,11 @@ function AccountDialog({
                       <Typography sx={{ color: "text.secondary", fontSize: 14 }}>
                         {booking.date} {formatVipBookingTime(booking)} • {booking.status || "Pending"}
                       </Typography>
+                      {normalizeOrderStatus(booking.status) === "cancelled" && String(booking.cancelReason || "").trim() && (
+                        <Typography sx={{ color: "#ff9aa0", fontSize: 13, mt: 0.4 }}>
+                          Cancellation reason: {booking.cancelReason}
+                        </Typography>
+                      )}
                     </Box>
                     <Button
                       size="small"

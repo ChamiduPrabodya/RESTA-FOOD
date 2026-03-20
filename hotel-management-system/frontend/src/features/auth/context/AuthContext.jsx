@@ -717,20 +717,44 @@ export function AuthProvider({ children }) {
     return { success: true };
   };
 
+  const normalizePurchaseStatus = (status) => {
+    const text = String(status || "").trim();
+    if (!text) return "";
+    const lower = text.toLowerCase();
+    if (lower === "pending") return "Pending";
+    if (lower === "preparing") return "Preparing";
+    if (lower === "prepared" || lower === "prepared (ready)" || lower === "ready") return "Prepared (Ready)";
+    if (lower === "out for delivery" || lower === "outfordelivery") return "Out for Delivery";
+    if (lower === "delivered") return "Delivered";
+    if (lower === "cancelled" || lower === "canceled" || lower === "canceled by admin" || lower === "cancelled by admin")
+      return "Cancelled";
+    return text;
+  };
+
   const updatePurchaseStatus = (purchaseId, status, cancelReason = "") => {
-    const nextStatus = String(status || "").trim();
+    const normalizedPurchaseId = String(purchaseId || "").trim();
+    if (!normalizedPurchaseId) {
+      return { success: false, message: "Purchase id is required." };
+    }
+
+    const nextStatus = normalizePurchaseStatus(status) || String(status || "").trim();
     const normalizedReason = String(cancelReason || "").trim();
     if (nextStatus === "Cancelled" && !normalizedReason) {
       return { success: false, message: "Please provide a cancellation reason." };
     }
 
+    const exists = purchases.some((purchase) => String(purchase?.id || "").trim() === normalizedPurchaseId);
+    if (!exists) {
+      return { success: false, message: "Purchase not found." };
+    }
+
     setPurchases((current) =>
       current.map((purchase) => {
-        if (purchase.id !== purchaseId) return purchase;
+        if (String(purchase?.id || "").trim() !== normalizedPurchaseId) return purchase;
         return {
           ...purchase,
           status: nextStatus,
-          cancelReason: nextStatus === "Cancelled" ? normalizedReason : purchase.cancelReason || "",
+          cancelReason: nextStatus === "Cancelled" ? normalizedReason : "",
           statusUpdatedAt: new Date().toISOString(),
         };
       })
@@ -744,10 +768,19 @@ export function AuthProvider({ children }) {
       return { success: false, message: "Order id is required." };
     }
 
-    const nextStatus = String(status || "").trim();
+    const nextStatus = normalizePurchaseStatus(status) || String(status || "").trim();
     const normalizedReason = String(cancelReason || "").trim();
     if (nextStatus === "Cancelled" && !normalizedReason) {
       return { success: false, message: "Please provide a cancellation reason." };
+    }
+
+    const matches = purchases.some((purchase) => {
+      const purchaseOrderId = String(purchase?.orderId || "").trim();
+      const purchaseId = String(purchase?.id || "").trim();
+      return purchaseOrderId === normalizedOrderId || purchaseId === normalizedOrderId;
+    });
+    if (!matches) {
+      return { success: false, message: "Order not found." };
     }
 
     setPurchases((current) =>
@@ -758,7 +791,7 @@ export function AuthProvider({ children }) {
         return {
           ...purchase,
           status: nextStatus,
-          cancelReason: nextStatus === "Cancelled" ? normalizedReason : purchase.cancelReason || "",
+          cancelReason: nextStatus === "Cancelled" ? normalizedReason : "",
           statusUpdatedAt: new Date().toISOString(),
         };
       })
@@ -766,11 +799,55 @@ export function AuthProvider({ children }) {
     return { success: true };
   };
 
-  const updateVipBookingStatus = (bookingId, status) => {
+  const normalizeVipBookingStatus = (status) => {
+    const text = String(status || "").trim();
+    if (!text) return "";
+    const lower = text.toLowerCase();
+    if (lower === "pending") return "Pending";
+    if (lower === "confirmed") return "Confirmed";
+    if (lower === "cancelled" || lower === "canceled") return "Cancelled";
+    return text;
+  };
+
+  const updateVipBookingStatus = (bookingId, status, cancelReason = "") => {
+    const normalizedBookingId = String(bookingId || "").trim();
+    if (!normalizedBookingId) {
+      return { success: false, message: "Booking id is required." };
+    }
+
+    const nextStatus = normalizeVipBookingStatus(status) || String(status || "").trim();
+    const normalizedReason = String(cancelReason || "").trim();
+    if (nextStatus === "Cancelled" && !normalizedReason) {
+      return { success: false, message: "Please provide a cancellation reason." };
+    }
+
+    const exists = vipBookings.some((booking) => String(booking?.id || "").trim() === normalizedBookingId);
+    if (!exists) {
+      return { success: false, message: "Booking not found." };
+    }
+
     setVipBookings((current) =>
-      current.map((booking) =>
-        booking.id === bookingId ? { ...booking, status } : booking
-      )
+      current.map((booking) => {
+        if (String(booking?.id || "").trim() !== normalizedBookingId) return booking;
+        if (nextStatus === "Cancelled") {
+          return {
+            ...booking,
+            status: nextStatus,
+            cancelReason: normalizedReason,
+            cancelledBy: authUser?.role === "admin" ? "admin" : booking.cancelledBy || "",
+            cancelledAt: new Date().toISOString(),
+            statusUpdatedAt: new Date().toISOString(),
+          };
+        }
+        return {
+          ...booking,
+          status: nextStatus,
+          cancelReason: "",
+          cancelledBy: "",
+          cancelledAt: "",
+          statusUpdatedAt: new Date().toISOString(),
+        };
+      })
     );
     return { success: true };
   };
