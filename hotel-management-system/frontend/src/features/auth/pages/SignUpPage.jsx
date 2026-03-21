@@ -37,7 +37,7 @@ function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
-
+//validation
   const validateSriLankaMobile = (value) => {
     const digitsOnly = String(value || "").replace(/\D/g, "");
     if (!digitsOnly) return "Mobile number is required.";

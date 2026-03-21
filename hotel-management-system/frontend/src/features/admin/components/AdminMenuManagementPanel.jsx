@@ -6,9 +6,11 @@ import {
   Card,
   CardContent,
   Dialog,
+  DialogActions,
   DialogContent,
   DialogTitle,
   IconButton,
+  InputAdornment,
   MenuItem,
   Select,
   Stack,
@@ -72,22 +74,29 @@ const toPortionRows = (portions) => {
   const rows = Object.entries(portions || {}).map(([name, price]) => ({
     id: crypto.randomUUID(),
     name,
-    price,
+    price: String(price ?? "").replace(/[^\d.]/g, ""),
   }));
   return rows.length > 0 ? rows : [{ id: crypto.randomUUID(), name: "Regular", price: "" }];
+};
+
+const normalizeLkrPriceLabel = (rawValue) => {
+  const normalized = String(rawValue ?? "").trim();
+  if (!normalized) return "";
+  const numeric = Number(normalized.replace(/[^\d.]/g, "")) || 0;
+  return `Rs ${Math.round(numeric).toLocaleString()}`;
 };
 
 const normalizePortions = (rows) => {
   const portions = rows
     .filter((portion) => String(portion.name || "").trim() && String(portion.price || "").trim())
     .reduce((acc, portion) => {
-      acc[String(portion.name).trim()] = String(portion.price).trim();
+      acc[String(portion.name).trim()] = normalizeLkrPriceLabel(portion.price);
       return acc;
     }, {});
   if (Object.keys(portions).length > 0) return portions;
 
   const fallbackName = String(rows[0]?.name || "Regular").trim() || "Regular";
-  const fallbackPrice = String(rows[0]?.price || "").trim() || "SLR 0";
+  const fallbackPrice = normalizeLkrPriceLabel(rows[0]?.price) || "Rs 0";
   return { [fallbackName]: fallbackPrice };
 };
 
@@ -114,6 +123,8 @@ function AdminMenuManagementPanel({
   const [editingCategoryValue, setEditingCategoryValue] = useState("");
   const [editingItemId, setEditingItemId] = useState("");
   const [notice, setNotice] = useState({ open: false, message: "", severity: "success" });
+  const [deleteCandidate, setDeleteCandidate] = useState(null);
+  const [addAttempted, setAddAttempted] = useState(false);
   const [form, setForm] = useState({
     name: "",
     category: availableCategories[0] || "Kottu",
@@ -193,6 +204,17 @@ function AdminMenuManagementPanel({
   };
 
   const handleAdd = () => {
+    setAddAttempted(true);
+    const loyaltyPointsValue = String(form.loyaltyPoints ?? "").trim();
+    const loyaltyPointsNumber = Number(loyaltyPointsValue);
+    if (!loyaltyPointsValue) {
+      setNotice({ open: true, message: "Loyalty points are required.", severity: "error" });
+      return;
+    }
+    if (!Number.isFinite(loyaltyPointsNumber) || loyaltyPointsNumber < 0) {
+      setNotice({ open: true, message: "Loyalty points must be a valid number (0 or more).", severity: "error" });
+      return;
+    }
     const result = addMenuItem({
       name: form.name,
       category: form.category,
@@ -206,6 +228,7 @@ function AdminMenuManagementPanel({
       return;
     }
     setNotice({ open: true, message: "Menu item added successfully.", severity: "success" });
+    setAddAttempted(false);
     setForm({
       name: "",
       category: availableCategories[0] || "Kottu",
@@ -234,10 +257,11 @@ function AdminMenuManagementPanel({
   };
 
   const updatePortionRow = (rowId, field, value) => {
+    const nextValue = field === "price" ? String(value ?? "").replace(/[^\d.]/g, "") : value;
     setForm((current) => ({
       ...current,
       portions: current.portions.map((portion) =>
-        portion.id === rowId ? { ...portion, [field]: value } : portion
+        portion.id === rowId ? { ...portion, [field]: nextValue } : portion
       ),
     }));
   };
@@ -265,7 +289,7 @@ function AdminMenuManagementPanel({
   const addEditPortionRow = (name = "", price = "") => {
     setEditForm((current) => ({
       ...current,
-      portions: [...current.portions, { id: crypto.randomUUID(), name, price }],
+      portions: [...current.portions, { id: crypto.randomUUID(), name, price: String(price ?? "").replace(/[^\d.]/g, "") }],
     }));
   };
 
@@ -280,10 +304,11 @@ function AdminMenuManagementPanel({
   };
 
   const updateEditPortionRow = (rowId, field, value) => {
+    const nextValue = field === "price" ? String(value ?? "").replace(/[^\d.]/g, "") : value;
     setEditForm((current) => ({
       ...current,
       portions: current.portions.map((portion) =>
-        portion.id === rowId ? { ...portion, [field]: value } : portion
+        portion.id === rowId ? { ...portion, [field]: nextValue } : portion
       ),
     }));
   };
@@ -304,6 +329,28 @@ function AdminMenuManagementPanel({
     }
     setEditingItemId("");
     setNotice({ open: true, message: "Menu item updated successfully.", severity: "success" });
+  };
+
+  const handleRequestDeleteItem = (item) => {
+    setDeleteCandidate(item || null);
+  };
+
+  const handleCloseDeleteDialog = () => {
+    setDeleteCandidate(null);
+  };
+
+  const handleConfirmDeleteItem = () => {
+    if (!deleteCandidate) return;
+    const result = deleteMenuItem?.(deleteCandidate.id);
+    if (!result?.success) {
+      setNotice({ open: true, message: result?.message || "Unable to delete menu item.", severity: "error" });
+      return;
+    }
+    if (editingItemId === deleteCandidate.id) {
+      setEditingItemId("");
+    }
+    setDeleteCandidate(null);
+    setNotice({ open: true, message: "Menu item deleted successfully.", severity: "success" });
   };
 
   return (
@@ -415,6 +462,28 @@ function AdminMenuManagementPanel({
         </DialogContent>
       </Dialog>
 
+      <Dialog
+        open={Boolean(deleteCandidate)}
+        onClose={handleCloseDeleteDialog}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>Delete menu item?</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ color: "text.secondary", mt: 0.5 }}>
+            {deleteCandidate?.name ? `"${deleteCandidate.name}" will be deleted permanently.` : "This item will be deleted permanently."}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 2.4, pb: 1.6 }}>
+          <Button variant="outlined" onClick={handleCloseDeleteDialog}>
+            Cancel
+          </Button>
+          <Button color="error" variant="contained" onClick={handleConfirmDeleteItem}>
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Box
         sx={{
           display: "flex",
@@ -507,7 +576,10 @@ function AdminMenuManagementPanel({
                   onChange={(e) => setForm((c) => ({ ...c, loyaltyPoints: e.target.value }))}
                   placeholder="Loyalty points (per item)"
                   type="number"
+                  required
                   inputProps={{ min: 0 }}
+                  error={addAttempted && !String(form.loyaltyPoints ?? "").trim()}
+                  helperText={addAttempted && !String(form.loyaltyPoints ?? "").trim() ? "Required" : " "}
                   sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }}
                 />
               </Box>
@@ -544,8 +616,12 @@ function AdminMenuManagementPanel({
                     <TextField
                       value={portion.price}
                       onChange={(e) => updatePortionRow(portion.id, "price", e.target.value)}
-                      placeholder="Price (e.g. SLR 950)"
+                      placeholder="Price"
                       size="small"
+                      inputMode="numeric"
+                      InputProps={{
+                        startAdornment: <InputAdornment position="start">Rs</InputAdornment>,
+                      }}
                       sx={{ flex: 1, "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }}
                     />
                     <IconButton color="error" onClick={() => removePortionRow(portion.id)}>
@@ -622,7 +698,7 @@ function AdminMenuManagementPanel({
                         color="error"
                         variant="outlined"
                         startIcon={<DeleteOutlineRoundedIcon />}
-                        onClick={() => deleteMenuItem(item.id)}
+                        onClick={() => handleRequestDeleteItem(item)}
                       >
                         Delete
                       </Button>
@@ -713,6 +789,10 @@ function AdminMenuManagementPanel({
                             onChange={(e) => updateEditPortionRow(portion.id, "price", e.target.value)}
                             placeholder="Price"
                             size="small"
+                            inputMode="numeric"
+                            InputProps={{
+                              startAdornment: <InputAdornment position="start">Rs</InputAdornment>,
+                            }}
                             sx={{ flex: 1, "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }}
                           />
                           <IconButton color="error" onClick={() => removeEditPortionRow(portion.id)}>

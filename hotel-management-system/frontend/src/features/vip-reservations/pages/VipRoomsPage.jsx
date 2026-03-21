@@ -40,6 +40,8 @@ const sectionReveal = {
   },
 };
 
+const PUBLIC_ASSET_BASE = String(import.meta.env?.BASE_URL || "/");
+
 const suites = [
   {
     id: "platinum",
@@ -47,7 +49,7 @@ const suites = [
     guests: "Up to 15 Guests",
     seats: 15,
     price: "SLR 15,000 / Session",
-    image: "/images/home/VIP1.jpeg",
+    image: `${PUBLIC_ASSET_BASE}images/home/VIP1.jpeg`,
     features: ["Full AC", '75" Smart TV', "Private Sound System", "Dedicated Butler", "RGB Ambient Lighting"],
   },
   {
@@ -56,7 +58,7 @@ const suites = [
     guests: "Up to 6 Guests",
     seats: 6,
     price: "SLR 8,000 / Session",
-    image: "/images/home/VIP2.jpeg",
+    image: `${PUBLIC_ASSET_BASE}images/home/VIP2.jpeg`,
     features: ["Full AC", '55" Smart TV', "Private Sound System", "Private Entrance", "Soft Gold Theme"],
   },
 ];
@@ -114,7 +116,7 @@ const getBookingSlots = (booking) => {
     .map((value) => mapLegacyTimeToSlot(value))
     .filter(Boolean);
 };
-
+// validation vip room booking:
 function VipRoomsPage() {
   const [suiteId, setSuiteId] = useState("platinum");
   const [bookingDate, setBookingDate] = useState("");

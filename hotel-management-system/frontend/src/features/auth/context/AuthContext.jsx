@@ -220,7 +220,7 @@ export function AuthProvider({ children }) {
     ].filter(Boolean);
     return parts.join(", ");
   };
-
+//validation
   const login = (email, password) => {
     const normalizedEmail = email.trim().toLowerCase();
 
@@ -279,7 +279,7 @@ export function AuthProvider({ children }) {
       streetAddress2: normalizedStreet2,
       cityTown: normalizedCityTown,
     });
-
+//validation
     if (!String(fullName || "").trim() || !normalizedEmail || !String(password || "").trim() || !normalizedPhone || !normalizedStreet1 || !normalizedCityTown) {
       return { success: false, message: "Please fill all required fields." };
     }
@@ -1253,6 +1253,13 @@ export function AuthProvider({ children }) {
     if (!normalizedName || !normalizedCategory || !normalizedDescription) {
       return { success: false, message: "Name, category, and description are required." };
     }
+    if (loyaltyPoints === undefined || loyaltyPoints === null || String(loyaltyPoints).trim() === "") {
+      return { success: false, message: "Loyalty points are required." };
+    }
+    const parsedLoyaltyPoints = Number(String(loyaltyPoints).trim());
+    if (!Number.isFinite(parsedLoyaltyPoints) || parsedLoyaltyPoints < 0) {
+      return { success: false, message: "Loyalty points must be a valid number (0 or more)." };
+    }
     if (!portions || typeof portions !== "object" || Object.keys(portions).length === 0) {
       return { success: false, message: "At least one portion and price is required." };
     }
@@ -1270,10 +1277,7 @@ export function AuthProvider({ children }) {
       portions,
       image: String(image || "").trim() || "/images/home/popular-01.svg",
       outOfStock: Boolean(outOfStock),
-      loyaltyPoints:
-        loyaltyPoints === undefined || loyaltyPoints === null || String(loyaltyPoints).trim() === ""
-          ? undefined
-          : Math.max(0, Math.round(Number(loyaltyPoints) || 0)),
+      loyaltyPoints: Math.max(0, Math.round(parsedLoyaltyPoints || 0)),
     };
     setMenuItems((current) => [menuItem, ...current]);
     setMenuCategories((current) => {
