@@ -3,8 +3,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/RESTA-FOOD/',   
-
+  base: '/RESTA-FOOD/',
   server: {
     watch: {
       usePolling: true,
