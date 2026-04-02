@@ -3,6 +3,8 @@ const cors = require("cors");
 
 const { PORT, CLIENT_ORIGIN } = require("./config/env");
 const { apiRouter } = require("./routes");
+const { notFound } = require("./shared/middlewares/notFound");
+const { errorHandler } = require("./shared/middlewares/errorHandler");
 
 async function main() {
   const app = express();
@@ -17,8 +19,15 @@ async function main() {
 
   app.use("/api", apiRouter);
 
-  app.listen(PORT, () => {
-    console.log(`API listening on http://localhost:${PORT}`);
+  app.use(notFound);
+  app.use(errorHandler);
+
+  await new Promise((resolve, reject) => {
+    const server = app.listen(PORT, () => {
+      console.log(`API listening on http://localhost:${PORT}`);
+      resolve();
+    });
+    server.on("error", reject);
   });
 }
 
