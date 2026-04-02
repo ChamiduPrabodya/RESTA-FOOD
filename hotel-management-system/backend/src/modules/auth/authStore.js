@@ -21,6 +21,10 @@ async function readUsers() {
   return users;
 }
 
+async function listUsers() {
+  return readUsers();
+}
+
 async function writeUsers(users) {
   await ensureStore();
   await fs.writeFile(USERS_FILE, JSON.stringify({ users }, null, 2), "utf8");
@@ -52,6 +56,6 @@ async function updateUserByEmail(email, updater) {
 module.exports = {
   addUser,
   findUserByEmail,
+  listUsers,
   updateUserByEmail,
 };
-

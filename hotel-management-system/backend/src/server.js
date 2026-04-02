@@ -2,7 +2,7 @@ const express = require("express");
 const cors = require("cors");
 
 const { PORT, CLIENT_ORIGIN } = require("./config/env");
-const { authRouter } = require("./modules/auth/authRoutes");
+const { apiRouter } = require("./routes");
 
 async function main() {
   const app = express();
@@ -15,8 +15,7 @@ async function main() {
     })
   );
 
-  app.get("/api/health", (_req, res) => res.json({ ok: true }));
-  app.use("/api/auth", authRouter);
+  app.use("/api", apiRouter);
 
   app.listen(PORT, () => {
     console.log(`API listening on http://localhost:${PORT}`);
@@ -27,4 +26,3 @@ main().catch((error) => {
   console.error("Fatal startup error:", error);
   process.exitCode = 1;
 });
-
