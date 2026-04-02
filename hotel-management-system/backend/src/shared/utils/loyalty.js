@@ -33,9 +33,6 @@ function getUserPointsFromPurchases(purchases, userEmail) {
   return (Array.isArray(purchases) ? purchases : [])
     .filter((purchase) => String(purchase && purchase.userEmail ? purchase.userEmail : "").trim().toLowerCase() === normalizedEmail)
     .reduce((sum, purchase) => {
-      if (purchase && Object.prototype.hasOwnProperty.call(purchase, "loyaltyPointsEarned")) {
-        return sum + (Number(purchase.loyaltyPointsEarned) || 0);
-      }
       return sum + parsePriceNumber(purchase ? purchase.price : "");
     }, 0);
 }

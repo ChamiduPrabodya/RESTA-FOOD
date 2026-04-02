@@ -12,6 +12,7 @@ const {
   addMyPurchases,
   listMyPurchases,
   listAllPurchases,
+  listAudit,
 } = require("./loyaltyController");
 
 const loyaltyRouter = express.Router();
@@ -31,5 +32,7 @@ loyaltyRouter.get("/purchases/me", requireAuth(), asyncHandler(listMyPurchases))
 
 // Admin: audit purchases.
 loyaltyRouter.get("/purchases", requireAuth(), requireRole([ROLES.ADMIN]), asyncHandler(listAllPurchases));
+// Admin: audit trail for purchase sync (idempotency, duplicates, etc).
+loyaltyRouter.get("/audit", requireAuth(), requireRole([ROLES.ADMIN]), asyncHandler(listAudit));
 
 module.exports = { loyaltyRouter };

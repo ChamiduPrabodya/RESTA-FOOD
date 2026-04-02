@@ -4,6 +4,7 @@ const path = require("node:path");
 const DATA_DIR = path.join(__dirname, "../../../.data");
 const RULES_FILE = path.join(DATA_DIR, "loyaltyRules.json");
 const PURCHASES_FILE = path.join(DATA_DIR, "purchases.json");
+const AUDIT_FILE = path.join(DATA_DIR, "loyaltyAudit.json");
 
 const DEFAULT_RULES = [
   { id: "r1", threshold: "2000", discount: "1" },
@@ -56,9 +57,23 @@ async function appendPurchases(purchases) {
   return next;
 }
 
+async function listAuditEntries() {
+  const parsed = await readJson(AUDIT_FILE, { entries: [] });
+  return Array.isArray(parsed.entries) ? parsed.entries : [];
+}
+
+async function appendAuditEntry(entry, { maxEntries = 2000 } = {}) {
+  const current = await listAuditEntries();
+  const next = [entry, ...current].slice(0, Math.max(1, Number(maxEntries) || 2000));
+  await writeJson(AUDIT_FILE, { entries: next });
+  return next;
+}
+
 module.exports = {
   readRules,
   writeRules,
   listPurchases,
   appendPurchases,
+  listAuditEntries,
+  appendAuditEntry,
 };

@@ -1,11 +1,11 @@
-const crypto = require("node:crypto");
-
 const { normalizeLoyaltyRules, getUserPointsFromPurchases, getLoyaltyDiscountPercent } = require("../../shared/utils/loyalty");
 const {
   readRules,
   writeRules,
   listPurchases,
   appendPurchases,
+  appendAuditEntry,
+  listAuditEntries,
 } = require("./loyaltyStore");
 
 async function listRules() {
@@ -32,25 +32,65 @@ async function getLoyaltySummaryForUser(email) {
   };
 }
 
-async function addPurchasesForUser(email, purchasesInput) {
+async function addPurchasesForUser(email, purchasesInput, meta = {}) {
   const purchases = Array.isArray(purchasesInput) ? purchasesInput : [];
   const now = new Date().toISOString();
 
-  const rows = purchases.map((purchase) => ({
-    id: String(purchase.id || "").trim() || crypto.randomUUID(),
-    orderId: String(purchase.orderId || "").trim() || null,
-    userEmail: email,
-    price: String(purchase.price ?? "").trim(),
-    loyaltyPointsEarned:
-      Object.prototype.hasOwnProperty.call(purchase, "loyaltyPointsEarned") && purchase.loyaltyPointsEarned !== undefined
-        ? Math.max(0, Math.round(Number(purchase.loyaltyPointsEarned) || 0))
-        : undefined,
-    createdAt: String(purchase.createdAt || "").trim() || now,
-  }));
+  const existing = await listPurchases();
+  const existingKeys = new Set(
+    existing
+      .map((row) => {
+        const id = String(row && row.id ? row.id : "").trim();
+        const userEmail = String(row && row.userEmail ? row.userEmail : "").trim().toLowerCase();
+        if (!id || !userEmail) return "";
+        return `${userEmail}:${id}`;
+      })
+      .filter(Boolean)
+  );
 
-  await appendPurchases(rows);
+  const seenIncoming = new Set();
+  const rows = purchases
+    .map((purchase) => {
+      const id = String(purchase && purchase.id ? purchase.id : "").trim();
+      if (!id) return null;
+      return {
+        id,
+        orderId: String(purchase && purchase.orderId ? purchase.orderId : "").trim() || null,
+        userEmail: email,
+        price: String(purchase && purchase.price !== undefined ? purchase.price : "").trim(),
+        createdAt: String(purchase && purchase.createdAt ? purchase.createdAt : "").trim() || now,
+      };
+    })
+    .filter(Boolean)
+    .filter((row) => {
+      const key = `${String(email).trim().toLowerCase()}:${row.id}`;
+      if (existingKeys.has(key)) return false;
+      if (seenIncoming.has(key)) return false;
+      seenIncoming.add(key);
+      return true;
+    });
+
+  if (rows.length > 0) {
+    await appendPurchases(rows);
+  }
+
+  await appendAuditEntry(
+    {
+      at: now,
+      userEmail: String(email || "").trim().toLowerCase(),
+      ip: String(meta && meta.ip ? meta.ip : "").trim(),
+      userAgent: String(meta && meta.userAgent ? meta.userAgent : "").trim(),
+      purchasesAttempted: purchases.length,
+      purchasesAdded: rows.length,
+      purchasesSkipped: Math.max(0, purchases.length - rows.length),
+      orderIds: [...new Set(purchases.map((p) => String(p && p.orderId ? p.orderId : "").trim()).filter(Boolean))].slice(0, 20),
+      addedPurchaseIds: rows.map((row) => row.id).slice(0, 50),
+    },
+    { maxEntries: 2000 }
+  );
+
   const summary = await getLoyaltySummaryForUser(email);
-  return { purchasesAdded: rows.length, summary };
+  return { purchasesAdded: rows.length, summary, purchasesSkipped: Math.max(0, purchases.length - rows.length) };
 }
 
 async function listPurchasesForUser(email) {
@@ -72,4 +112,5 @@ module.exports = {
   addPurchasesForUser,
   listPurchasesForUser,
   listAllPurchases,
+  listAuditEntries,
 };

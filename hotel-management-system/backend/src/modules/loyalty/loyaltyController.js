@@ -6,6 +6,7 @@ const {
   addPurchasesForUser,
   listPurchasesForUser,
   listAllPurchases: listAllPurchasesFromStore,
+  listAuditEntries,
 } = require("./loyaltyService");
 const { validateReplaceRules, validateAddPurchases } = require("./validators/loyaltyValidator");
 
@@ -64,7 +65,10 @@ async function addMyPurchases(req, res) {
     return res.status(400).json({ success: false, message: validation.message });
   }
 
-  const result = await addPurchasesForUser(email, validation.value.purchases);
+  const result = await addPurchasesForUser(email, validation.value.purchases, {
+    ip: req.ip,
+    userAgent: req.headers["user-agent"],
+  });
   return res.json({ success: true, ...result });
 }
 
@@ -94,6 +98,17 @@ async function listAllPurchases(req, res) {
   }
 }
 
+async function listAudit(req, res) {
+  try {
+    const entries = await listAuditEntries();
+    return res.json({ success: true, entries });
+  } catch (error) {
+    const status = Number(error && error.status ? error.status : 500);
+    const message = status === 500 ? "Unable to list audit entries." : String(error.message || "Error");
+    return res.status(status).json({ success: false, message });
+  }
+}
+
 module.exports = {
   getRules,
   replaceRules,
@@ -101,4 +116,5 @@ module.exports = {
   addMyPurchases,
   listMyPurchases,
   listAllPurchases,
+  listAudit,
 };

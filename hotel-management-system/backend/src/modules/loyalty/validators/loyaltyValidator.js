@@ -25,6 +25,11 @@ function validateAddPurchases(body) {
   }
 
   for (const purchase of purchases) {
+    const id = purchase && Object.prototype.hasOwnProperty.call(purchase, "id") ? String(purchase.id).trim() : "";
+    if (!id) {
+      return { ok: false, message: "Each purchase must include id." };
+    }
+
     const hasPrice = purchase && Object.prototype.hasOwnProperty.call(purchase, "price");
     if (!hasPrice) {
       return { ok: false, message: "Each purchase must include price." };
@@ -36,10 +41,7 @@ function validateAddPurchases(body) {
     }
 
     if (purchase && Object.prototype.hasOwnProperty.call(purchase, "loyaltyPointsEarned")) {
-      const points = Number(purchase.loyaltyPointsEarned);
-      if (!Number.isFinite(points) || points < 0) {
-        return { ok: false, message: "purchase.loyaltyPointsEarned must be a number (0 or more)." };
-      }
+      return { ok: false, message: "Do not send purchase.loyaltyPointsEarned. Server computes loyalty points." };
     }
   }
 
