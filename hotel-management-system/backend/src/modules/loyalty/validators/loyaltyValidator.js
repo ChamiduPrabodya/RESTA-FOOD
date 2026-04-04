@@ -31,8 +31,60 @@ function validateAddPurchases(body) {
     }
 
     const hasPrice = purchase && Object.prototype.hasOwnProperty.call(purchase, "price");
-    if (!hasPrice) {
-      return { ok: false, message: "Each purchase must include price." };
+    const hasSubtotal = purchase && Object.prototype.hasOwnProperty.call(purchase, "subtotal");
+    if (!hasPrice && !hasSubtotal) {
+      return { ok: false, message: "Each purchase must include price or subtotal." };
+    }
+
+    if (hasSubtotal) {
+      const subtotal = Number(purchase.subtotal);
+      if (!Number.isFinite(subtotal) || subtotal < 0) {
+        return { ok: false, message: "purchase.subtotal must be a number (0 or more)." };
+      }
+      if (purchase && Object.prototype.hasOwnProperty.call(purchase, "promotionDiscount")) {
+        const promo = Number(purchase.promotionDiscount);
+        if (!Number.isFinite(promo) || promo < 0) {
+          return { ok: false, message: "purchase.promotionDiscount must be a number (0 or more)." };
+        }
+      }
+      if (purchase && Object.prototype.hasOwnProperty.call(purchase, "orderType")) {
+        const orderType = String(purchase.orderType || "").trim().toLowerCase();
+        if (orderType && orderType !== "delivery" && orderType !== "takeaway") {
+          return { ok: false, message: "purchase.orderType must be Delivery or Takeaway." };
+        }
+      }
+    }
+
+    if (purchase && Object.prototype.hasOwnProperty.call(purchase, "status")) {
+      const status = String(purchase.status || "").trim().toLowerCase();
+      const allowed = ["pending", "preparing", "prepared", "out for delivery", "delivered", "completed", "paid", "cancelled", "canceled"];
+      if (status && !allowed.includes(status)) {
+        return { ok: false, message: "purchase.status is invalid." };
+      }
+    }
+
+    if (purchase && Object.prototype.hasOwnProperty.call(purchase, "items")) {
+      const items = purchase.items;
+      if (!Array.isArray(items) || items.length === 0) {
+        return { ok: false, message: "purchase.items must be a non-empty array when provided." };
+      }
+      for (const item of items) {
+        const menuItemId = item && Object.prototype.hasOwnProperty.call(item, "menuItemId") ? String(item.menuItemId).trim() : "";
+        const itemName = item && Object.prototype.hasOwnProperty.call(item, "itemName") ? String(item.itemName).trim() : "";
+        if (!menuItemId && !itemName) {
+          return { ok: false, message: "Each purchase.items entry must include menuItemId or itemName." };
+        }
+        const qty = Number(item && Object.prototype.hasOwnProperty.call(item, "quantity") ? item.quantity : NaN);
+        if (!Number.isFinite(qty) || qty <= 0) {
+          return { ok: false, message: "Each purchase.items entry must include quantity (> 0)." };
+        }
+        if (item && Object.prototype.hasOwnProperty.call(item, "unitPrice")) {
+          const unitPrice = Number(item.unitPrice);
+          if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+            return { ok: false, message: "purchase.items.unitPrice must be a number (0 or more)." };
+          }
+        }
+      }
     }
 
     const createdAt = purchase && purchase.createdAt !== undefined ? String(purchase.createdAt) : "";
@@ -48,7 +100,40 @@ function validateAddPurchases(body) {
   return { ok: true, value: { purchases } };
 }
 
+function validateUpdatePurchaseStatus(body) {
+  const payload = body && typeof body === "object" ? body : {};
+  const status = String(payload.status || "").trim();
+  if (!status) return { ok: false, message: "status is required." };
+
+  const normalized = status.trim().toLowerCase();
+  const allowed = {
+    pending: "Pending",
+    preparing: "Preparing",
+    prepared: "Prepared",
+    "out for delivery": "Out for Delivery",
+    delivered: "Delivered",
+    completed: "Completed",
+    paid: "Paid",
+    cancelled: "Cancelled",
+    canceled: "Cancelled",
+  };
+
+  if (!allowed[normalized]) {
+    return { ok: false, message: "Invalid status." };
+  }
+
+  const cancelReason = String(payload.cancelReason || "").trim();
+  if (allowed[normalized] === "Cancelled" && !cancelReason) {
+    return { ok: false, message: "cancelReason is required when cancelling." };
+  }
+
+  const userEmail = payload.userEmail !== undefined ? String(payload.userEmail || "").trim().toLowerCase() : "";
+
+  return { ok: true, value: { status: allowed[normalized], cancelReason, userEmail } };
+}
+
 module.exports = {
   validateReplaceRules,
   validateAddPurchases,
+  validateUpdatePurchaseStatus,
 };

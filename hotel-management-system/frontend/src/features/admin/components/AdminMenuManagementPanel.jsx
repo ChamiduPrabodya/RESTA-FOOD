@@ -644,6 +644,15 @@ function AdminMenuManagementPanel({
       <Stack spacing={1.1}>
         {filteredItems.map((item) => {
           const isEditing = editingItemId === item.id;
+          const derivedLoyaltyPoints = (() => {
+            const portions = item && item.portions && typeof item.portions === "object" ? item.portions : null;
+            if (!portions) return null;
+            const values = Object.values(portions)
+              .map((value) => Number(String(value ?? "").replace(/[^\d.]/g, "")) || 0)
+              .filter((value) => Number.isFinite(value) && value > 0);
+            if (values.length === 0) return null;
+            return Math.max(0, Math.round(Math.min(...values)));
+          })();
           return (
             <Card key={item.id} sx={{ bgcolor: "#17100c", border: "1px solid rgba(212,178,95,0.14)", borderRadius: 4 }}>
               <CardContent sx={{ p: 1.8 }}>
@@ -655,11 +664,15 @@ function AdminMenuManagementPanel({
                       <Typography sx={{ color: "text.secondary", fontSize: 13, mt: 0.4 }}>
                         {item.description}
                       </Typography>
-                      {item && Object.prototype.hasOwnProperty.call(item, "loyaltyPoints") && item.loyaltyPoints !== undefined && (
+                      {item && Object.prototype.hasOwnProperty.call(item, "loyaltyPoints") && item.loyaltyPoints !== undefined ? (
                         <Typography sx={{ color: "text.secondary", fontSize: 13, mt: 0.2 }}>
                           Loyalty points: {item.loyaltyPoints}
                         </Typography>
-                      )}
+                      ) : derivedLoyaltyPoints !== null ? (
+                        <Typography sx={{ color: "text.secondary", fontSize: 13, mt: 0.2 }}>
+                          Loyalty points (auto): {derivedLoyaltyPoints}
+                        </Typography>
+                      ) : null}
                       <Stack direction="row" spacing={0.6} useFlexGap flexWrap="wrap" sx={{ mt: 0.7 }}>
                         {Object.entries(item.portions || {}).map(([portion, price]) => (
                           <Box

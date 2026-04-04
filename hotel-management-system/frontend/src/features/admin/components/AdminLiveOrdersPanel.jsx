@@ -84,21 +84,22 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus, updatePurchaseStat
       quantity: purchase.quantity || 1,
     }));
 
-    const groups = new Map();
-    normalizedPurchases.forEach((purchase) => {
-      const orderKey = String(purchase.orderId || purchase.id || "").trim() || String(purchase.id || "");
-      const existing = groups.get(orderKey);
-      const createdAt = String(purchase.createdAt || "").trim();
-      const createdAtTime = createdAt ? new Date(createdAt).getTime() : 0;
+      const groups = new Map();
+      normalizedPurchases.forEach((purchase) => {
+        const orderKey = String(purchase.orderId || purchase.id || "").trim() || String(purchase.id || "");
+        const existing = groups.get(orderKey);
+        const createdAt = String(purchase.createdAt || "").trim();
+        const createdAtTime = createdAt ? new Date(createdAt).getTime() : 0;
 
-      if (!existing) {
-        groups.set(orderKey, {
-          orderId: orderKey,
-          createdAt: purchase.createdAt || "",
-          createdAtTime,
-          orderType: purchase.orderType || "Delivery",
-          paymentMethod: purchase.paymentMethod || "",
-          userEmail: purchase.userEmail || "",
+        if (!existing) {
+          groups.set(orderKey, {
+            orderId: orderKey,
+            orderRef: purchase.orderRef || "",
+            createdAt: purchase.createdAt || "",
+            createdAtTime,
+            orderType: purchase.orderType || "Delivery",
+            paymentMethod: purchase.paymentMethod || "",
+            userEmail: purchase.userEmail || "",
           deliveryDetails: purchase.deliveryDetails || null,
           items: [purchase],
         });
@@ -110,6 +111,7 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus, updatePurchaseStat
         existing.createdAtTime = createdAtTime;
         existing.createdAt = purchase.createdAt || existing.createdAt;
       }
+      existing.orderRef = existing.orderRef || purchase.orderRef || "";
       existing.orderType = existing.orderType || purchase.orderType;
       existing.paymentMethod = existing.paymentMethod || purchase.paymentMethod;
       existing.userEmail = existing.userEmail || purchase.userEmail;
@@ -242,7 +244,7 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus, updatePurchaseStat
             <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={2}>
               <Box>
                 <Typography variant="h3" sx={{ fontSize: { xs: "20px", md: "22px" } }}>
-                  ORD-{3046 + index}
+                  {String(order.orderRef || "").trim() || `ORD-${3046 + index}`}
                 </Typography>
                 <Typography sx={{ color: "text.secondary", textTransform: "uppercase", letterSpacing: 0.8, fontSize: "0.78rem" }}>
                   {String(order.orderType || "Delivery")}

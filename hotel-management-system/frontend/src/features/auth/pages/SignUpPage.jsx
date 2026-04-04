@@ -16,8 +16,8 @@ import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import PersonAddAltRoundedIcon from "@mui/icons-material/PersonAddAltRounded";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import VisibilityOffOutlinedIcon from "@mui/icons-material/VisibilityOffOutlined";
-import GoogleIcon from "@mui/icons-material/Google";
 import { useAuth } from "../context/AuthContext";
+import GoogleIdentityButton from "../components/GoogleIdentityButton";
 
 const MotionCard = motion(Card);
 
@@ -59,7 +59,7 @@ function SignUpPage() {
     return "";
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
     setError("");
@@ -74,7 +74,7 @@ function SignUpPage() {
       return;
     }
 
-    const result = signup({
+    const result = await signup({
       fullName,
       email,
       password,
@@ -88,16 +88,14 @@ function SignUpPage() {
       return;
     }
 
-    navigate("/sign-in", {
-      replace: true,
-      state: { signupSuccess: "Account created. Please login." },
-    });
+    navigate("/", { replace: true });
   };
 
-  const handleGoogleSignup = () => {
-    const result = loginWithGoogle();
+  const handleGoogleCredential = async (credential) => {
+    setError("");
+    const result = await loginWithGoogle(credential);
     if (!result.success) {
-      setError("Google signup failed.");
+      setError(result.message || "Google signup failed.");
       return;
     }
     navigate("/", { replace: true });
@@ -375,21 +373,11 @@ function SignUpPage() {
               <Typography sx={{ color: "text.secondary", fontSize: 13, letterSpacing: 0.6 }}>OR</Typography>
               <Box sx={{ flex: 1, height: 1, bgcolor: "rgba(212,178,95,0.22)" }} />
             </Stack>
-            <Button
-              fullWidth
-              onClick={handleGoogleSignup}
-              variant="outlined"
-              startIcon={<GoogleIcon />}
-              sx={{
-                py: 1.15,
-                borderRadius: 3,
-                borderColor: "rgba(212,178,95,0.35)",
-                color: "text.primary",
-                bgcolor: "rgba(15,20,30,0.55)",
-              }}
-            >
-              Continue with Google
-            </Button>
+            <GoogleIdentityButton
+              onCredential={handleGoogleCredential}
+              onError={(message) => setError(String(message || "Google signup failed."))}
+              text="continue_with"
+            />
           </Box>
 
           <Typography sx={{ mt: 2.5, textAlign: "center", color: "text.secondary" }}>

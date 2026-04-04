@@ -2,7 +2,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const https = require("https");
 
-const { JWT_SECRET, ADMIN_EMAIL, ADMIN_PASSWORD, GOOGLE_CLIENT_ID } = require("../../config/env");
+const { JWT_SECRET, ADMIN_EMAIL, GOOGLE_CLIENT_ID } = require("../../config/env");
 const { sanitizeUser } = require("../../models/User");
 const { ROLES } = require("../../shared/constants/roles");
 const { validateLogin, validateSignup } = require("./validators/authValidator");
@@ -297,16 +297,6 @@ async function login(req, res) {
 
   const { email, password } = validation.value;
 
-  if (email === String(ADMIN_EMAIL || "").trim().toLowerCase() && password === ADMIN_PASSWORD) {
-    const token = signToken({ email: ADMIN_EMAIL, role: ROLES.ADMIN });
-    return res.json({
-      success: true,
-      role: ROLES.ADMIN,
-      token,
-      user: { email: ADMIN_EMAIL, role: ROLES.ADMIN, fullName: "Admin" },
-    });
-  }
-
   if (email === String(DEMO_USER_EMAIL || "").trim().toLowerCase() && password === DEMO_USER_PASSWORD) {
     const now = new Date().toISOString();
     const demoUser = {
@@ -354,6 +344,7 @@ module.exports = {
   signup,
   login,
   googleLogin,
+  getAuthMe,
 };
 
 async function googleLogin(req, res) {
@@ -413,6 +404,7 @@ async function googleLogin(req, res) {
       googleName: derivedName || current.googleName,
       googleGivenName: payloadGiven ? payloadGiven : current.googleGivenName,
       googleFamilyName: payloadFamily ? payloadFamily : current.googleFamilyName,
+      googleEmailVerified: emailVerified,
       fullName: derivedName || String(current.fullName || "").trim() || "Google User",
       lastActiveAt: now,
     }));
@@ -437,10 +429,42 @@ async function googleLogin(req, res) {
     googleName: derivedName || undefined,
     googleGivenName: payload && payload.given_name ? String(payload.given_name) : undefined,
     googleFamilyName: payload && payload.family_name ? String(payload.family_name) : undefined,
+    googleEmailVerified: emailVerified,
     createdAt: now,
     lastActiveAt: now,
   });
 
   const token = signToken({ email: createdUser.email, role: createdUser.role });
   return res.json({ success: true, role: createdUser.role, token, user: sanitizeUser(createdUser) });
+}
+
+async function getAuthMe(req, res) {
+  const email = String(req.auth && req.auth.email ? req.auth.email : "").trim().toLowerCase();
+  const role = req.auth && req.auth.role ? req.auth.role : undefined;
+
+  if (!email) {
+    return res.status(401).json({ success: false, message: "Unauthorized." });
+  }
+
+  if (email === String(DEMO_USER_EMAIL || "").trim().toLowerCase()) {
+    const demoUser = {
+      email: DEMO_USER_EMAIL,
+      role: ROLES.USER,
+      fullName: "John Doe",
+      phone: "+94 71 987 6543",
+      streetAddress1: "No. 25, Galle Road",
+      streetAddress2: "",
+      cityTown: "Colombo 03",
+      address: "No. 25, Galle Road, Colombo 03",
+      authProvider: "local",
+    };
+    return res.json({ success: true, auth: req.auth, user: demoUser });
+  }
+
+  const user = await findUserByEmail(email);
+  if (!user) {
+    return res.json({ success: true, auth: req.auth, user: { email, role: role || ROLES.USER } });
+  }
+
+  return res.json({ success: true, auth: req.auth, user: sanitizeUser(user) });
 }

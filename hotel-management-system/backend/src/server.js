@@ -2,11 +2,15 @@ const express = require("express");
 const cors = require("cors");
 
 const { PORT, CLIENT_ORIGIN } = require("./config/env");
+const { connectMongo } = require("./shared/db/mongo");
+const { ensureAdminUser } = require("./modules/auth/seedAdminUser");
 const { apiRouter } = require("./routes");
 const { notFound } = require("./shared/middlewares/notFound");
 const { errorHandler } = require("./shared/middlewares/errorHandler");
 
 async function main() {
+  await connectMongo();
+  await ensureAdminUser();
   const app = express();
 
   app.use(express.json({ limit: "1mb" }));

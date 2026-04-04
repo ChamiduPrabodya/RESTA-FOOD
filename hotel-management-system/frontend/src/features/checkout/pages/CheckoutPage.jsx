@@ -49,7 +49,7 @@ const detectCardBrand = (digits) => {
 
 function CheckoutPage() {
   const navigate = useNavigate();
-  const { authUser, cartItems, placeOrderFromCart, purchases, promotions, loyaltyRules, lastDeliveryDetails } = useAuth();
+  const { authUser, cartItems, placeOrderFromCart, promotions, loyaltyRules, loyaltySummary, lastDeliveryDetails } = useAuth();
 
   const userCartItems = useMemo(
     () => cartItems.filter((item) => item.userEmail === authUser?.email),
@@ -112,14 +112,15 @@ function CheckoutPage() {
       calculateCheckoutPricing({
         cartItems: userCartItems,
         userEmail: authUser?.email,
-        purchases,
         promotions,
         loyaltyRules,
+        points: loyaltySummary?.points,
+        loyaltyPercent: loyaltySummary?.discountPercent,
         orderType,
         deliveryAddress: formattedDeliveryAddress,
         deliveryCityTown,
       }),
-    [userCartItems, authUser, purchases, promotions, loyaltyRules, orderType, formattedDeliveryAddress, deliveryCityTown]
+    [userCartItems, authUser, promotions, loyaltyRules, loyaltySummary?.points, loyaltySummary?.discountPercent, orderType, formattedDeliveryAddress, deliveryCityTown]
   );
 
   if (!authUser) {
@@ -173,7 +174,7 @@ function CheckoutPage() {
     return !nextErrors.cardNumber && !nextErrors.cardExpiry && !nextErrors.cardCvv;
   };
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
     if (orderType === "Delivery") {
       const normalizedPhone = String(deliveryPhone || "").trim();
       const phoneOk = /^[0-9+\-\s]{9,15}$/.test(normalizedPhone);
@@ -202,7 +203,7 @@ function CheckoutPage() {
     }
 
     setErrorMessage("");
-    const result = placeOrderFromCart({
+    const result = await placeOrderFromCart({
       orderType,
       paymentMethod,
       deliveryDetails:
@@ -216,8 +217,8 @@ function CheckoutPage() {
             }
           : null,
     });
-    if (!result.success) {
-      setErrorMessage(result.message);
+    if (!result?.success) {
+      setErrorMessage(result?.message || "Unable to place order.");
       return;
     }
 

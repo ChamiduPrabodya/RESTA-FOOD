@@ -165,6 +165,7 @@ function SideItem({ icon, label, active = false, badge, onClick }) {
 function AdminDashboardPage() {
   const {
     purchases,
+    loyaltyPurchases,
     vipBookings,
     users,
     feedbacks,
@@ -476,7 +477,7 @@ function AdminDashboardPage() {
           )}
 
           {activeSection === "customers" && (
-            <AdminCustomersPanel users={users} purchases={purchases} />
+            <AdminCustomersPanel users={users} purchases={loyaltyPurchases} />
           )}
 
           {activeSection === "qrSystem" && <AdminQrSystemPanel />}

@@ -29,7 +29,7 @@ const getLoyaltyTier = (points) => {
 };
 
 function AdminCustomersPanel({ users, purchases }) {
-  const { loyaltyRules, updateLoyaltyRule, addLoyaltyRule, removeLoyaltyRule } = useAuth();
+  const { loyaltyRules, updateLoyaltyRule, addLoyaltyRule, removeLoyaltyRule, saveLoyaltyRulesToServer } = useAuth();
   const [isConfiguring, setIsConfiguring] = useState(false);
 
   const rows = useMemo(() => {
@@ -40,9 +40,11 @@ function AdminCustomersPanel({ users, purchases }) {
       if (!email) return;
       const current = byEmail.get(email) || { email, orders: 0, points: 0 };
       current.orders += 1;
-      current.points += Object.prototype.hasOwnProperty.call(purchase, "loyaltyPointsEarned")
-        ? Number(purchase.loyaltyPointsEarned) || 0
-        : parsePriceNumber(purchase.price);
+      current.points += Object.prototype.hasOwnProperty.call(purchase, "pointsEarned")
+        ? Number(purchase.pointsEarned) || 0
+        : Object.prototype.hasOwnProperty.call(purchase, "loyaltyPointsEarned")
+          ? Number(purchase.loyaltyPointsEarned) || 0
+          : parsePriceNumber(purchase.price);
       byEmail.set(email, current);
     });
 
@@ -99,7 +101,15 @@ function AdminCustomersPanel({ users, purchases }) {
             Configure Tiers
           </Button>
         ) : (
-          <Button variant="contained" color="success" startIcon={<CheckRoundedIcon />} onClick={() => setIsConfiguring(false)}>
+          <Button
+            variant="contained"
+            color="success"
+            startIcon={<CheckRoundedIcon />}
+            onClick={async () => {
+              await saveLoyaltyRulesToServer?.();
+              setIsConfiguring(false);
+            }}
+          >
             Save Tiers
           </Button>
         )}

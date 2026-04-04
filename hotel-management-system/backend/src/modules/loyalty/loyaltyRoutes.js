@@ -13,6 +13,7 @@ const {
   listMyPurchases,
   listAllPurchases,
   listAudit,
+  updatePurchaseStatus,
 } = require("./loyaltyController");
 
 const loyaltyRouter = express.Router();
@@ -34,5 +35,7 @@ loyaltyRouter.get("/purchases/me", requireAuth(), asyncHandler(listMyPurchases))
 loyaltyRouter.get("/purchases", requireAuth(), requireRole([ROLES.ADMIN]), asyncHandler(listAllPurchases));
 // Admin: audit trail for purchase sync (idempotency, duplicates, etc).
 loyaltyRouter.get("/audit", requireAuth(), requireRole([ROLES.ADMIN]), asyncHandler(listAudit));
+// Admin/user: update purchase status (points only count once delivered/completed/paid).
+loyaltyRouter.patch("/purchases/:id/status", requireAuth(), asyncHandler(updatePurchaseStatus));
 
 module.exports = { loyaltyRouter };

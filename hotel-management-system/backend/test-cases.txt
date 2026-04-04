@@ -1,0 +1,37 @@
+Generated: 2026-04-03T14:56:47.033Z
+
+admin-seed.test.js - ensureAdminUser: skips when env missing
+admin-seed.test.js - ensureAdminUser: creates admin when missing
+auth-controller.test.js - authController.signup: rejects reserved admin email
+auth-controller.test.js - authController.signup: creates user when valid
+auth-controller.test.js - authController.login: rejects invalid credentials when user not found
+auth-controller.test.js - authController.login: rejects google-only account (no passwordHash)
+auth-controller.test.js - authController.login: succeeds and returns token when password matches
+auth-validator.test.js - authValidator.validateLogin: requires email and password
+auth-validator.test.js - authValidator.validateLogin: normalizes email
+auth-validator.test.js - authValidator.validateSignup: rejects weak password
+auth-validator.test.js - authValidator.validateSignup: returns normalized payload
+loyalty-service-points.test.js - loyaltyService.addPurchasesForUser: pointsEarned uses menu item loyaltyPoints * quantity
+loyalty-status-endpoint.test.js - PATCH status: requires auth
+loyalty-status-endpoint.test.js - PATCH status: user can only cancel
+loyalty-status-endpoint.test.js - PATCH status: cancelling requires cancelReason
+loyalty-status-endpoint.test.js - PATCH status: user cancel calls service with own email
+loyalty-status-endpoint.test.js - PATCH status: admin can mark delivered for specified user
+loyalty-utils.test.js - isCompletedPurchase: legacy purchase without status counts as completed
+loyalty-utils.test.js - isCompletedPurchase: only Delivered/Completed/Paid count
+loyalty-utils.test.js - getUserPointsFromPurchases: sums only completed purchases for user
+loyalty-utils.test.js - computePointsFromLineItems: uses menu loyaltyPoints when available
+loyalty-utils.test.js - computePointsFromLineItems: falls back to unitPrice when menu item missing
+loyalty-validator.test.js - validateAddPurchases: rejects loyaltyPointsEarned from client
+loyalty-validator.test.js - validateAddPurchases: accepts status when valid
+loyalty-validator.test.js - validateUpdatePurchaseStatus: requires cancelReason when cancelling
+loyalty-validator.test.js - validateUpdatePurchaseStatus: normalizes statuses
+menu-controllers.test.js - menuController: listMenuItemsController returns success true
+menu-controllers.test.js - menuController: replaceMenuItemsController validates items array
+menu-controllers.test.js - menuCategoryController: replaceMenuCategoriesController validates categories array
+menu-service.test.js - normalizeIncomingMenuItems: drops items without id/name
+menu-service.test.js - normalizeIncomingMenuItems: adds nameLower and normalizes loyaltyPoints
+menu-service.test.js - normalizeCategoryNames: trims and dedupes
+user-controller.test.js - userController.updateMe: forbids non-user role
+user-controller.test.js - userController.updateMe: validates phone number
+user-controller.test.js - userController.getMe: returns sanitized user

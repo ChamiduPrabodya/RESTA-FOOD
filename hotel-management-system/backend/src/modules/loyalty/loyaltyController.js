@@ -7,8 +7,9 @@ const {
   listPurchasesForUser,
   listAllPurchases: listAllPurchasesFromStore,
   listAuditEntries,
+  updatePurchaseStatus: updatePurchaseStatusInService,
 } = require("./loyaltyService");
-const { validateReplaceRules, validateAddPurchases } = require("./validators/loyaltyValidator");
+const { validateReplaceRules, validateAddPurchases, validateUpdatePurchaseStatus } = require("./validators/loyaltyValidator");
 
 async function getRules(_req, res) {
   const rules = await listRules();
@@ -109,6 +110,38 @@ async function listAudit(req, res) {
   }
 }
 
+async function updatePurchaseStatus(req, res) {
+  const email = String(req.auth && req.auth.email ? req.auth.email : "").trim().toLowerCase();
+  const role = req.auth && req.auth.role ? req.auth.role : undefined;
+  const purchaseId = String(req.params && req.params.id ? req.params.id : "").trim();
+
+  if (!email) return res.status(401).json({ success: false, message: "Unauthorized." });
+  if (!purchaseId) return res.status(400).json({ success: false, message: "Missing purchase id." });
+
+  const validation = validateUpdatePurchaseStatus(req.body);
+  if (!validation.ok) return res.status(400).json({ success: false, message: validation.message });
+
+  const targetUserEmail = validation.value.userEmail || (role === ROLES.USER ? email : "");
+  if (role === ROLES.USER && targetUserEmail && targetUserEmail !== email) {
+    return res.status(403).json({ success: false, message: "Forbidden." });
+  }
+  if (role === ROLES.USER && validation.value.status !== "Cancelled") {
+    return res.status(403).json({ success: false, message: "Forbidden." });
+  }
+
+  const updated = await updatePurchaseStatusInService({
+    id: purchaseId,
+    userEmail: targetUserEmail,
+    status: validation.value.status,
+    cancelReason: validation.value.cancelReason,
+    updatedBy: role === ROLES.ADMIN ? "admin" : "user",
+  });
+
+  if (!updated) return res.status(404).json({ success: false, message: "Purchase not found." });
+
+  return res.json({ success: true, purchase: updated });
+}
+
 module.exports = {
   getRules,
   replaceRules,
@@ -117,4 +150,5 @@ module.exports = {
   listMyPurchases,
   listAllPurchases,
   listAudit,
+  updatePurchaseStatus,
 };

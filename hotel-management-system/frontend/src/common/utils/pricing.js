@@ -157,20 +157,29 @@ export const calculateCheckoutPricing = ({
   purchases,
   promotions,
   loyaltyRules,
+  points,
+  loyaltyPercent,
   orderType,
   deliveryAddress,
   deliveryCityTown,
   now,
 } = {}) => {
   const subtotal = calculateCartSubtotal(cartItems);
-  const points = getUserPointsFromPurchases(purchases, userEmail);
-  const loyaltyPercent = getLoyaltyDiscountPercent(points, loyaltyRules);
+  const resolvedPoints =
+    points !== undefined && points !== null && String(points).trim() !== ""
+      ? Math.max(0, Math.round(Number(points) || 0))
+      : getUserPointsFromPurchases(purchases, userEmail);
+
+  const resolvedLoyaltyPercent =
+    loyaltyPercent !== undefined && loyaltyPercent !== null && String(loyaltyPercent).trim() !== ""
+      ? Math.max(0, Number(loyaltyPercent) || 0)
+      : getLoyaltyDiscountPercent(resolvedPoints, loyaltyRules);
 
   const bestPromotion = pickBestPromotion(promotions, { subtotal, now, type: "food" });
   const promotionDiscount = bestPromotion?.amount || 0;
 
   const afterPromotion = Math.max(0, subtotal - promotionDiscount);
-  const loyaltyDiscount = Math.max(0, Math.round((afterPromotion * loyaltyPercent) / 100));
+  const loyaltyDiscount = Math.max(0, Math.round((afterPromotion * resolvedLoyaltyPercent) / 100));
 
   const totalDiscount = Math.min(subtotal, promotionDiscount + loyaltyDiscount);
   const total = Math.max(0, subtotal - totalDiscount);
@@ -184,10 +193,10 @@ export const calculateCheckoutPricing = ({
 
   return {
     subtotal,
-    points,
+    points: resolvedPoints,
     promotion: bestPromotion?.promotion || null,
     promotionDiscount,
-    loyaltyPercent,
+    loyaltyPercent: resolvedLoyaltyPercent,
     loyaltyDiscount,
     totalDiscount,
     total,

@@ -1,56 +1,84 @@
-const fs = require("node:fs/promises");
-const path = require("node:path");
+const mongoose = require("mongoose");
 
-const DATA_DIR = path.join(__dirname, "../../../.data");
-const USERS_FILE = path.join(DATA_DIR, "users.json");
+const { connectMongo } = require("../../shared/db/mongo");
 
-async function ensureStore() {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  try {
-    await fs.access(USERS_FILE);
-  } catch {
-    await fs.writeFile(USERS_FILE, JSON.stringify({ users: [] }, null, 2), "utf8");
-  }
-}
+const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
 
-async function readUsers() {
-  await ensureStore();
-  const raw = await fs.readFile(USERS_FILE, "utf8");
-  const parsed = JSON.parse(raw || "{}");
-  const users = Array.isArray(parsed.users) ? parsed.users : [];
-  return users;
-}
+const userSchema = new mongoose.Schema(
+  {
+    email: { type: String, required: true, index: true, unique: true, trim: true, lowercase: true },
+    role: { type: String, default: "user" },
+    passwordHash: { type: String, default: "" },
+    fullName: { type: String, default: "" },
+    phone: { type: String, default: "" },
+    streetAddress1: { type: String, default: "" },
+    streetAddress2: { type: String, default: "" },
+    cityTown: { type: String, default: "" },
+    address: { type: String, default: "" },
+    authProvider: { type: String, default: "local" },
+    googleSub: { type: String },
+    avatarUrl: { type: String },
+    googleName: { type: String },
+    googleGivenName: { type: String },
+    googleFamilyName: { type: String },
+    googleEmailVerified: { type: Boolean },
+    createdAt: { type: String },
+    lastActiveAt: { type: String },
+  },
+  { collection: "users", versionKey: false, strict: false }
+);
+
+const UserModel = mongoose.models.User || mongoose.model("User", userSchema);
+
+const stripMongoFields = (doc) => {
+  if (!doc) return null;
+  // eslint-disable-next-line no-unused-vars
+  const { _id, ...rest } = doc;
+  return rest;
+};
 
 async function listUsers() {
-  return readUsers();
-}
-
-async function writeUsers(users) {
-  await ensureStore();
-  await fs.writeFile(USERS_FILE, JSON.stringify({ users }, null, 2), "utf8");
+  await connectMongo();
+  const users = await UserModel.find({}).sort({ createdAt: -1, _id: -1 }).lean();
+  return users.map(stripMongoFields);
 }
 
 async function findUserByEmail(email) {
-  const users = await readUsers();
-  const normalizedEmail = String(email || "").trim().toLowerCase();
-  return users.find((user) => String(user.email || "").trim().toLowerCase() === normalizedEmail) || null;
+  await connectMongo();
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail) return null;
+  const user = await UserModel.findOne({ email: normalizedEmail }).lean();
+  return stripMongoFields(user);
 }
 
 async function addUser(user) {
-  const users = await readUsers();
-  users.push(user);
-  await writeUsers(users);
-  return user;
+  await connectMongo();
+  const normalizedEmail = normalizeEmail(user && user.email ? user.email : "");
+  if (!normalizedEmail) throw new Error("Email is required.");
+
+  const created = await UserModel.create({ ...(user || {}), email: normalizedEmail });
+  return stripMongoFields(created.toObject());
 }
 
 async function updateUserByEmail(email, updater) {
-  const users = await readUsers();
-  const normalizedEmail = String(email || "").trim().toLowerCase();
-  const nextUsers = users.map((user) => {
-    if (String(user.email || "").trim().toLowerCase() !== normalizedEmail) return user;
-    return updater(user);
-  });
-  await writeUsers(nextUsers);
+  await connectMongo();
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail) return;
+
+  const doc = await UserModel.findOne({ email: normalizedEmail });
+  if (!doc) return;
+
+  const current = doc.toObject();
+  const next = typeof updater === "function" ? updater(stripMongoFields(current)) : null;
+  if (!next || typeof next !== "object") return;
+
+  const updates = { ...next, email: normalizedEmail };
+  for (const [key, value] of Object.entries(updates)) {
+    if (key === "_id") continue;
+    doc.set(key, value);
+  }
+
+  await doc.save();
 }
 
 module.exports = {
