@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Box,
@@ -166,12 +166,15 @@ function AdminDashboardPage() {
   const {
     purchases,
     loyaltyPurchases,
+    adminPointsByEmail,
     vipBookings,
     users,
     feedbacks,
     promotions,
     menuItems,
     menuCategories,
+    refreshAdminLoyaltyPurchases,
+    refreshAdminUsers,
     updatePurchaseStatus,
     updateOrderStatus,
     updateVipBookingStatus,
@@ -188,6 +191,12 @@ function AdminDashboardPage() {
   } = useAuth();
   const [activeSection, setActiveSection] = useState("dashboard");
   const [dailySalesOpen, setDailySalesOpen] = useState(false);
+
+  useEffect(() => {
+    if (activeSection !== "customers") return;
+    refreshAdminUsers?.();
+    refreshAdminLoyaltyPurchases?.();
+  }, [activeSection, refreshAdminLoyaltyPurchases, refreshAdminUsers]);
 
   const normalizedPurchases = purchases.map((purchase) => ({
     ...purchase,
@@ -477,7 +486,7 @@ function AdminDashboardPage() {
           )}
 
           {activeSection === "customers" && (
-            <AdminCustomersPanel users={users} purchases={loyaltyPurchases} />
+            <AdminCustomersPanel users={users} purchases={loyaltyPurchases} pointsByEmail={adminPointsByEmail} />
           )}
 
           {activeSection === "qrSystem" && <AdminQrSystemPanel />}

@@ -1,0 +1,107 @@
+TC-CO-06-U
+Title: Update cart item quantity (User)
+Preconditions: Valid user token, existing cart item ID
+Steps:
+1. Send PATCH /api/checkout/cart/items/:cartItemId with quantity > 0 (e.g., { "quantity": 2 }) using Authorization: Bearer <userToken>.
+Expected Result:
+- 200 response returned.
+- Cart item quantity is updated for the given cartItemId.
+
+TC-US-01
+Title: User signup
+Preconditions: Email is not registered, email is not the admin email
+Steps:
+1. Send POST /api/auth/signup with valid payload (fullName, email, password, phone, streetAddress1, streetAddress2, cityTown).
+Expected Result:
+- 200 response returned.
+- success=true returned with token and user details.
+
+TC-US-02
+Title: User signup with existing email
+Preconditions: Email is already registered
+Steps:
+1. Send POST /api/auth/signup using an already-registered email.
+Expected Result:
+- 400 response returned.
+- Email already registered error is returned.
+
+TC-US-03
+Title: User login (local)
+Preconditions: User account exists with password login enabled (passwordHash exists)
+Steps:
+1. Send POST /api/auth/login with valid email and password.
+Expected Result:
+- 200 response returned.
+- success=true returned with token and user details.
+
+TC-US-04
+Title: User login with invalid credentials
+Preconditions: User account does not exist OR password is incorrect
+Steps:
+1. Send POST /api/auth/login with invalid email/password.
+Expected Result:
+- 401 response returned.
+- Invalid credentials message is returned.
+
+TC-US-05
+Title: Get current auth user (me)
+Preconditions: Valid user token
+Steps:
+1. Send GET /api/auth/me with Authorization: Bearer <userToken>.
+Expected Result:
+- 200 response returned.
+- success=true returned with auth object and user object.
+
+TC-US-06
+Title: Get user profile (me)
+Preconditions: Valid user token, user exists
+Steps:
+1. Send GET /api/users/me with Authorization: Bearer <userToken>.
+Expected Result:
+- 200 response returned.
+- success=true returned with sanitized user details.
+
+TC-US-07
+Title: Update user profile (me)
+Preconditions: Valid user token (role=user)
+Steps:
+1. Send PUT /api/users/me with Authorization: Bearer <userToken> and valid payload (fullName, phone, streetAddress1, streetAddress2, cityTown).
+Expected Result:
+- 200 response returned.
+- success=true returned and user details are updated.
+
+TC-US-08
+Title: Update user profile with invalid phone
+Preconditions: Valid user token (role=user)
+Steps:
+1. Send PUT /api/users/me with an invalid phone number format.
+Expected Result:
+- 400 response returned.
+- Validation error message is returned.
+
+TC-MN-01
+Title: List menu items (public)
+Preconditions: None
+Steps:
+1. Send GET /api/menu/items.
+Expected Result:
+- 200 response returned.
+- success=true returned with items array.
+
+TC-MN-02
+Title: List menu categories (public)
+Preconditions: None
+Steps:
+1. Send GET /api/menu/categories.
+Expected Result:
+- 200 response returned.
+- success=true returned with categories array.
+
+TC-GN-01
+Title: API health check
+Preconditions: Backend is running
+Steps:
+1. Send GET /api/health.
+Expected Result:
+- 200 response returned.
+- ok=true returned.

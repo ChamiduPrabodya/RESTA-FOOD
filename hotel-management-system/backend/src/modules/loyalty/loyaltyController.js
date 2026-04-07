@@ -1,4 +1,5 @@
 const { ROLES } = require("../../shared/constants/roles");
+const { isCompletedPurchase, parsePriceNumber } = require("../../shared/utils/loyalty");
 const {
   listRules,
   saveRules,
@@ -91,7 +92,20 @@ async function listMyPurchases(req, res) {
 async function listAllPurchases(req, res) {
   try {
     const purchases = await listAllPurchasesFromStore();
-    return res.json({ success: true, purchases });
+
+    const pointsByEmail = {};
+    purchases.forEach((purchase) => {
+      const email = String(purchase && purchase.userEmail ? purchase.userEmail : "").trim().toLowerCase();
+      if (!email) return;
+      if (!isCompletedPurchase(purchase)) return;
+
+      const earned = purchase && Object.prototype.hasOwnProperty.call(purchase, "pointsEarned")
+        ? Number(purchase.pointsEarned) || 0
+        : parsePriceNumber(purchase ? purchase.price : "");
+      pointsByEmail[email] = (Number(pointsByEmail[email]) || 0) + (Number(earned) || 0);
+    });
+
+    return res.json({ success: true, purchases, pointsByEmail });
   } catch (error) {
     const status = Number(error && error.status ? error.status : 500);
     const message = status === 500 ? "Unable to list purchases." : String(error.message || "Error");

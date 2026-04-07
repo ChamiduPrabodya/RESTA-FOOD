@@ -13,7 +13,7 @@ import CheckRoundedIcon from "@mui/icons-material/CheckRounded";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import { useAuth } from "../../auth/context/AuthContext";
-import { parsePriceNumber } from "../../../common/utils/pricing";
+import { getPurchasePoints, isCompletedPurchase } from "../../../common/utils/pricing";
 
 const getLoyaltyTier = (points) => {
   if (points >= 10000) {
@@ -28,23 +28,22 @@ const getLoyaltyTier = (points) => {
   return { label: "Brown", color: "#d2a679", bg: "rgba(150,95,48,0.18)", border: "rgba(150,95,48,0.35)" };
 };
 
-function AdminCustomersPanel({ users, purchases }) {
+function AdminCustomersPanel({ users, purchases, pointsByEmail }) {
   const { loyaltyRules, updateLoyaltyRule, addLoyaltyRule, removeLoyaltyRule, saveLoyaltyRulesToServer } = useAuth();
   const [isConfiguring, setIsConfiguring] = useState(false);
 
   const rows = useMemo(() => {
     const byEmail = new Map();
+    const pointsMap = pointsByEmail && typeof pointsByEmail === "object" ? pointsByEmail : null;
 
     purchases.forEach((purchase) => {
       const email = String(purchase.userEmail || "").trim().toLowerCase();
       if (!email) return;
       const current = byEmail.get(email) || { email, orders: 0, points: 0 };
       current.orders += 1;
-      current.points += Object.prototype.hasOwnProperty.call(purchase, "pointsEarned")
-        ? Number(purchase.pointsEarned) || 0
-        : Object.prototype.hasOwnProperty.call(purchase, "loyaltyPointsEarned")
-          ? Number(purchase.loyaltyPointsEarned) || 0
-          : parsePriceNumber(purchase.price);
+      if (!pointsMap && isCompletedPurchase(purchase)) {
+        current.points += getPurchasePoints(purchase);
+      }
       byEmail.set(email, current);
     });
 
@@ -54,6 +53,12 @@ function AdminCustomersPanel({ users, purchases }) {
         byEmail.set(email, { email, orders: 0, points: 0 });
       }
     });
+
+    if (pointsMap) {
+      byEmail.forEach((row, email) => {
+        row.points = Math.max(0, Math.round(Number(pointsMap[email]) || 0));
+      });
+    }
 
     const usersByEmail = new Map(users.map((user) => [String(user.email || "").trim().toLowerCase(), user]));
     const sortedRules = [...(Array.isArray(loyaltyRules) ? loyaltyRules : [])]
@@ -79,7 +84,7 @@ function AdminCustomersPanel({ users, purchases }) {
       })
       .sort((a, b) => b.points - a.points)
       .slice(0, 8);
-  }, [purchases, loyaltyRules, users]);
+  }, [purchases, loyaltyRules, users, pointsByEmail]);
 
   const updateRule = (id, field, value) => updateLoyaltyRule(id, field, value);
   const addRule = () => addLoyaltyRule();

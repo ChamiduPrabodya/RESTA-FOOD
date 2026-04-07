@@ -28,6 +28,7 @@ function AuthHeaderActions() {
   const {
     authUser,
     loyaltySummary,
+    refreshLoyaltySummary,
     logout,
     updateUserProfile,
     purchases,
@@ -151,7 +152,12 @@ function AuthHeaderActions() {
         )}
 
         <Button
-          onClick={() => setAccountOpen(true)}
+          onClick={() => {
+            if (authUser?.role !== "admin") {
+              refreshLoyaltySummary?.();
+            }
+            setAccountOpen(true);
+          }}
           sx={{
             minWidth: 46,
             width: 46,

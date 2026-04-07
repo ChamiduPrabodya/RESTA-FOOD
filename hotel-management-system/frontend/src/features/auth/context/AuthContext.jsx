@@ -149,6 +149,7 @@ export function AuthProvider({ children }) {
   const [users, setUsers] = useState(() => parseStoredJson(USERS_STORAGE_KEY, []));
   const [purchases, setPurchases] = useState(() => parseStoredJson(PURCHASES_STORAGE_KEY, []));
   const [loyaltyPurchases, setLoyaltyPurchases] = useState([]);
+  const [adminPointsByEmail, setAdminPointsByEmail] = useState({});
   const [vipBookings, setVipBookings] = useState(() => parseStoredJson(BOOKINGS_STORAGE_KEY, []));
   const [feedbacks, setFeedbacks] = useState(() => parseStoredJson(FEEDBACK_STORAGE_KEY, []));
   const [promotions, setPromotions] = useState(() => parseStoredJson(PROMOTIONS_STORAGE_KEY, []));
@@ -479,6 +480,11 @@ export function AuthProvider({ children }) {
         return { success: false, message: data?.message || "Unable to load purchases." };
       }
       setLoyaltyPurchases(data.purchases);
+      if (data.pointsByEmail && typeof data.pointsByEmail === "object") {
+        setAdminPointsByEmail(data.pointsByEmail);
+      } else {
+        setAdminPointsByEmail({});
+      }
       return { success: true, purchases: data.purchases };
     } catch {
       return { success: false, message: "Backend is not reachable. Start the backend server." };
@@ -570,7 +576,7 @@ export function AuthProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authToken]);
 
-//validation
+// login validation
   const login = async (email, password) => {
     const normalizedEmail = String(email || "").trim().toLowerCase();
     const normalizedPassword = String(password || "").trim();
@@ -616,7 +622,7 @@ export function AuthProvider({ children }) {
       streetAddress2: normalizedStreet2,
       cityTown: normalizedCityTown,
     });
-//validation
+// signupvalidation
     if (!String(fullName || "").trim() || !normalizedEmail || !String(password || "").trim() || !normalizedPhone || !normalizedStreet1 || !normalizedCityTown) {
       return { success: false, message: "Please fill all required fields." };
     }
@@ -1883,6 +1889,7 @@ export function AuthProvider({ children }) {
     users,
     purchases,
     loyaltyPurchases,
+    adminPointsByEmail,
     vipBookings,
     feedbacks,
     promotions,
@@ -1912,6 +1919,7 @@ export function AuthProvider({ children }) {
     saveLoyaltyRulesToServer,
     refreshAdminLoyaltyPurchases,
     refreshAdminUsers,
+    refreshLoyaltySummary,
     addMenuItem,
     addMenuCategory,
     updateMenuCategory,

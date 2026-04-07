@@ -15,6 +15,27 @@ export const parsePriceNumber = (value) => Number(String(value ?? "").replace(/[
 
 export const formatSLR = (value) => `SLR ${Math.round(Number(value) || 0).toLocaleString()}`;
 
+export const isCompletedPurchase = (purchase) => {
+  if (!purchase || typeof purchase !== "object") return false;
+  if (!Object.prototype.hasOwnProperty.call(purchase, "status")) {
+    // Legacy records (before status support) count as completed.
+    return true;
+  }
+  const status = String(purchase.status || "").trim().toLowerCase();
+  return status === "delivered" || status === "completed" || status === "paid";
+};
+
+export const getPurchasePoints = (purchase) => {
+  if (!purchase || typeof purchase !== "object") return 0;
+  if (Object.prototype.hasOwnProperty.call(purchase, "pointsEarned")) {
+    return Math.max(0, Number(purchase.pointsEarned) || 0);
+  }
+  if (Object.prototype.hasOwnProperty.call(purchase, "loyaltyPointsEarned")) {
+    return Math.max(0, Number(purchase.loyaltyPointsEarned) || 0);
+  }
+  return Math.max(0, parsePriceNumber(purchase.price));
+};
+
 export const normalizeLoyaltyRules = (rules) => {
   const source = Array.isArray(rules) ? rules : DEFAULT_LOYALTY_RULES;
   return source
@@ -46,11 +67,9 @@ export const getUserPointsFromPurchases = (purchases, userEmail) => {
   if (!normalizedEmail) return 0;
   return (Array.isArray(purchases) ? purchases : [])
     .filter((purchase) => String(purchase?.userEmail || "").trim().toLowerCase() === normalizedEmail)
+    .filter(isCompletedPurchase)
     .reduce((sum, purchase) => {
-      if (purchase && Object.prototype.hasOwnProperty.call(purchase, "loyaltyPointsEarned")) {
-        return sum + (Number(purchase.loyaltyPointsEarned) || 0);
-      }
-      return sum + parsePriceNumber(purchase?.price);
+      return sum + getPurchasePoints(purchase);
     }, 0);
 };
 

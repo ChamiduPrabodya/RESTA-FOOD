@@ -1,0 +1,72 @@
+TC-CO-06-L
+Title: Update cart item quantity (Loyalty user)
+Preconditions: Valid loyalty user token, existing cart item ID that belongs to the same loyalty user
+Steps:
+1. Send PATCH /api/checkout/cart/items/:cartItemId with quantity > 0 (e.g., { "quantity": 2 }) using Authorization: Bearer <loyaltyUserToken>.
+Expected Result:
+- 200 response returned.
+- Cart item quantity is updated for the given cartItemId.
+- Any loyalty-related totals derived from cart (if applicable in your system) are recalculated based on the updated quantity.
+
+TC-LO-01
+Title: Get loyalty rules (public)
+Preconditions: None
+Steps:
+1. Send GET /api/loyalty/rules.
+Expected Result:
+- 200 response returned.
+- success=true returned with rules array.
+
+TC-LO-02
+Title: Get my loyalty summary
+Preconditions: Valid user token
+Steps:
+1. Send GET /api/loyalty/me with Authorization: Bearer <userToken>.
+Expected Result:
+- 200 response returned.
+- success=true returned with summary (email, points, discountPercent, rules).
+
+TC-LO-03
+Title: Add my purchases (earn points)
+Preconditions: Valid user token, at least one purchase payload is available
+Steps:
+1. Send POST /api/loyalty/purchases with Authorization: Bearer <userToken> and purchases[] in the request body.
+Expected Result:
+- 200 response returned.
+- success=true returned and purchases are recorded (pointsEarned computed server-side).
+
+TC-LO-04
+Title: Add my purchases rejects loyaltyPointsEarned from client
+Preconditions: Valid user token
+Steps:
+1. Send POST /api/loyalty/purchases with a purchase object that includes purchase.loyaltyPointsEarned.
+Expected Result:
+- 400 response returned.
+- Error returned indicating the server computes loyalty points.
+
+TC-LO-05
+Title: List my purchases
+Preconditions: Valid user token
+Steps:
+1. Send GET /api/loyalty/purchases/me with Authorization: Bearer <userToken>.
+Expected Result:
+- 200 response returned.
+- success=true returned with purchases array.
+
+TC-LO-06
+Title: Update purchase status (User cancels own purchase)
+Preconditions: Valid user token, existing purchase ID that belongs to the same user
+Steps:
+1. Send PATCH /api/loyalty/purchases/:id/status with Authorization: Bearer <userToken> and body { "status": "Cancelled", "cancelReason": "<reason>" }.
+Expected Result:
+- 200 response returned.
+- success=true returned and purchase status is updated to Cancelled.
+
+TC-LO-07
+Title: Update purchase status rejects cancel without reason
+Preconditions: Valid user token, existing purchase ID that belongs to the same user
+Steps:
+1. Send PATCH /api/loyalty/purchases/:id/status with body { "status": "Cancelled" } (no cancelReason).
+Expected Result:
+- 400 response returned.
+- Validation error returned indicating cancelReason is required.

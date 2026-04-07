@@ -13,6 +13,7 @@
     "seed:admin": "node src/scripts/seedAdmin.js",
     "seed:menu": "node src/scripts/seedMenu.js",
     "seed:menu-categories": "node src/scripts/seedMenuCategories.js",
+    "mongo:collections": "node src/scripts/reportMongoCollections.js",
     "test": "node test/run.js"
   },
   "dependencies": {
