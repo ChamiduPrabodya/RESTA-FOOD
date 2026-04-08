@@ -15,6 +15,27 @@ export const parsePriceNumber = (value) => Number(String(value ?? "").replace(/[
 
 export const formatSLR = (value) => `SLR ${Math.round(Number(value) || 0).toLocaleString()}`;
 
+export const isCompletedPurchase = (purchase) => {
+  if (!purchase || typeof purchase !== "object") return false;
+  if (!Object.prototype.hasOwnProperty.call(purchase, "status")) {
+    // Legacy records (before status support) count as completed.
+    return true;
+  }
+  const status = String(purchase.status || "").trim().toLowerCase();
+  return status === "delivered" || status === "completed" || status === "paid";
+};
+
+export const getPurchasePoints = (purchase) => {
+  if (!purchase || typeof purchase !== "object") return 0;
+  if (Object.prototype.hasOwnProperty.call(purchase, "pointsEarned")) {
+    return Math.max(0, Number(purchase.pointsEarned) || 0);
+  }
+  if (Object.prototype.hasOwnProperty.call(purchase, "loyaltyPointsEarned")) {
+    return Math.max(0, Number(purchase.loyaltyPointsEarned) || 0);
+  }
+  return Math.max(0, parsePriceNumber(purchase.price));
+};
+
 export const normalizeLoyaltyRules = (rules) => {
   const source = Array.isArray(rules) ? rules : DEFAULT_LOYALTY_RULES;
   return source
@@ -46,11 +67,9 @@ export const getUserPointsFromPurchases = (purchases, userEmail) => {
   if (!normalizedEmail) return 0;
   return (Array.isArray(purchases) ? purchases : [])
     .filter((purchase) => String(purchase?.userEmail || "").trim().toLowerCase() === normalizedEmail)
+    .filter(isCompletedPurchase)
     .reduce((sum, purchase) => {
-      if (purchase && Object.prototype.hasOwnProperty.call(purchase, "loyaltyPointsEarned")) {
-        return sum + (Number(purchase.loyaltyPointsEarned) || 0);
-      }
-      return sum + parsePriceNumber(purchase?.price);
+      return sum + getPurchasePoints(purchase);
     }, 0);
 };
 
@@ -65,7 +84,7 @@ const parsePromotionDate = (dateText, endOfDay = false) => {
   return date;
 };
 
-const isPromotionActiveNow = (promotion, now) => {
+export const isPromotionActiveNow = (promotion, now) => {
   if (!promotion || !promotion.active) return false;
   const start = parsePromotionDate(promotion.startDate, false);
   const end = parsePromotionDate(promotion.endDate, true);
@@ -140,14 +159,15 @@ export const detectDeliveryZoneFromAddress = (address, zoneFees = DELIVERY_ZONE_
 
 export const calculateDeliveryFeeFromAddress = ({ orderType, address, cityTown, zoneFees } = {}) => {
   if (String(orderType || "").trim().toLowerCase() !== "delivery") {
-    return { deliveryZone: null, deliveryFee: 0 };
+    return { deliveryZone: null, deliveryFee: 0, deliveryAllowed: true };
   }
 
   const fees = zoneFees || DELIVERY_ZONE_FEES;
   const deliveryZone = detectDeliveryZoneFromAddress(cityTown || address, fees);
-  const deliveryFee = deliveryZone ? Math.max(0, Number(fees?.[deliveryZone]) || 0) : 0;
+  const deliveryAllowed = Boolean(deliveryZone);
+  const deliveryFee = deliveryAllowed ? Math.max(0, Number(fees?.[deliveryZone]) || 0) : 0;
 
-  return { deliveryZone, deliveryFee };
+  return { deliveryZone, deliveryFee, deliveryAllowed };
 };
 
 export const calculateCheckoutPricing = ({
@@ -156,20 +176,29 @@ export const calculateCheckoutPricing = ({
   purchases,
   promotions,
   loyaltyRules,
+  points,
+  loyaltyPercent,
   orderType,
   deliveryAddress,
   deliveryCityTown,
   now,
 } = {}) => {
   const subtotal = calculateCartSubtotal(cartItems);
-  const points = getUserPointsFromPurchases(purchases, userEmail);
-  const loyaltyPercent = getLoyaltyDiscountPercent(points, loyaltyRules);
+  const resolvedPoints =
+    points !== undefined && points !== null && String(points).trim() !== ""
+      ? Math.max(0, Math.round(Number(points) || 0))
+      : getUserPointsFromPurchases(purchases, userEmail);
+
+  const resolvedLoyaltyPercent =
+    loyaltyPercent !== undefined && loyaltyPercent !== null && String(loyaltyPercent).trim() !== ""
+      ? Math.max(0, Number(loyaltyPercent) || 0)
+      : getLoyaltyDiscountPercent(resolvedPoints, loyaltyRules);
 
   const bestPromotion = pickBestPromotion(promotions, { subtotal, now, type: "food" });
   const promotionDiscount = bestPromotion?.amount || 0;
 
   const afterPromotion = Math.max(0, subtotal - promotionDiscount);
-  const loyaltyDiscount = Math.max(0, Math.round((afterPromotion * loyaltyPercent) / 100));
+  const loyaltyDiscount = Math.max(0, Math.round((afterPromotion * resolvedLoyaltyPercent) / 100));
 
   const totalDiscount = Math.min(subtotal, promotionDiscount + loyaltyDiscount);
   const total = Math.max(0, subtotal - totalDiscount);
@@ -183,15 +212,16 @@ export const calculateCheckoutPricing = ({
 
   return {
     subtotal,
-    points,
+    points: resolvedPoints,
     promotion: bestPromotion?.promotion || null,
     promotionDiscount,
-    loyaltyPercent,
+    loyaltyPercent: resolvedLoyaltyPercent,
     loyaltyDiscount,
     totalDiscount,
     total,
     deliveryZone: delivery.deliveryZone,
     deliveryFee: delivery.deliveryFee,
+    deliveryAllowed: delivery.deliveryAllowed,
     grandTotal,
   };
 };

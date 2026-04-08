@@ -6,9 +6,11 @@ import {
   Card,
   CardContent,
   Dialog,
+  DialogActions,
   DialogContent,
   DialogTitle,
   IconButton,
+  InputAdornment,
   MenuItem,
   Select,
   Stack,
@@ -30,31 +32,71 @@ const DEFAULT_MENU_CATEGORIES = [
   "Rice",
   "Biriyani",
   "Deviled",
+  "Black Curry",
   "Pasta",
   "Set Menu",
   "family pack",
 ];
 
+const normalizeCategoryKey = (value) => String(value || "").toLowerCase().replace(/[\s_-]+/g, "");
+
+const PORTION_PRESETS = Object.freeze({
+  smallMediumLarge: ["Small", "Medium", "Large"],
+  weights: ["300g", "500g", "1kg"],
+  regular: ["Regular"],
+});
+
+const getPortionPresetNames = (category) => {
+  const key = normalizeCategoryKey(category);
+  if (key === "deviled" || key === "blackcurry" || key === "blackcurrybeef") return PORTION_PRESETS.weights;
+  if (key === "kottu" || key === "rice" || key === "biriyani") return PORTION_PRESETS.smallMediumLarge;
+  return PORTION_PRESETS.regular;
+};
+
+const buildPortionRowsFromNames = (names) =>
+  (Array.isArray(names) ? names : []).map((name) => ({
+    id: crypto.randomUUID(),
+    name,
+    price: "",
+  }));
+
+const shouldReplacePortionsWithPreset = (rows) => {
+  const list = Array.isArray(rows) ? rows : [];
+  if (list.length !== 1) return false;
+  const onlyRow = list[0] || {};
+  const name = String(onlyRow.name || "").trim().toLowerCase();
+  const price = String(onlyRow.price || "").trim();
+  const isDefaultName = !name || name === "regular";
+  return isDefaultName && !price;
+};
+
 const toPortionRows = (portions) => {
   const rows = Object.entries(portions || {}).map(([name, price]) => ({
     id: crypto.randomUUID(),
     name,
-    price,
+    price: String(price ?? "").replace(/[^\d.]/g, ""),
   }));
   return rows.length > 0 ? rows : [{ id: crypto.randomUUID(), name: "Regular", price: "" }];
+};
+
+const normalizeLkrPriceLabel = (rawValue) => {
+  const normalized = String(rawValue ?? "").trim();
+  if (!normalized) return "";
+  const numeric = Number(normalized.replace(/[^\d.]/g, "")) || 0;
+  return `Rs ${Math.round(numeric).toLocaleString()}`;
 };
 
 const normalizePortions = (rows) => {
   const portions = rows
     .filter((portion) => String(portion.name || "").trim() && String(portion.price || "").trim())
     .reduce((acc, portion) => {
-      acc[String(portion.name).trim()] = String(portion.price).trim();
+      acc[String(portion.name).trim()] = normalizeLkrPriceLabel(portion.price);
       return acc;
     }, {});
   if (Object.keys(portions).length > 0) return portions;
 
   const fallbackName = String(rows[0]?.name || "Regular").trim() || "Regular";
-  const fallbackPrice = String(rows[0]?.price || "").trim() || "SLR 0";
+  const fallbackPrice = normalizeLkrPriceLabel(rows[0]?.price) || "Rs 0";
   return { [fallbackName]: fallbackPrice };
 };
 
@@ -81,6 +123,8 @@ function AdminMenuManagementPanel({
   const [editingCategoryValue, setEditingCategoryValue] = useState("");
   const [editingItemId, setEditingItemId] = useState("");
   const [notice, setNotice] = useState({ open: false, message: "", severity: "success" });
+  const [deleteCandidate, setDeleteCandidate] = useState(null);
+  const [addAttempted, setAddAttempted] = useState(false);
   const [form, setForm] = useState({
     name: "",
     category: availableCategories[0] || "Kottu",
@@ -160,6 +204,17 @@ function AdminMenuManagementPanel({
   };
 
   const handleAdd = () => {
+    setAddAttempted(true);
+    const loyaltyPointsValue = String(form.loyaltyPoints ?? "").trim();
+    const loyaltyPointsNumber = Number(loyaltyPointsValue);
+    if (!loyaltyPointsValue) {
+      setNotice({ open: true, message: "Loyalty points are required.", severity: "error" });
+      return;
+    }
+    if (!Number.isFinite(loyaltyPointsNumber) || loyaltyPointsNumber < 0) {
+      setNotice({ open: true, message: "Loyalty points must be a valid number (0 or more).", severity: "error" });
+      return;
+    }
     const result = addMenuItem({
       name: form.name,
       category: form.category,
@@ -173,6 +228,7 @@ function AdminMenuManagementPanel({
       return;
     }
     setNotice({ open: true, message: "Menu item added successfully.", severity: "success" });
+    setAddAttempted(false);
     setForm({
       name: "",
       category: availableCategories[0] || "Kottu",
@@ -201,10 +257,11 @@ function AdminMenuManagementPanel({
   };
 
   const updatePortionRow = (rowId, field, value) => {
+    const nextValue = field === "price" ? String(value ?? "").replace(/[^\d.]/g, "") : value;
     setForm((current) => ({
       ...current,
       portions: current.portions.map((portion) =>
-        portion.id === rowId ? { ...portion, [field]: value } : portion
+        portion.id === rowId ? { ...portion, [field]: nextValue } : portion
       ),
     }));
   };
@@ -232,7 +289,7 @@ function AdminMenuManagementPanel({
   const addEditPortionRow = (name = "", price = "") => {
     setEditForm((current) => ({
       ...current,
-      portions: [...current.portions, { id: crypto.randomUUID(), name, price }],
+      portions: [...current.portions, { id: crypto.randomUUID(), name, price: String(price ?? "").replace(/[^\d.]/g, "") }],
     }));
   };
 
@@ -247,10 +304,11 @@ function AdminMenuManagementPanel({
   };
 
   const updateEditPortionRow = (rowId, field, value) => {
+    const nextValue = field === "price" ? String(value ?? "").replace(/[^\d.]/g, "") : value;
     setEditForm((current) => ({
       ...current,
       portions: current.portions.map((portion) =>
-        portion.id === rowId ? { ...portion, [field]: value } : portion
+        portion.id === rowId ? { ...portion, [field]: nextValue } : portion
       ),
     }));
   };
@@ -271,6 +329,28 @@ function AdminMenuManagementPanel({
     }
     setEditingItemId("");
     setNotice({ open: true, message: "Menu item updated successfully.", severity: "success" });
+  };
+
+  const handleRequestDeleteItem = (item) => {
+    setDeleteCandidate(item || null);
+  };
+
+  const handleCloseDeleteDialog = () => {
+    setDeleteCandidate(null);
+  };
+
+  const handleConfirmDeleteItem = () => {
+    if (!deleteCandidate) return;
+    const result = deleteMenuItem?.(deleteCandidate.id);
+    if (!result?.success) {
+      setNotice({ open: true, message: result?.message || "Unable to delete menu item.", severity: "error" });
+      return;
+    }
+    if (editingItemId === deleteCandidate.id) {
+      setEditingItemId("");
+    }
+    setDeleteCandidate(null);
+    setNotice({ open: true, message: "Menu item deleted successfully.", severity: "success" });
   };
 
   return (
@@ -382,6 +462,28 @@ function AdminMenuManagementPanel({
         </DialogContent>
       </Dialog>
 
+      <Dialog
+        open={Boolean(deleteCandidate)}
+        onClose={handleCloseDeleteDialog}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>Delete menu item?</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ color: "text.secondary", mt: 0.5 }}>
+            {deleteCandidate?.name ? `"${deleteCandidate.name}" will be deleted permanently.` : "This item will be deleted permanently."}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 2.4, pb: 1.6 }}>
+          <Button variant="outlined" onClick={handleCloseDeleteDialog}>
+            Cancel
+          </Button>
+          <Button color="error" variant="contained" onClick={handleConfirmDeleteItem}>
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Box
         sx={{
           display: "flex",
@@ -444,11 +546,21 @@ function AdminMenuManagementPanel({
             <Typography sx={{ color: "primary.main", textTransform: "uppercase", fontWeight: 700, mb: 1.2 }}>
               Add Menu Item
             </Typography>
-              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 1.1 }}>
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 1.1 }}>
                 <TextField value={form.name} onChange={(e) => setForm((c) => ({ ...c, name: e.target.value }))} placeholder="Item name" sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }} />
                 <Select
                   value={form.category}
-                  onChange={(e) => setForm((c) => ({ ...c, category: e.target.value }))}
+                  onChange={(e) => {
+                    const nextCategory = e.target.value;
+                    const presetNames = getPortionPresetNames(nextCategory);
+                    setForm((current) => ({
+                      ...current,
+                      category: nextCategory,
+                      portions: shouldReplacePortionsWithPreset(current.portions)
+                        ? buildPortionRowsFromNames(presetNames)
+                        : current.portions,
+                    }));
+                  }}
                   size="small"
                   sx={{ bgcolor: "#0f1116" }}
                 >
@@ -464,7 +576,10 @@ function AdminMenuManagementPanel({
                   onChange={(e) => setForm((c) => ({ ...c, loyaltyPoints: e.target.value }))}
                   placeholder="Loyalty points (per item)"
                   type="number"
+                  required
                   inputProps={{ min: 0 }}
+                  error={addAttempted && !String(form.loyaltyPoints ?? "").trim()}
+                  helperText={addAttempted && !String(form.loyaltyPoints ?? "").trim() ? "Required" : " "}
                   sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }}
                 />
               </Box>
@@ -481,9 +596,11 @@ function AdminMenuManagementPanel({
                   Portions & Prices
                 </Typography>
                 <Stack direction="row" spacing={0.6}>
-                  <Button size="small" variant="outlined" onClick={() => addPortionRow("Small", "")}>+ Small</Button>
-                  <Button size="small" variant="outlined" onClick={() => addPortionRow("Medium", "")}>+ Medium</Button>
-                  <Button size="small" variant="outlined" onClick={() => addPortionRow("Large", "")}>+ Large</Button>
+                  {getPortionPresetNames(form.category).map((name) => (
+                    <Button key={name} size="small" variant="outlined" onClick={() => addPortionRow(name, "")}>
+                      + {name}
+                    </Button>
+                  ))}
                 </Stack>
               </Stack>
               <Stack spacing={0.8}>
@@ -499,8 +616,12 @@ function AdminMenuManagementPanel({
                     <TextField
                       value={portion.price}
                       onChange={(e) => updatePortionRow(portion.id, "price", e.target.value)}
-                      placeholder="Price (e.g. SLR 950)"
+                      placeholder="Price"
                       size="small"
+                      inputMode="numeric"
+                      InputProps={{
+                        startAdornment: <InputAdornment position="start">Rs</InputAdornment>,
+                      }}
                       sx={{ flex: 1, "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }}
                     />
                     <IconButton color="error" onClick={() => removePortionRow(portion.id)}>
@@ -523,6 +644,15 @@ function AdminMenuManagementPanel({
       <Stack spacing={1.1}>
         {filteredItems.map((item) => {
           const isEditing = editingItemId === item.id;
+          const derivedLoyaltyPoints = (() => {
+            const portions = item && item.portions && typeof item.portions === "object" ? item.portions : null;
+            if (!portions) return null;
+            const values = Object.values(portions)
+              .map((value) => Number(String(value ?? "").replace(/[^\d.]/g, "")) || 0)
+              .filter((value) => Number.isFinite(value) && value > 0);
+            if (values.length === 0) return null;
+            return Math.max(0, Math.round(Math.min(...values)));
+          })();
           return (
             <Card key={item.id} sx={{ bgcolor: "#17100c", border: "1px solid rgba(212,178,95,0.14)", borderRadius: 4 }}>
               <CardContent sx={{ p: 1.8 }}>
@@ -534,11 +664,15 @@ function AdminMenuManagementPanel({
                       <Typography sx={{ color: "text.secondary", fontSize: 13, mt: 0.4 }}>
                         {item.description}
                       </Typography>
-                      {item && Object.prototype.hasOwnProperty.call(item, "loyaltyPoints") && item.loyaltyPoints !== undefined && (
+                      {item && Object.prototype.hasOwnProperty.call(item, "loyaltyPoints") && item.loyaltyPoints !== undefined ? (
                         <Typography sx={{ color: "text.secondary", fontSize: 13, mt: 0.2 }}>
                           Loyalty points: {item.loyaltyPoints}
                         </Typography>
-                      )}
+                      ) : derivedLoyaltyPoints !== null ? (
+                        <Typography sx={{ color: "text.secondary", fontSize: 13, mt: 0.2 }}>
+                          Loyalty points (auto): {derivedLoyaltyPoints}
+                        </Typography>
+                      ) : null}
                       <Stack direction="row" spacing={0.6} useFlexGap flexWrap="wrap" sx={{ mt: 0.7 }}>
                         {Object.entries(item.portions || {}).map(([portion, price]) => (
                           <Box
@@ -577,7 +711,7 @@ function AdminMenuManagementPanel({
                         color="error"
                         variant="outlined"
                         startIcon={<DeleteOutlineRoundedIcon />}
-                        onClick={() => deleteMenuItem(item.id)}
+                        onClick={() => handleRequestDeleteItem(item)}
                       >
                         Delete
                       </Button>
@@ -597,13 +731,23 @@ function AdminMenuManagementPanel({
                         placeholder="Item name"
                         sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }}
                       />
-                      <Select
-                        value={editForm.category}
-                        onChange={(e) => setEditForm((current) => ({ ...current, category: e.target.value }))}
-                        size="small"
-                        sx={{ bgcolor: "#0f1116" }}
-                      >
-                        {availableCategories.map((category) => (
+                       <Select
+                         value={editForm.category}
+                         onChange={(e) => {
+                           const nextCategory = e.target.value;
+                           const presetNames = getPortionPresetNames(nextCategory);
+                           setEditForm((current) => ({
+                             ...current,
+                             category: nextCategory,
+                             portions: shouldReplacePortionsWithPreset(current.portions)
+                               ? buildPortionRowsFromNames(presetNames)
+                               : current.portions,
+                           }));
+                         }}
+                         size="small"
+                         sx={{ bgcolor: "#0f1116" }}
+                       >
+                         {availableCategories.map((category) => (
                           <MenuItem key={category} value={category}>
                             {category}
                           </MenuItem>
@@ -624,16 +768,29 @@ function AdminMenuManagementPanel({
                         sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }}
                       />
                     </Box>
-                    <ImagePicker
-                      label="Item Image"
-                      value={editForm.image}
-                      onChange={(nextValue) => setEditForm((current) => ({ ...current, image: nextValue }))}
-                    />
+                     <ImagePicker
+                       label="Item Image"
+                       value={editForm.image}
+                       onChange={(nextValue) => setEditForm((current) => ({ ...current, image: nextValue }))}
+                     />
 
-                    <Stack spacing={0.8}>
-                      {editForm.portions.map((portion) => (
-                        <Stack key={portion.id} direction="row" spacing={0.7} alignItems="center">
-                          <TextField
+                     <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.8, mt: 0.8 }}>
+                       <Typography sx={{ color: "primary.main", fontWeight: 700, textTransform: "uppercase", fontSize: "0.85rem" }}>
+                         Portions & Prices
+                       </Typography>
+                       <Stack direction="row" spacing={0.6}>
+                         {getPortionPresetNames(editForm.category).map((name) => (
+                           <Button key={name} size="small" variant="outlined" onClick={() => addEditPortionRow(name, "")}>
+                             + {name}
+                           </Button>
+                         ))}
+                       </Stack>
+                     </Stack>
+
+                     <Stack spacing={0.8}>
+                       {editForm.portions.map((portion) => (
+                         <Stack key={portion.id} direction="row" spacing={0.7} alignItems="center">
+                           <TextField
                             value={portion.name}
                             onChange={(e) => updateEditPortionRow(portion.id, "name", e.target.value)}
                             placeholder="Portion name"
@@ -645,6 +802,10 @@ function AdminMenuManagementPanel({
                             onChange={(e) => updateEditPortionRow(portion.id, "price", e.target.value)}
                             placeholder="Price"
                             size="small"
+                            inputMode="numeric"
+                            InputProps={{
+                              startAdornment: <InputAdornment position="start">Rs</InputAdornment>,
+                            }}
                             sx={{ flex: 1, "& .MuiOutlinedInput-root": { bgcolor: "#0f1116" } }}
                           />
                           <IconButton color="error" onClick={() => removeEditPortionRow(portion.id)}>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
 import {
@@ -40,6 +40,8 @@ const sectionReveal = {
   },
 };
 
+const PUBLIC_ASSET_BASE = String(import.meta.env?.BASE_URL || "/");
+
 const suites = [
   {
     id: "platinum",
@@ -47,7 +49,7 @@ const suites = [
     guests: "Up to 15 Guests",
     seats: 15,
     price: "SLR 15,000 / Session",
-    image: "/images/home/VIP1.jpeg",
+    image: `${PUBLIC_ASSET_BASE}images/home/VIP1.jpeg`,
     features: ["Full AC", '75" Smart TV', "Private Sound System", "Dedicated Butler", "RGB Ambient Lighting"],
   },
   {
@@ -56,55 +58,95 @@ const suites = [
     guests: "Up to 6 Guests",
     seats: 6,
     price: "SLR 8,000 / Session",
-    image: "/images/home/vip-02.svg",
+    image: `${PUBLIC_ASSET_BASE}images/home/VIP2.jpeg`,
     features: ["Full AC", '55" Smart TV', "Private Sound System", "Private Entrance", "Soft Gold Theme"],
   },
 ];
 const TIME_SLOTS = [
-  { value: "10:00-12:00", label: "10:00 AM - 12:00 PM" },
-  { value: "12:00-15:00", label: "12:00 PM - 03:00 PM" },
-  { value: "15:00-18:00", label: "03:00 PM - 06:00 PM" },
-  { value: "18:00-21:00", label: "06:00 PM - 09:00 PM" },
+  { value: "11:00-14:00", label: "11:00 AM - 02:00 PM" },
+  { value: "14:00-17:00", label: "02:00 PM - 05:00 PM" },
+  { value: "17:00-20:00", label: "05:00 PM - 08:00 PM" },
+  { value: "20:00-23:00", label: "08:00 PM - 11:00 PM" },
 ];
+const LEGACY_SLOT_MAP = {
+  "10:00-12:00": "11:00-14:00",
+  "11:00-13:00": "11:00-14:00",
+  "12:00-15:00": "14:00-17:00",
+  "13:00-16:00": "14:00-17:00",
+  "15:00-18:00": "17:00-20:00",
+  "16:00-19:00": "17:00-20:00",
+  "18:00-21:00": "20:00-23:00",
+  "19:00-22:00": "20:00-23:00",
+  "10:00": "11:00-14:00",
+  "11:00": "11:00-14:00",
+  "12:00": "14:00-17:00",
+  "13:00": "14:00-17:00",
+  "15:00": "17:00-20:00",
+  "16:00": "17:00-20:00",
+  "18:00": "20:00-23:00",
+  "19:00": "20:00-23:00",
+};
+const getTodayDateText = () => {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString().slice(0, 10);
+};
 const mapLegacyTimeToSlot = (timeValue) => {
   if (!timeValue) return "";
   const normalized = String(timeValue).trim();
+  if (Object.prototype.hasOwnProperty.call(LEGACY_SLOT_MAP, normalized)) {
+    return LEGACY_SLOT_MAP[normalized];
+  }
   if (normalized.includes("-")) return normalized;
   const found = TIME_SLOTS.find((slot) => slot.value.startsWith(normalized));
   return found ? found.value : normalized;
 };
 
+const getBookingSlots = (booking) => {
+  if (!booking) return [];
+  const rawSlots = Array.isArray(booking.timeSlots)
+    ? booking.timeSlots
+    : String(booking.time || "").includes("|")
+      ? String(booking.time || "")
+        .split("|")
+        .map((value) => value.trim())
+        .filter(Boolean)
+      : [booking.time];
+
+  return rawSlots
+    .map((value) => mapLegacyTimeToSlot(value))
+    .filter(Boolean);
+};
+// validation vip room booking:
 function VipRoomsPage() {
   const [suiteId, setSuiteId] = useState("platinum");
   const [bookingDate, setBookingDate] = useState("");
-  const [bookingTime, setBookingTime] = useState("");
+  const [timeSlot, setTimeSlot] = useState("");
   const [guests, setGuests] = useState(4);
   const [notice, setNotice] = useState({ open: false, message: "", severity: "success" });
   const reduceMotion = useReducedMotion();
   const navigate = useNavigate();
   const { authUser, vipBookings, addVipBooking } = useAuth();
-  const bookedDateStats = useMemo(() => {
-    const byDate = new Map();
-    vipBookings
-      .filter(
-        (booking) =>
-          booking.suiteId === suiteId &&
-          String(booking.status || "").toLowerCase() !== "cancelled"
-      )
-      .forEach((booking) => {
-        const slotValue = mapLegacyTimeToSlot(booking.time);
-        if (!byDate.has(booking.date)) byDate.set(booking.date, new Set());
-        byDate.get(booking.date).add(slotValue);
-      });
-
-    return [...byDate.entries()]
-      .map(([date, slots]) => ({
-        date,
-        bookedCount: slots.size,
-        isFull: slots.size >= TIME_SLOTS.length,
-      }))
-      .sort((a, b) => a.date.localeCompare(b.date));
-  }, [vipBookings, suiteId]);
+  const todayDateText = useMemo(() => getTodayDateText(), []);
+  const minBookingDate = todayDateText;
+  const selectedSuite = useMemo(() => suites.find((suite) => suite.id === suiteId) || suites[0], [suiteId]);
+  const maxGuests = Math.max(1, Number(selectedSuite?.seats) || 1);
+  const selectedSlots = useMemo(() => {
+    const normalized = String(timeSlot || "").trim();
+    return normalized ? [normalized] : [];
+  }, [timeSlot]);
+  const bookedSlotsForToday = useMemo(() => {
+    if (!todayDateText) return new Set();
+    return new Set(
+      vipBookings
+        .filter(
+          (booking) =>
+            booking.suiteId === suiteId &&
+            booking.date === todayDateText &&
+            String(booking.status || "").toLowerCase() !== "cancelled"
+        )
+        .flatMap((booking) => getBookingSlots(booking))
+    );
+  }, [vipBookings, suiteId, todayDateText]);
   const bookedSlotsForSelectedDate = useMemo(() => {
     if (!bookingDate) return new Set();
     return new Set(
@@ -115,15 +157,30 @@ function VipRoomsPage() {
             booking.date === bookingDate &&
             String(booking.status || "").toLowerCase() !== "cancelled"
         )
-        .map((booking) => mapLegacyTimeToSlot(booking.time))
+        .flatMap((booking) => getBookingSlots(booking))
     );
   }, [vipBookings, suiteId, bookingDate]);
   const isSelectedDateFullyBooked = bookingDate && bookedSlotsForSelectedDate.size >= TIME_SLOTS.length;
-  useEffect(() => {
-    if (bookingTime && bookedSlotsForSelectedDate.has(bookingTime)) {
-      setBookingTime("");
-    }
-  }, [bookingTime, bookedSlotsForSelectedDate]);
+  const isSelectedSlotBooked = useMemo(() => {
+    if (selectedSlots.length === 0) return false;
+    return bookedSlotsForSelectedDate.has(selectedSlots[0]);
+  }, [selectedSlots, bookedSlotsForSelectedDate]);
+  const isSelectedSlotExpired = useMemo(() => {
+    if (!bookingDate || selectedSlots.length === 0) return false;
+    if (bookingDate !== todayDateText) return false;
+    const slotValue = selectedSlots[0];
+    const startTime = String(slotValue || "").split("-")[0]?.trim();
+    if (!/^\d{2}:\d{2}$/.test(startTime)) return false;
+    const now = new Date();
+    const slotStart = new Date(`${bookingDate}T${startTime}:00`);
+    if (Number.isNaN(slotStart.getTime())) return false;
+    return now.getTime() >= slotStart.getTime();
+  }, [bookingDate, selectedSlots, todayDateText]);
+
+  const formatSelectedSlots = () => {
+    if (selectedSlots.length === 0) return "";
+    return TIME_SLOTS.find((slot) => slot.value === selectedSlots[0])?.label || selectedSlots[0];
+  };
 
   const handleCheckAvailability = () => {
     if (!authUser) {
@@ -149,21 +206,30 @@ function VipRoomsPage() {
       return;
     }
 
-    if (bookingDate && bookingTime && bookedSlotsForSelectedDate.has(bookingTime)) {
+    if (bookingDate && selectedSlots.length > 0 && isSelectedSlotBooked) {
       setNotice({
         open: true,
-        message: "This time slot is already booked. Please choose another slot.",
+        message: "Selected time slot is already booked. Please choose another slot.",
         severity: "error",
       });
       return;
     }
 
-    if (!bookingDate || !bookingTime || !guests) {
+    if (bookingDate && selectedSlots.length > 0 && isSelectedSlotExpired) {
+      setNotice({
+        open: true,
+        message: "Selected time slot has already started. Please choose a later slot.",
+        severity: "error",
+      });
+      return;
+    }
+
+    if (!bookingDate || selectedSlots.length === 0 || !guests) {
       setNotice({
         open: true,
         message: !bookingDate
           ? "Please select a booking date."
-          : !bookingTime
+          : selectedSlots.length === 0
             ? "Please select an available time slot."
             : "Please add guest count.",
         severity: "error",
@@ -174,7 +240,8 @@ function VipRoomsPage() {
     const result = addVipBooking({
       suiteId,
       date: bookingDate,
-      time: bookingTime,
+      timeSlots: selectedSlots,
+      time: selectedSlots[0],
       guests,
     });
 
@@ -270,11 +337,15 @@ function VipRoomsPage() {
             }}
           >
             <Typography variant="h3" sx={{ mb: 3 }}>Reserve a Suite</Typography>
-            {bookedDateStats.length === 0 && (
-              <Typography sx={{ color: "text.secondary", mb: 2.2 }}>
-                No booked dates yet for selected room.
-              </Typography>
-            )}
+            <Typography sx={{ color: "text.secondary", mb: 2.2 }}>
+              Booked slots today ({todayDateText}):{" "}
+              {bookedSlotsForToday.size > 0
+                ? TIME_SLOTS
+                  .filter((slot) => bookedSlotsForToday.has(slot.value))
+                  .map((slot) => slot.label)
+                  .join(", ")
+                : "No bookings yet"}
+            </Typography>
 
             <FormControl fullWidth sx={{ mb: 2.5 }}>
               <InputLabel sx={{ color: "primary.main", textTransform: "uppercase", fontWeight: 700, letterSpacing: 0.9 }}>
@@ -283,7 +354,14 @@ function VipRoomsPage() {
               <Select
                 value={suiteId}
                 label="Room Type"
-                onChange={(event) => setSuiteId(event.target.value)}
+                onChange={(event) => {
+                  setSuiteId(event.target.value);
+                  const nextSuite = suites.find((suite) => suite.id === event.target.value);
+                  const nextMax = Math.max(1, Number(nextSuite?.seats) || 1);
+                  setGuests((current) => Math.min(nextMax, Math.max(1, Number(current) || 1)));
+                  setBookingDate("");
+                  setTimeSlot("");
+                }}
                 sx={{ borderRadius: 3, bgcolor: "#07090d" }}
               >
                 {suites.map((item) => (
@@ -294,15 +372,20 @@ function VipRoomsPage() {
               </Select>
             </FormControl>
 
-            <Stack direction="row" spacing={1.8} sx={{ mb: 2.5 }}>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.8} sx={{ mb: 2.5 }}>
               <TextField
                 fullWidth
                 label="Date"
                 type="date"
                 value={bookingDate}
-                onChange={(event) => setBookingDate(event.target.value)}
+                onChange={(event) => {
+                  setBookingDate(event.target.value);
+                  setTimeSlot("");
+                }}
+                inputProps={{ min: minBookingDate }}
                 slotProps={{ inputLabel: { shrink: true } }}
                 sx={{
+                  flex: 1,
                   "& .MuiOutlinedInput-root": { bgcolor: "#07090d", borderRadius: 3 },
                   "& input::-webkit-calendar-picker-indicator": {
                     filter: "invert(1)",
@@ -310,53 +393,61 @@ function VipRoomsPage() {
                   },
                 }}
               />
-              <FormControl fullWidth>
+              <FormControl fullWidth sx={{ flex: 1, minWidth: { sm: 280 } }}>
                 <InputLabel sx={{ color: "primary.main", textTransform: "uppercase", fontWeight: 700, letterSpacing: 0.9 }}>
                   Time Slot
                 </InputLabel>
                 <Select
-                  value={bookingTime}
+                  value={timeSlot}
                   label="Time Slot"
-                  onChange={(event) => setBookingTime(event.target.value)}
+                  onChange={(event) => setTimeSlot(event.target.value)}
                   sx={{ borderRadius: 3, bgcolor: "#07090d" }}
+                  disabled={!bookingDate || isSelectedDateFullyBooked}
                 >
-                  {TIME_SLOTS.map((slot) => (
-                    <MenuItem key={slot.value} value={slot.value} disabled={bookedSlotsForSelectedDate.has(slot.value)}>
-                      {slot.label} {bookedSlotsForSelectedDate.has(slot.value) ? "(Booked)" : ""}
-                    </MenuItem>
-                  ))}
+                  {TIME_SLOTS.map((slot) => {
+                    const booked = bookedSlotsForSelectedDate.has(slot.value);
+                    const isToday = bookingDate === todayDateText;
+                    const startTime = String(slot.value || "").split("-")[0]?.trim();
+                    const slotStart = isToday && /^\d{2}:\d{2}$/.test(startTime) ? new Date(`${bookingDate}T${startTime}:00`) : null;
+                    const expired = Boolean(isToday && slotStart && !Number.isNaN(slotStart.getTime()) && Date.now() >= slotStart.getTime());
+                    const disabled = booked || expired;
+                    const suffix = booked ? "(Booked)" : expired ? "(Expired)" : "";
+                    return (
+                      <MenuItem key={slot.value} value={slot.value} disabled={disabled}>
+                        {slot.label} {suffix}
+                      </MenuItem>
+                    );
+                  })}
                 </Select>
               </FormControl>
             </Stack>
-            {bookingDate && (
-              <Typography sx={{ color: "text.secondary", mb: 1.8 }}>
-                Booked slots for selected date:{" "}
-                {bookedSlotsForSelectedDate.size > 0
-                  ? TIME_SLOTS
-                    .filter((slot) => bookedSlotsForSelectedDate.has(slot.value))
-                    .map((slot) => slot.label)
-                    .join(", ")
-                  : "No booked slots yet"}
+            {selectedSlots.length > 0 && (
+              <Typography sx={{ color: isSelectedSlotBooked || isSelectedSlotExpired ? "#ff7a84" : "text.secondary", mb: 1.2 }}>
+                Selected: {formatSelectedSlots()}
               </Typography>
             )}
-            {bookedDateStats.length > 0 && (
-              <Stack direction="row" spacing={0.8} useFlexGap flexWrap="wrap" sx={{ mb: 2.2 }}>
-                {bookedDateStats.slice(0, 8).map((item) => (
-                  <Chip
-                    key={item.date}
-                    label={`${item.date} (${item.isFull ? "Fully Booked" : "Partially Booked"})`}
-                    onClick={() => setBookingDate(item.date)}
-                    variant={bookingDate === item.date ? "filled" : "outlined"}
-                  />
-                ))}
-              </Stack>
+            {bookingDate === todayDateText && bookedSlotsForSelectedDate.size > 0 && (
+              <Typography sx={{ color: "text.secondary", mb: 1.8 }}>
+                Booked slots today:{" "}
+                {TIME_SLOTS
+                  .filter((slot) => bookedSlotsForSelectedDate.has(slot.value))
+                  .map((slot) => slot.label)
+                  .join(", ")}
+              </Typography>
             )}
 
             <TextField
               fullWidth
               label="Number of Guests"
               value={guests}
-              onChange={(event) => setGuests(event.target.value)}
+              type="number"
+              inputProps={{ min: 1, max: maxGuests, step: 1 }}
+              onChange={(event) => {
+                const nextValue = Number(event.target.value);
+                const clamped = Math.min(maxGuests, Math.max(1, Number.isFinite(nextValue) ? nextValue : 1));
+                setGuests(clamped);
+              }}
+              helperText={`Max ${maxGuests} guests for ${selectedSuite?.name || "this suite"}`}
               sx={{ mb: 2.8, "& .MuiOutlinedInput-root": { bgcolor: "#07090d", borderRadius: 3 } }}
             />
 

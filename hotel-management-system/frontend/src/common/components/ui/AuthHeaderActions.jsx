@@ -9,7 +9,6 @@ import PersonOutlineRoundedIcon from "@mui/icons-material/PersonOutlineRounded";
 import { useAuth } from "../../../features/auth/context/AuthContext";
 import AccountDialog from "./AccountDialog";
 import CartDialog from "./CartDialog";
-import { getUserPointsFromPurchases } from "../../utils/pricing";
 
 const getLoyaltyTier = (points) => {
   if (points >= 10000) {
@@ -28,6 +27,8 @@ function AuthHeaderActions() {
   const navigate = useNavigate();
   const {
     authUser,
+    loyaltySummary,
+    refreshLoyaltySummary,
     logout,
     updateUserProfile,
     purchases,
@@ -56,15 +57,18 @@ function AuthHeaderActions() {
   );
 
   const isAdmin = authUser?.role === "admin";
-  const points = useMemo(
-    () => (isAdmin ? 0 : getUserPointsFromPurchases(purchases, authUser?.email)),
-    [isAdmin, purchases, authUser]
-  );
+  const points = isAdmin ? 0 : Number(loyaltySummary?.points) || 0;
   const tier = useMemo(() => getLoyaltyTier(points), [points]);
+  const normalizedProvider = String(authUser?.authProvider || "").trim().toLowerCase();
+  const isGoogleUser = normalizedProvider === "google";
   const displayName = isAdmin
     ? "Resta Admin"
-    : authUser?.fullName || "John Doe";
-  const phone = isAdmin ? "+94 77 123 4567" : authUser?.phone || "+94 71 987 6543";
+    : (isGoogleUser ? authUser?.googleName : authUser?.fullName) ||
+      authUser?.fullName ||
+      authUser?.googleName ||
+      (authUser?.email ? String(authUser.email).split("@")[0] : "") ||
+      "User";
+  const phone = isAdmin ? "+94 77 123 4567" : authUser?.phone || "";
   const address = isAdmin
     ? "Admin Panel"
     : authUser?.address ||
@@ -148,7 +152,12 @@ function AuthHeaderActions() {
         )}
 
         <Button
-          onClick={() => setAccountOpen(true)}
+          onClick={() => {
+            if (authUser?.role !== "admin") {
+              refreshLoyaltySummary?.();
+            }
+            setAccountOpen(true);
+          }}
           sx={{
             minWidth: 46,
             width: 46,
@@ -164,16 +173,20 @@ function AuthHeaderActions() {
       </Stack>
 
       <AccountDialog
-          open={accountOpen}
-          onClose={() => setAccountOpen(false)}
-          isAdmin={isAdmin}
-          displayName={displayName}
-          email={authUser.email}
-          phone={phone}
-          address={address}
-          streetAddress1={isAdmin ? "" : authUser?.streetAddress1 || ""}
-          streetAddress2={isAdmin ? "" : authUser?.streetAddress2 || ""}
-          cityTown={isAdmin ? "" : authUser?.cityTown || ""}
+           open={accountOpen}
+           onClose={() => setAccountOpen(false)}
+           isAdmin={isAdmin}
+           displayName={displayName}
+           email={authUser.email}
+           authProvider={authUser?.authProvider}
+           googleSub={authUser?.googleSub}
+           avatarUrl={authUser?.avatarUrl}
+           googleName={authUser?.googleName}
+           phone={phone}
+           address={address}
+           streetAddress1={isAdmin ? "" : authUser?.streetAddress1 || ""}
+           streetAddress2={isAdmin ? "" : authUser?.streetAddress2 || ""}
+           cityTown={isAdmin ? "" : authUser?.cityTown || ""}
           points={points}
           onLogout={handleLogout}
           ordersCount={userPurchases.length}

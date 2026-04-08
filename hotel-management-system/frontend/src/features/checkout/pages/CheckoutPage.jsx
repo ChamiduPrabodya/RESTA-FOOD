@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -49,7 +49,7 @@ const detectCardBrand = (digits) => {
 
 function CheckoutPage() {
   const navigate = useNavigate();
-  const { authUser, cartItems, placeOrderFromCart, purchases, promotions, loyaltyRules } = useAuth();
+  const { authUser, cartItems, placeOrderFromCart, promotions, loyaltyRules, loyaltySummary, lastDeliveryDetails } = useAuth();
 
   const userCartItems = useMemo(
     () => cartItems.filter((item) => item.userEmail === authUser?.email),
@@ -73,29 +73,54 @@ function CheckoutPage() {
     cityTown: String(authUser?.cityTown || "").trim(),
     address: String(authUser?.address || "").trim(),
   };
+
+  const seededDelivery = useMemo(() => {
+    const base = lastDeliveryDetails || {};
+    return {
+      phone: String(base.phone || profileDelivery.phone || "").trim(),
+      streetAddress1: String(base.streetAddress1 || profileDelivery.streetAddress1 || "").trim(),
+      streetAddress2: String(base.streetAddress2 || profileDelivery.streetAddress2 || "").trim(),
+      cityTown: String(base.cityTown || profileDelivery.cityTown || "").trim(),
+    };
+  }, [lastDeliveryDetails, profileDelivery.phone, profileDelivery.streetAddress1, profileDelivery.streetAddress2, profileDelivery.cityTown]);
+
+  const [deliveryPhone, setDeliveryPhone] = useState(seededDelivery.phone);
+  const [deliveryStreet1, setDeliveryStreet1] = useState(seededDelivery.streetAddress1);
+  const [deliveryStreet2, setDeliveryStreet2] = useState(seededDelivery.streetAddress2);
+  const [deliveryCityTown, setDeliveryCityTown] = useState(seededDelivery.cityTown);
+  const [deliveryErrors, setDeliveryErrors] = useState({ phone: "" });
+
+  useEffect(() => {
+    setDeliveryPhone(seededDelivery.phone);
+    setDeliveryStreet1(seededDelivery.streetAddress1);
+    setDeliveryStreet2(seededDelivery.streetAddress2);
+    setDeliveryCityTown(seededDelivery.cityTown);
+    setDeliveryErrors({ phone: "" });
+  }, [seededDelivery.phone, seededDelivery.streetAddress1, seededDelivery.streetAddress2, seededDelivery.cityTown]);
   const formattedDeliveryAddress =
-    [profileDelivery.streetAddress1, profileDelivery.streetAddress2, profileDelivery.cityTown]
+    [deliveryStreet1, deliveryStreet2, deliveryCityTown]
       .filter(Boolean)
       .join(", ") || profileDelivery.address;
   const hasDeliveryProfile =
     profileDelivery.name.length > 1 &&
-    /^[0-9+\-\s]{9,15}$/.test(profileDelivery.phone) &&
-    (profileDelivery.streetAddress1.length > 2 || profileDelivery.address.length > 5) &&
-    (profileDelivery.cityTown.length > 1 || profileDelivery.address.length > 5);
+    /^[0-9+\-\s]{9,15}$/.test(String(deliveryPhone || "").trim()) &&
+    (String(deliveryStreet1 || "").trim().length > 2 || profileDelivery.address.length > 5) &&
+    (String(deliveryCityTown || "").trim().length > 1 || profileDelivery.address.length > 5);
 
   const pricing = useMemo(
     () =>
       calculateCheckoutPricing({
         cartItems: userCartItems,
         userEmail: authUser?.email,
-        purchases,
         promotions,
         loyaltyRules,
+        points: loyaltySummary?.points,
+        loyaltyPercent: loyaltySummary?.discountPercent,
         orderType,
         deliveryAddress: formattedDeliveryAddress,
-        deliveryCityTown: profileDelivery.cityTown,
+        deliveryCityTown,
       }),
-    [userCartItems, authUser, purchases, promotions, loyaltyRules, orderType, formattedDeliveryAddress, profileDelivery.cityTown]
+    [userCartItems, authUser, promotions, loyaltyRules, loyaltySummary?.points, loyaltySummary?.discountPercent, orderType, formattedDeliveryAddress, deliveryCityTown]
   );
 
   if (!authUser) {
@@ -149,9 +174,24 @@ function CheckoutPage() {
     return !nextErrors.cardNumber && !nextErrors.cardExpiry && !nextErrors.cardCvv;
   };
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
+    if (orderType === "Delivery") {
+      const normalizedPhone = String(deliveryPhone || "").trim();
+      const phoneOk = /^[0-9+\-\s]{9,15}$/.test(normalizedPhone);
+      setDeliveryErrors({ phone: phoneOk ? "" : "Enter a valid mobile number." });
+      if (!phoneOk) {
+        setErrorMessage("Please enter a valid mobile number for delivery.");
+        return;
+      }
+    }
+
     if (orderType === "Delivery" && !hasDeliveryProfile) {
-      setErrorMessage("Delivery profile is incomplete. Please update your account details.");
+      setErrorMessage("Delivery details are incomplete. Please fill your mobile number and address above.");
+      return;
+    }
+
+    if (orderType === "Delivery" && pricing && pricing.deliveryAllowed === false) {
+      setErrorMessage("Delivery is not available for the selected area. Please choose Takeaway.");
       return;
     }
 
@@ -163,12 +203,22 @@ function CheckoutPage() {
     }
 
     setErrorMessage("");
-    const result = placeOrderFromCart({
+    const result = await placeOrderFromCart({
       orderType,
       paymentMethod,
+      deliveryDetails:
+        orderType === "Delivery"
+          ? {
+              phone: String(deliveryPhone || "").trim(),
+              streetAddress1: String(deliveryStreet1 || "").trim(),
+              streetAddress2: String(deliveryStreet2 || "").trim(),
+              cityTown: String(deliveryCityTown || "").trim(),
+              location: String(formattedDeliveryAddress || "").trim(),
+            }
+          : null,
     });
-    if (!result.success) {
-      setErrorMessage(result.message);
+    if (!result?.success) {
+      setErrorMessage(result?.message || "Unable to place order.");
       return;
     }
 
@@ -248,17 +298,64 @@ function CheckoutPage() {
                     <Typography sx={{ color: "primary.main", textTransform: "uppercase", letterSpacing: 1.2, fontWeight: 700, mb: 1.2 }}>
                       Delivery Details
                     </Typography>
-                    <Stack spacing={0.8}>
-                      <Typography sx={{ color: "text.secondary", fontSize: 13 }}>Name</Typography>
-                      <Typography sx={{ fontWeight: 700 }}>{profileDelivery.name || "-"}</Typography>
-                      <Typography sx={{ color: "text.secondary", fontSize: 13 }}>Phone</Typography>
-                      <Typography sx={{ fontWeight: 700 }}>{profileDelivery.phone || "-"}</Typography>
-                      <Typography sx={{ color: "text.secondary", fontSize: 13 }}>Address</Typography>
-                      <Typography sx={{ fontWeight: 700 }}>{formattedDeliveryAddress || "-"}</Typography>
+                    <Stack spacing={1.2}>
+                      <Box>
+                        <Typography sx={{ color: "text.secondary", fontSize: 13 }}>Name</Typography>
+                        <Typography sx={{ fontWeight: 700 }}>{profileDelivery.name || "-"}</Typography>
+                      </Box>
+
+                      <TextField
+                        label="Mobile Number"
+                        value={deliveryPhone}
+                        onChange={(event) => {
+                          setDeliveryPhone(event.target.value);
+                          if (deliveryErrors.phone) {
+                            setDeliveryErrors((current) => ({ ...current, phone: "" }));
+                          }
+                        }}
+                        onBlur={() => {
+                          const normalized = String(deliveryPhone || "").trim();
+                          const ok = /^[0-9+\\-\\s]{9,15}$/.test(normalized);
+                          setDeliveryErrors({ phone: ok ? "" : "Enter a valid mobile number." });
+                        }}
+                        error={Boolean(deliveryErrors.phone)}
+                        helperText={deliveryErrors.phone || " "}
+                        sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116", borderRadius: 2.5 } }}
+                      />
+
+                      <Stack direction={{ xs: "column", md: "row" }} spacing={1.2}>
+                        <TextField
+                          fullWidth
+                          label="Street Address 1"
+                          value={deliveryStreet1}
+                          onChange={(event) => setDeliveryStreet1(event.target.value)}
+                          sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116", borderRadius: 2.5 } }}
+                        />
+                        <TextField
+                          fullWidth
+                          label="Street Address 2 (Optional)"
+                          value={deliveryStreet2}
+                          onChange={(event) => setDeliveryStreet2(event.target.value)}
+                          sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116", borderRadius: 2.5 } }}
+                        />
+                      </Stack>
+
+                      <TextField
+                        fullWidth
+                        label="City / Town"
+                        value={deliveryCityTown}
+                        onChange={(event) => setDeliveryCityTown(event.target.value)}
+                        sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116", borderRadius: 2.5 } }}
+                      />
+
+                      <Box>
+                        <Typography sx={{ color: "text.secondary", fontSize: 13 }}>Delivery Address Preview</Typography>
+                        <Typography sx={{ fontWeight: 700 }}>{formattedDeliveryAddress || "-"}</Typography>
+                      </Box>
                     </Stack>
                     {!hasDeliveryProfile && (
                       <Typography sx={{ color: "#ff6b7a", fontSize: 13, mt: 1.4 }}>
-                        Add your name, phone, and address in your account profile to place delivery orders.
+                        Add your name in your account profile and complete the delivery mobile number and address above.
                       </Typography>
                     )}
                   </CardContent>
@@ -436,7 +533,13 @@ function CheckoutPage() {
                   <Stack direction="row" justifyContent="space-between">
                     <Typography sx={{ color: "text.secondary" }}>Delivery Fee</Typography>
                     <Typography sx={{ color: "primary.main", fontWeight: 800 }}>
-                      {orderType !== "Delivery" || pricing.deliveryFee <= 0 ? "Free" : toSLR(pricing.deliveryFee)}
+                      {orderType !== "Delivery"
+                        ? "Free"
+                        : pricing.deliveryAllowed === false
+                          ? "Not available"
+                          : pricing.deliveryFee <= 0
+                            ? "Free"
+                            : toSLR(pricing.deliveryFee)}
                     </Typography>
                   </Stack>
                   <Stack direction="row" justifyContent="space-between" alignItems="center">
@@ -461,12 +564,18 @@ function CheckoutPage() {
                   disabled={
                     userCartItems.length === 0 ||
                     (orderType === "Delivery" && !hasDeliveryProfile) ||
+                    (orderType === "Delivery" && pricing.deliveryAllowed === false) ||
                     (paymentMethod === "Card (Online)" && !cardFormComplete)
                   }
                   sx={{ py: 1.5, borderRadius: 3.2, bgcolor: "primary.main", color: "#111214", fontWeight: 900, fontSize: "18px", "&:hover": { bgcolor: "#d4b25f" } }}
                 >
                   Place Order
                 </Button>
+                {orderType === "Delivery" && pricing.deliveryAllowed === false && (
+                  <Typography sx={{ color: "#ff6b7a", fontSize: 13, mt: 1.2 }}>
+                    Delivery is not available for your city/town. Please switch to Takeaway or update your address.
+                  </Typography>
+                )}
               </CardContent>
             </Card>
           </Box>

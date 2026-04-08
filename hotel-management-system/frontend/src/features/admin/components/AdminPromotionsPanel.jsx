@@ -37,7 +37,6 @@ const createInitialForm = () => ({
   discountValue: "0",
   maxDiscount: "0",
   minOrderValue: "0",
-  promoCode: "",
   startDate: toIsoDate(today),
   endDate: plusDays(today, 7),
   imageUrl: "",
@@ -115,11 +114,6 @@ function PromotionList({ title, icon, items, onToggle, onEdit, onDelete }) {
                 <Typography sx={{ color: "text.secondary" }}>{promo.description}</Typography>
                 <Stack direction="row" spacing={1.2} useFlexGap flexWrap="wrap">
                   <Typography sx={{ color: "primary.main", fontWeight: 700 }}>{promo.discountText}</Typography>
-                  {promo.promoCode && (
-                    <Box sx={{ px: 1, py: 0.25, borderRadius: 1, bgcolor: "rgba(212,178,95,0.2)", color: "primary.main", fontWeight: 700 }}>
-                      {promo.promoCode}
-                    </Box>
-                  )}
                   <Typography sx={{ color: "text.secondary" }}>
                     {promo.startDate} - {promo.endDate}
                   </Typography>
@@ -141,7 +135,6 @@ const createFormFromPromotion = (promotion) => ({
   discountValue: String(promotion?.discountValue ?? "0"),
   maxDiscount: String(promotion?.maxDiscount ?? "0"),
   minOrderValue: String(promotion?.minOrderValue ?? "0"),
-  promoCode: String(promotion?.promoCode || ""),
   startDate: String(promotion?.startDate || toIsoDate(today)),
   endDate: String(promotion?.endDate || plusDays(today, 7)),
   imageUrl: String(promotion?.imageUrl || ""),
@@ -338,18 +331,6 @@ function AdminPromotionsPanel({
                     type="number"
                     value={form.minOrderValue}
                     onChange={(event) => updateField("minOrderValue", event.target.value)}
-                    sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116", borderRadius: 2.5 } }}
-                  />
-                </Box>
-                <Box>
-                  <Typography sx={{ color: "text.secondary", textTransform: "uppercase", fontWeight: 700, mb: 0.6 }}>
-                    Promo Code
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    value={form.promoCode}
-                    onChange={(event) => updateField("promoCode", event.target.value.toUpperCase())}
-                    placeholder="E.G. WEEKEND50"
                     sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116", borderRadius: 2.5 } }}
                   />
                 </Box>

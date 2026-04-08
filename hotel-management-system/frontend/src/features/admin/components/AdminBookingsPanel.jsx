@@ -1,13 +1,20 @@
 import { useState } from "react";
 import {
+  Alert,
   Box,
   Button,
   Card,
   CardContent,
   Divider,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   MenuItem,
   Select,
+  Snackbar,
   Stack,
+  TextField,
   Typography,
 } from "@mui/material";
 import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
@@ -22,8 +29,27 @@ const formatSuite = (suiteId) => {
   if (suiteId === "gold") return "VIP GOLD";
   return String(suiteId || "VIP");
 };
+const formatBookingTime = (booking) => {
+  const rawSlots = Array.isArray(booking?.timeSlots) && booking.timeSlots.length > 0
+    ? booking.timeSlots
+    : String(booking?.time || "").includes("|")
+      ? String(booking.time || "").split("|")
+      : [booking?.time];
+  const slots = rawSlots.map((value) => String(value || "").trim()).filter(Boolean);
+  if (slots.length === 0) return String(booking?.time || "").trim();
+
+  const first = slots[0];
+  const last = slots[slots.length - 1];
+  if (!first.includes("-")) return first;
+
+  const start = first.split("-")[0].trim();
+  const end = last.includes("-") ? last.split("-")[1].trim() : last;
+  return slots.length > 1 ? `${start} - ${end} (${slots.length} slots)` : `${start} - ${end}`;
+};
 
 function AdminBookingsPanel({ vipBookings, users, updateVipBookingStatus }) {
+  const [cancelDialog, setCancelDialog] = useState({ open: false, bookingId: "", reason: "" });
+  const [notice, setNotice] = useState({ open: false, message: "", severity: "success" });
   const pending = vipBookings.filter((item) => normalizeStatus(item.status) === "Pending");
   const confirmed = vipBookings.filter((item) => normalizeStatus(item.status) === "Confirmed");
   const cancelled = vipBookings.filter((item) => normalizeStatus(item.status) === "Cancelled");
@@ -35,6 +61,17 @@ function AdminBookingsPanel({ vipBookings, users, updateVipBookingStatus }) {
     if (statusFilter === "all") return true;
     return normalizeStatus(booking.status).toLowerCase() === statusFilter;
   });
+
+  const closeCancelDialog = () => setCancelDialog({ open: false, bookingId: "", reason: "" });
+  const confirmCancel = () => {
+    const result = updateVipBookingStatus?.(cancelDialog.bookingId, "Cancelled", cancelDialog.reason);
+    if (!result?.success) {
+      setNotice({ open: true, message: result?.message || "Unable to cancel booking.", severity: "error" });
+      return;
+    }
+    setNotice({ open: true, message: "Booking cancelled with reason.", severity: "success" });
+    closeCancelDialog();
+  };
 
   if (allSortedBookings.length === 0) {
     return (
@@ -131,7 +168,7 @@ function AdminBookingsPanel({ vipBookings, users, updateVipBookingStatus }) {
                         </Box>
                         <Box>
                           <Typography sx={{ color: "text.secondary", textTransform: "uppercase", fontSize: "0.75rem" }}>Time</Typography>
-                          <Typography sx={{ fontWeight: 700 }}>{booking.time}</Typography>
+                          <Typography sx={{ fontWeight: 700 }}>{formatBookingTime(booking)}</Typography>
                         </Box>
                         <Box>
                           <Typography sx={{ color: "text.secondary", textTransform: "uppercase", fontSize: "0.75rem" }}>Guests</Typography>
@@ -195,7 +232,14 @@ function AdminBookingsPanel({ vipBookings, users, updateVipBookingStatus }) {
                       color="success"
                       sx={{ py: 1.2, borderRadius: 3 }}
                       disabled={bookingStatus === "Confirmed"}
-                      onClick={() => updateVipBookingStatus(booking.id, "Confirmed")}
+                      onClick={() => {
+                        const result = updateVipBookingStatus?.(booking.id, "Confirmed");
+                        setNotice({
+                          open: true,
+                          message: result?.message || (result?.success ? "Booking approved." : "Unable to approve booking."),
+                          severity: result?.success ? "success" : "error",
+                        });
+                      }}
                     >
                       Approve Booking
                     </Button>
@@ -206,7 +250,7 @@ function AdminBookingsPanel({ vipBookings, users, updateVipBookingStatus }) {
                       color="error"
                       sx={{ py: 1.2, borderRadius: 3, mt: 1.2 }}
                       disabled={bookingStatus === "Cancelled"}
-                      onClick={() => updateVipBookingStatus(booking.id, "Cancelled")}
+                      onClick={() => setCancelDialog({ open: true, bookingId: booking.id, reason: "" })}
                     >
                       Reject Booking
                     </Button>
@@ -221,6 +265,44 @@ function AdminBookingsPanel({ vipBookings, users, updateVipBookingStatus }) {
           );
         })}
       </Stack>
+
+      <Dialog
+        open={cancelDialog.open}
+        onClose={closeCancelDialog}
+        PaperProps={{ sx: { bgcolor: "#0f1116", border: "1px solid rgba(212,178,95,0.2)", color: "text.primary" } }}
+      >
+        <DialogTitle>Cancel Booking</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ color: "text.secondary", mb: 1 }}>Please provide a reason to send to the customer.</Typography>
+          <TextField
+            autoFocus
+            fullWidth
+            multiline
+            minRows={3}
+            value={cancelDialog.reason}
+            onChange={(event) => setCancelDialog((current) => ({ ...current, reason: event.target.value }))}
+            placeholder="Reason for cancelling this booking..."
+            sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#07090d", borderRadius: 2.5 } }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 2.2, pb: 1.8 }}>
+          <Button onClick={closeCancelDialog} color="inherit">Close</Button>
+          <Button variant="contained" color="error" onClick={confirmCancel}>
+            Confirm Cancel
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={notice.open}
+        autoHideDuration={2400}
+        onClose={() => setNotice((current) => ({ ...current, open: false }))}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert onClose={() => setNotice((current) => ({ ...current, open: false }))} severity={notice.severity} variant="filled">
+          {notice.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

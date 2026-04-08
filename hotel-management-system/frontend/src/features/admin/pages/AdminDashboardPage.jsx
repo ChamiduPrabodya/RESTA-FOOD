@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Box,
@@ -38,6 +38,24 @@ import AdminLiveOrdersPanel from "../components/AdminLiveOrdersPanel";
 import AdminCustomersPanel from "../components/AdminCustomersPanel";
 import AdminQrSystemPanel from "../components/AdminQrSystemPanel";
 import AdminFeedbackPanel from "../components/AdminFeedbackPanel";
+
+const formatVipBookingTime = (booking) => {
+  const rawSlots = Array.isArray(booking?.timeSlots) && booking.timeSlots.length > 0
+    ? booking.timeSlots
+    : String(booking?.time || "").includes("|")
+      ? String(booking.time || "").split("|")
+      : [booking?.time];
+  const slots = rawSlots.map((value) => String(value || "").trim()).filter(Boolean);
+  if (slots.length === 0) return String(booking?.time || "").trim();
+
+  const first = slots[0];
+  const last = slots[slots.length - 1];
+  if (!first.includes("-")) return first;
+
+  const start = first.split("-")[0].trim();
+  const end = last.includes("-") ? last.split("-")[1].trim() : last;
+  return slots.length > 1 ? `${start} - ${end} (${slots.length} slots)` : `${start} - ${end}`;
+};
 import AdminPromotionsPanel from "../components/AdminPromotionsPanel";
 import AdminMenuManagementPanel from "../components/AdminMenuManagementPanel";
 
@@ -147,13 +165,18 @@ function SideItem({ icon, label, active = false, badge, onClick }) {
 function AdminDashboardPage() {
   const {
     purchases,
+    loyaltyPurchases,
+    adminPointsByEmail,
     vipBookings,
     users,
     feedbacks,
     promotions,
     menuItems,
     menuCategories,
+    refreshAdminLoyaltyPurchases,
+    refreshAdminUsers,
     updatePurchaseStatus,
+    updateOrderStatus,
     updateVipBookingStatus,
     addPromotion,
     togglePromotionStatus,
@@ -168,6 +191,12 @@ function AdminDashboardPage() {
   } = useAuth();
   const [activeSection, setActiveSection] = useState("dashboard");
   const [dailySalesOpen, setDailySalesOpen] = useState(false);
+
+  useEffect(() => {
+    if (activeSection !== "customers") return;
+    refreshAdminUsers?.();
+    refreshAdminLoyaltyPurchases?.();
+  }, [activeSection, refreshAdminLoyaltyPurchases, refreshAdminUsers]);
 
   const normalizedPurchases = purchases.map((purchase) => ({
     ...purchase,
@@ -350,7 +379,7 @@ function AdminDashboardPage() {
                         <Box key={booking.id}>
                           <Typography sx={{ fontWeight: 700 }}>{booking.suiteId}</Typography>
                           <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                            {booking.userEmail} - {booking.date} {booking.time}
+                            {booking.userEmail} - {booking.date} {formatVipBookingTime(booking)}
                           </Typography>
                         </Box>
                       ))}
@@ -429,7 +458,11 @@ function AdminDashboardPage() {
           </Dialog>
 
           {activeSection === "liveOrders" && (
-            <AdminLiveOrdersPanel purchases={purchases} updatePurchaseStatus={updatePurchaseStatus} />
+            <AdminLiveOrdersPanel
+              purchases={purchases}
+              updateOrderStatus={updateOrderStatus}
+              updatePurchaseStatus={updatePurchaseStatus}
+            />
           )}
           {activeSection === "menuManagement" && (
             <AdminMenuManagementPanel
@@ -453,7 +486,7 @@ function AdminDashboardPage() {
           )}
 
           {activeSection === "customers" && (
-            <AdminCustomersPanel users={users} purchases={purchases} />
+            <AdminCustomersPanel users={users} purchases={loyaltyPurchases} pointsByEmail={adminPointsByEmail} />
           )}
 
           {activeSection === "qrSystem" && <AdminQrSystemPanel />}

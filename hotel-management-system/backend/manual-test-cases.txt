@@ -1,0 +1,245 @@
+TC-CO-06-U
+Title: Update cart item quantity (User)
+Preconditions: Valid user token, existing cart item ID
+Steps:
+1. Send PATCH /api/checkout/cart/items/:cartItemId with quantity > 0 (e.g., { "quantity": 2 }) using Authorization: Bearer <userToken>.
+Expected Result:
+- 200 response returned.
+- Cart item quantity is updated for the given cartItemId.
+
+TC-CO-06-L
+Title: Update cart item quantity (Loyalty user)
+Preconditions: Valid loyalty user token, existing cart item ID that belongs to the same loyalty user
+Steps:
+1. Send PATCH /api/checkout/cart/items/:cartItemId with quantity > 0 (e.g., { "quantity": 2 }) using Authorization: Bearer <loyaltyUserToken>.
+Expected Result:
+- 200 response returned.
+- Cart item quantity is updated for the given cartItemId.
+- Any loyalty-related totals derived from cart (if applicable in your system) are recalculated based on the updated quantity.
+
+========================
+USER (Auth + Profile)
+========================
+
+TC-US-01
+Title: User signup
+Preconditions: Email is not registered, email is not the admin email
+Steps:
+1. Send POST /api/auth/signup with valid payload (fullName, email, password, phone, streetAddress1, streetAddress2, cityTown).
+Expected Result:
+- 200 response returned.
+- success=true returned with token and user details.
+
+TC-US-02
+Title: User signup with existing email
+Preconditions: Email is already registered
+Steps:
+1. Send POST /api/auth/signup using an already-registered email.
+Expected Result:
+- 400 response returned.
+- Email already registered error is returned.
+
+TC-US-03
+Title: User login (local)
+Preconditions: User account exists with password login enabled (passwordHash exists)
+Steps:
+1. Send POST /api/auth/login with valid email and password.
+Expected Result:
+- 200 response returned.
+- success=true returned with token and user details.
+
+TC-US-04
+Title: User login with invalid credentials
+Preconditions: User account does not exist OR password is incorrect
+Steps:
+1. Send POST /api/auth/login with invalid email/password.
+Expected Result:
+- 401 response returned.
+- Invalid credentials message is returned.
+
+TC-US-05
+Title: Get current auth user (me)
+Preconditions: Valid user token
+Steps:
+1. Send GET /api/auth/me with Authorization: Bearer <userToken>.
+Expected Result:
+- 200 response returned.
+- success=true returned with auth object and user object.
+
+TC-US-06
+Title: Get user profile (me)
+Preconditions: Valid user token, user exists
+Steps:
+1. Send GET /api/users/me with Authorization: Bearer <userToken>.
+Expected Result:
+- 200 response returned.
+- success=true returned with sanitized user details.
+
+TC-US-07
+Title: Update user profile (me)
+Preconditions: Valid user token (role=user)
+Steps:
+1. Send PUT /api/users/me with Authorization: Bearer <userToken> and valid payload (fullName, phone, streetAddress1, streetAddress2, cityTown).
+Expected Result:
+- 200 response returned.
+- success=true returned and user details are updated.
+
+TC-US-08
+Title: Update user profile with invalid phone
+Preconditions: Valid user token (role=user)
+Steps:
+1. Send PUT /api/users/me with an invalid phone number format.
+Expected Result:
+- 400 response returned.
+- Validation error message is returned.
+
+========================
+LOYALTY
+========================
+
+TC-LO-01
+Title: Get loyalty rules (public)
+Preconditions: None
+Steps:
+1. Send GET /api/loyalty/rules.
+Expected Result:
+- 200 response returned.
+- success=true returned with rules array.
+
+TC-LO-02
+Title: Get my loyalty summary
+Preconditions: Valid user token
+Steps:
+1. Send GET /api/loyalty/me with Authorization: Bearer <userToken>.
+Expected Result:
+- 200 response returned.
+- success=true returned with summary (email, points, discountPercent, rules).
+
+TC-LO-03
+Title: Add my purchases (earn points)
+Preconditions: Valid user token, at least one purchase payload is available
+Steps:
+1. Send POST /api/loyalty/purchases with Authorization: Bearer <userToken> and purchases[] in the request body.
+Expected Result:
+- 200 response returned.
+- success=true returned and purchases are recorded (pointsEarned computed server-side).
+
+TC-LO-04
+Title: Add my purchases rejects loyaltyPointsEarned from client
+Preconditions: Valid user token
+Steps:
+1. Send POST /api/loyalty/purchases with a purchase object that includes purchase.loyaltyPointsEarned.
+Expected Result:
+- 400 response returned.
+- Error returned indicating the server computes loyalty points.
+
+TC-LO-05
+Title: List my purchases
+Preconditions: Valid user token
+Steps:
+1. Send GET /api/loyalty/purchases/me with Authorization: Bearer <userToken>.
+Expected Result:
+- 200 response returned.
+- success=true returned with purchases array.
+
+TC-LO-06
+Title: Update purchase status (User cancels own purchase)
+Preconditions: Valid user token, existing purchase ID that belongs to the same user
+Steps:
+1. Send PATCH /api/loyalty/purchases/:id/status with Authorization: Bearer <userToken> and body { "status": "Cancelled", "cancelReason": "<reason>" }.
+Expected Result:
+- 200 response returned.
+- success=true returned and purchase status is updated to Cancelled.
+
+TC-LO-07
+Title: Update purchase status rejects cancel without reason
+Preconditions: Valid user token, existing purchase ID that belongs to the same user
+Steps:
+1. Send PATCH /api/loyalty/purchases/:id/status with body { "status": "Cancelled" } (no cancelReason).
+Expected Result:
+- 400 response returned.
+- Validation error returned indicating cancelReason is required.
+
+========================
+MENU
+========================
+
+TC-MN-01
+Title: List menu items (public)
+Preconditions: None
+Steps:
+1. Send GET /api/menu/items.
+Expected Result:
+- 200 response returned.
+- success=true returned with items array.
+
+TC-MN-02
+Title: List menu categories (public)
+Preconditions: None
+Steps:
+1. Send GET /api/menu/categories.
+Expected Result:
+- 200 response returned.
+- success=true returned with categories array.
+
+========================
+ADMIN
+========================
+
+TC-AD-01
+Title: Admin list all users
+Preconditions: Valid admin token
+Steps:
+1. Send GET /api/admin/users with Authorization: Bearer <adminToken>.
+Expected Result:
+- 200 response returned.
+- success=true returned with users array (sanitized).
+
+TC-AD-02
+Title: Admin replace loyalty rules
+Preconditions: Valid admin token
+Steps:
+1. Send PUT /api/loyalty/rules with Authorization: Bearer <adminToken> and body { "rules": [ { "threshold": "100", "discount": "5" } ] }.
+Expected Result:
+- 200 response returned.
+- success=true returned with updated rules array.
+
+TC-AD-03
+Title: Admin list all loyalty purchases
+Preconditions: Valid admin token
+Steps:
+1. Send GET /api/loyalty/purchases with Authorization: Bearer <adminToken>.
+Expected Result:
+- 200 response returned.
+- success=true returned with purchases and pointsByEmail.
+
+TC-AD-04
+Title: Admin list loyalty audit entries
+Preconditions: Valid admin token
+Steps:
+1. Send GET /api/loyalty/audit with Authorization: Bearer <adminToken>.
+Expected Result:
+- 200 response returned.
+- success=true returned with entries array.
+
+TC-AD-05
+Title: Admin updates purchase status for a user
+Preconditions: Valid admin token, existing purchase ID, target user email
+Steps:
+1. Send PATCH /api/loyalty/purchases/:id/status with Authorization: Bearer <adminToken> and body { "userEmail": "<targetUserEmail>", "status": "Delivered" }.
+Expected Result:
+- 200 response returned.
+- success=true returned and purchase status is updated.
+
+========================
+GENERAL
+========================
+
+TC-GN-01
+Title: API health check
+Preconditions: Backend is running
+Steps:
+1. Send GET /api/health.
+Expected Result:
+- 200 response returned.
+- ok=true returned.

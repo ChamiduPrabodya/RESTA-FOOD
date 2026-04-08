@@ -1,0 +1,21 @@
+# Dependencies / build output
+**/node_modules/
+**/dist/
+**/dist-ssr/
+**/build/
+
+# Local env files
+**/.env
+**/.env.*
+!**/.env.example
+
+# NPM cache folders accidentally created in repo
+**/.npm-cache/
+
+# Common OS/editor files
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
+

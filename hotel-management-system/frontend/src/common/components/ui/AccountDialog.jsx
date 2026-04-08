@@ -26,6 +26,23 @@ const isCompletedOrder = (status) => {
   return normalized === "delivered" || normalized.includes("ready");
 };
 const isActiveOrder = (status) => !isCancelledOrder(status) && !isCompletedOrder(status);
+const formatVipBookingTime = (booking) => {
+  const rawSlots = Array.isArray(booking?.timeSlots) && booking.timeSlots.length > 0
+    ? booking.timeSlots
+    : String(booking?.time || "").includes("|")
+      ? String(booking.time || "").split("|")
+      : [booking?.time];
+  const slots = rawSlots.map((value) => String(value || "").trim()).filter(Boolean);
+  if (slots.length === 0) return String(booking?.time || "").trim();
+
+  const first = slots[0];
+  const last = slots[slots.length - 1];
+  if (!first.includes("-")) return first;
+
+  const start = first.split("-")[0].trim();
+  const end = last.includes("-") ? last.split("-")[1].trim() : last;
+  return slots.length > 1 ? `${start} - ${end} (${slots.length} slots)` : `${start} - ${end}`;
+};
 
 function AccountDialog({
   open,
@@ -33,6 +50,10 @@ function AccountDialog({
   isAdmin,
   displayName,
   email,
+  authProvider,
+  googleSub,
+  avatarUrl,
+  googleName,
   phone,
   address,
   streetAddress1 = "",
@@ -48,6 +69,9 @@ function AccountDialog({
   onSaveProfile,
 }) {
   const initial = displayName?.charAt(0)?.toUpperCase() || "U";
+  const normalizedProvider = String(authProvider || "").trim().toLowerCase();
+  const isGoogleUser = !isAdmin && normalizedProvider === "google";
+  const safeAvatarUrl = isGoogleUser && String(avatarUrl || "").trim() ? String(avatarUrl || "").trim() : "";
   const [activeSection, setActiveSection] = useState("profile");
   const [ordersFilter, setOrdersFilter] = useState("active");
   const [notice, setNotice] = useState({ message: "", severity: "success" });
@@ -121,20 +145,24 @@ function AccountDialog({
     onClose?.();
   };
 
-  const handleSaveProfile = () => {
-    const result = onSaveProfile?.({
-      fullName: profileForm.fullName,
-      phone: profileForm.phone,
-      streetAddress1: profileForm.streetAddress1,
-      streetAddress2: profileForm.streetAddress2,
-      cityTown: profileForm.cityTown,
-    });
-    setNotice({
-      message: result?.message || "Unable to update profile.",
-      severity: result?.success ? "success" : "error",
-    });
-    if (result?.success) {
-      setIsEditingProfile(false);
+  const handleSaveProfile = async () => {
+    try {
+      const result = await onSaveProfile?.({
+        fullName: profileForm.fullName,
+        phone: profileForm.phone,
+        streetAddress1: profileForm.streetAddress1,
+        streetAddress2: profileForm.streetAddress2,
+        cityTown: profileForm.cityTown,
+      });
+      setNotice({
+        message: result?.message || "Unable to update profile.",
+        severity: result?.success ? "success" : "error",
+      });
+      if (result?.success) {
+        setIsEditingProfile(false);
+      }
+    } catch {
+      setNotice({ message: "Unable to update profile.", severity: "error" });
     }
   };
 
@@ -228,7 +256,11 @@ function AccountDialog({
           {activeSection === "profile" && (
             <>
               <Stack direction="row" spacing={2.2} alignItems="center">
-                <Avatar sx={{ width: 74, height: 74, bgcolor: "primary.main", color: "#100d07", fontSize: 36, fontWeight: 800 }}>
+                <Avatar
+                  src={safeAvatarUrl || undefined}
+                  imgProps={{ referrerPolicy: "no-referrer" }}
+                  sx={{ width: 74, height: 74, bgcolor: "primary.main", color: "#100d07", fontSize: 36, fontWeight: 800 }}
+                >
                   {initial}
                 </Avatar>
                 <Box>
@@ -236,6 +268,13 @@ function AccountDialog({
                   <Typography sx={{ color: "primary.main", textTransform: "uppercase", fontSize: 13, letterSpacing: 0.8 }}>
                     {isAdmin ? "Admin Member" : "User Member"}
                   </Typography>
+                  {!isAdmin && (
+                    <Typography sx={{ color: "text.secondary", fontSize: 12, mt: 0.6 }}>
+                      Login: {isGoogleUser ? "Google" : "Email/Password"}
+                      {isGoogleUser && String(googleName || "").trim() ? ` • ${String(googleName || "").trim()}` : ""}
+                      {isGoogleUser && String(googleSub || "").trim() ? ` • Google ID: ${String(googleSub || "").trim()}` : ""}
+                    </Typography>
+                  )}
                 </Box>
               </Stack>
 
@@ -264,6 +303,11 @@ function AccountDialog({
                 <Box sx={{ gridArea: "email", p: 2.1, minHeight: 98, borderRadius: 3, bgcolor: "#16100d", border: "1px solid rgba(212,178,95,0.14)" }}>
                   <Typography sx={{ color: "primary.main", fontSize: 13, fontWeight: 700, mb: 0.5 }}>EMAIL</Typography>
                   <Typography variant="h3" sx={{ fontSize: "22px", lineHeight: 1.2, wordBreak: "break-word" }}>{email}</Typography>
+                  {!isAdmin && isGoogleUser && String(googleSub || "").trim() && (
+                    <Typography sx={{ color: "text.secondary", fontSize: 12, mt: 0.8, wordBreak: "break-word" }}>
+                      Google ID: {String(googleSub || "").trim()}
+                    </Typography>
+                  )}
                 </Box>
                 <Box sx={{ gridArea: "phone", p: 2.1, minHeight: 86, borderRadius: 3, bgcolor: "#16100d", border: "1px solid rgba(212,178,95,0.14)" }}>
                   <Typography sx={{ color: "primary.main", fontSize: 13, fontWeight: 700, mb: 0.5 }}>PHONE</Typography>
@@ -397,6 +441,11 @@ function AccountDialog({
                   <Typography sx={{ color: "text.secondary", fontSize: 14 }}>
                     {order.price} • {order.status || "Pending"}
                   </Typography>
+                  {!!String(order.orderRef || "").trim() && (
+                    <Typography sx={{ color: "text.secondary", fontSize: 12, mt: 0.4 }}>
+                      {String(order.orderRef || "").trim()}
+                    </Typography>
+                  )}
                   {isCancelledOrder(order.status) && String(order.cancelReason || "").trim() && (
                     <Typography sx={{ color: "#ff7a84", fontSize: 14, mt: 0.5 }}>
                       Cancellation reason: {order.cancelReason}
@@ -420,8 +469,18 @@ function AccountDialog({
                     <Box>
                       <Typography sx={{ fontWeight: 700 }}>{String(booking.suiteId || "").toUpperCase()} • {booking.guests} guests</Typography>
                       <Typography sx={{ color: "text.secondary", fontSize: 14 }}>
-                        {booking.date} {booking.time} • {booking.status || "Pending"}
+                        {booking.date} {formatVipBookingTime(booking)} • {booking.status || "Pending"}
                       </Typography>
+                      {!!String(booking.id || "").trim() && (
+                        <Typography sx={{ color: "text.secondary", fontSize: 12, mt: 0.4 }}>
+                          #{String(booking.id || "").trim().slice(0, 4)}
+                        </Typography>
+                      )}
+                      {normalizeOrderStatus(booking.status) === "cancelled" && String(booking.cancelReason || "").trim() && (
+                        <Typography sx={{ color: "#ff9aa0", fontSize: 13, mt: 0.4 }}>
+                          Cancellation reason: {booking.cancelReason}
+                        </Typography>
+                      )}
                     </Box>
                     <Button
                       size="small"
