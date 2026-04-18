@@ -82,7 +82,10 @@ async function main() {
   const indexHtml = path.join(frontendDist, "index.html");
   if (fs.existsSync(frontendDist) && fs.existsSync(indexHtml)) {
     app.use(express.static(frontendDist));
-    app.get("/", (_req, res) => res.sendFile(indexHtml));
+    app.get("*", (req, res, next) => {
+      if (String(req.path || "").startsWith("/api")) return next();
+      return res.sendFile(indexHtml);
+    });
   }
 
   app.use(notFound);
