@@ -1,0 +1,241 @@
+CHECKOUT TEST CASES
+
+Module: Cart, checkout summary, order placement, order retrieval, purchase retrieval, and status updates
+
+TC-CO-01
+Title: Get cart for authenticated user
+Preconditions: Valid user token
+Steps:
+1. Send GET /api/checkout/cart with Authorization Bearer token.
+Expected Result:
+- 200 response returned.
+- Only the logged-in user's cart items are returned.
+
+TC-CO-02
+Title: Reject cart access without authentication
+Preconditions: Backend running
+Steps:
+1. Send GET /api/checkout/cart without Authorization header.
+Expected Result:
+- 401 Unauthorized returned.
+
+TC-CO-03
+Title: Add cart item with valid payload
+Preconditions: Valid user token
+Steps:
+1. Send POST /api/checkout/cart/items with valid itemName, quantity, size, and unitPrice.
+Expected Result:
+- 201 response returned.
+- Item is added to the current user's cart.
+
+TC-CO-04
+Title: Reject cart item with invalid quantity
+Preconditions: Valid user token
+Steps:
+1. Send POST /api/checkout/cart/items with quantity 0 or a negative value.
+Expected Result:
+- 400 response returned.
+- Validation message is returned.
+
+TC-CO-05
+Title: Merge duplicate cart item by same name and size
+Preconditions: Valid user token, matching cart item already exists
+Steps:
+1. Add the same item again with the same size.
+Expected Result:
+- Existing cart item quantity increases.
+- Duplicate row is not created.
+
+TC-CO-06
+Title: Update cart item quantity
+Preconditions: Valid user token, existing cart item ID
+Steps:
+1. Send PATCH /api/checkout/cart/items/:cartItemId with quantity greater than 0.
+Expected Result:
+- 200 response returned.
+- Cart item quantity is updated.
+
+TC-CO-07
+Title: Reject update for non-existent cart item
+Preconditions: Valid user token
+Steps:
+1. Send PATCH /api/checkout/cart/items/:cartItemId using a fake ID.
+Expected Result:
+- 404 response returned.
+- Message indicates cart item not found.
+
+TC-CO-08
+Title: Remove cart item
+Preconditions: Valid user token, existing cart item ID
+Steps:
+1. Send DELETE /api/checkout/cart/items/:cartItemId.
+Expected Result:
+- 200 response returned.
+- Removed item no longer appears in the user's cart.
+
+TC-CO-09
+Title: Generate checkout summary for Delivery order
+Preconditions: Valid user token, cart contains items
+Steps:
+1. Send POST /api/checkout/summary with orderType Delivery.
+Expected Result:
+- 200 response returned.
+- pricing object is returned.
+- cartItems are returned.
+- lastDeliveryDetails are returned.
+
+TC-CO-10
+Title: Generate checkout summary for Takeaway order
+Preconditions: Valid user token, cart contains items
+Steps:
+1. Send POST /api/checkout/summary with orderType Takeaway.
+Expected Result:
+- 200 response returned.
+- pricing object is returned without delivery failure.
+
+TC-CO-11
+Title: Reject invalid checkout order type
+Preconditions: Valid user token
+Steps:
+1. Send POST /api/checkout/summary or /api/checkout/place-order with orderType set to an unsupported value.
+Expected Result:
+- 400 response returned.
+- Message indicates orderType must be Delivery or Takeaway.
+
+TC-CO-12
+Title: Reject place order when cart is empty
+Preconditions: Valid user token, no items in cart
+Steps:
+1. Send POST /api/checkout/place-order with a valid checkout payload.
+Expected Result:
+- 400 response returned.
+- Message indicates the cart is empty.
+
+TC-CO-13
+Title: Place Takeaway order successfully
+Preconditions: Valid user token, cart contains items
+Steps:
+1. Send POST /api/checkout/place-order with orderType Takeaway and paymentMethod Cash.
+Expected Result:
+- 201 response returned.
+- order object is returned.
+- purchases array is returned.
+- User cart is cleared after order placement.
+
+TC-CO-14
+Title: Place Delivery order successfully
+Preconditions: Valid user token, cart contains items, complete delivery details available
+Steps:
+1. Send POST /api/checkout/place-order with orderType Delivery and valid deliveryDetails.
+Expected Result:
+- 201 response returned.
+- Order is created successfully.
+- Delivery details are saved for the user.
+
+TC-CO-15
+Title: Reject Delivery order with incomplete delivery details
+Preconditions: Valid user token, cart contains items, missing required address/profile fields
+Steps:
+1. Send POST /api/checkout/place-order with orderType Delivery and incomplete details.
+Expected Result:
+- 400 response returned.
+- Message asks user to complete profile details before placing the order.
+
+TC-CO-16
+Title: Reject Delivery order for unsupported area
+Preconditions: Valid user token, cart contains items, delivery area not allowed by pricing rules
+Steps:
+1. Send POST /api/checkout/place-order with orderType Delivery and unsupported location.
+Expected Result:
+- 400 response returned.
+- Message indicates delivery is not available and suggests Takeaway.
+
+TC-CO-17
+Title: List orders for current user
+Preconditions: Valid user token, at least one order exists
+Steps:
+1. Send GET /api/checkout/orders.
+Expected Result:
+- 200 response returned.
+- Only orders belonging to the current user are returned.
+
+TC-CO-18
+Title: Admin can list all orders
+Preconditions: Valid admin token
+Steps:
+1. Send GET /api/checkout/orders with admin token.
+Expected Result:
+- 200 response returned.
+- All orders are returned to the admin.
+
+TC-CO-19
+Title: Get order by ID for owner
+Preconditions: Valid user token, existing order belonging to the same user
+Steps:
+1. Send GET /api/checkout/orders/:orderId.
+Expected Result:
+- 200 response returned.
+- Requested order details are returned.
+
+TC-CO-20
+Title: Prevent user from accessing another user's order
+Preconditions: Valid user token, existing order belonging to another user
+Steps:
+1. Send GET /api/checkout/orders/:orderId for another user's order.
+Expected Result:
+- 404 or protected not-found style response returned.
+- Foreign order data is not exposed.
+
+TC-CO-21
+Title: List purchases for current user
+Preconditions: Valid user token, at least one purchase exists
+Steps:
+1. Send GET /api/checkout/purchases.
+Expected Result:
+- 200 response returned.
+- Only purchases belonging to the current user are returned.
+
+TC-CO-22
+Title: Admin can list all purchases
+Preconditions: Valid admin token
+Steps:
+1. Send GET /api/checkout/purchases with admin token.
+Expected Result:
+- 200 response returned.
+- All purchases are returned to admin.
+
+TC-CO-23
+Title: Admin updates order status
+Preconditions: Valid admin token, existing order
+Steps:
+1. Send PATCH /api/checkout/orders/:orderId/status with status Preparing.
+Expected Result:
+- 200 response returned.
+- Order status is updated successfully.
+
+TC-CO-24
+Title: Reject order cancellation without cancel reason
+Preconditions: Valid admin token, existing order
+Steps:
+1. Send PATCH /api/checkout/orders/:orderId/status with status Cancelled and empty cancelReason.
+Expected Result:
+- 400 response returned.
+- Message asks for a cancellation reason.
+
+TC-CO-25
+Title: Admin updates purchase status
+Preconditions: Valid admin token, existing purchase
+Steps:
+1. Send PATCH /api/checkout/purchases/:purchaseId/status with a valid status.
+Expected Result:
+- 200 response returned.
+- Purchase status is updated successfully.
+
+TC-CO-26
+Title: Reject purchase cancellation without cancel reason
+Preconditions: Valid admin token, existing purchase
+Steps:
+1. Send PATCH /api/checkout/purchases/:purchaseId/status with status Cancelled and empty cancelReason.
+Expected Result:
+- 400 response returned.
+- Message asks for a cancellation reason.

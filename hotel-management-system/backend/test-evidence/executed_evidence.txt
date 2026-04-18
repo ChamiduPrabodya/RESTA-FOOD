@@ -1,0 +1,68 @@
+EXECUTED EVIDENCE
+
+This file records checks that were already completed in this workspace.
+
+1. MongoDB connection verified
+Result:
+- Connection to Atlas succeeded.
+- Database name resolved as hotel_management_system.
+
+2. Collections observed in live database
+Result:
+- menuitems
+- loyalty_purchases
+- delivery_details
+- purchases
+- promotions
+- menucategories
+- cart_items
+- orders
+- loyalty_audit
+- loyalty_rules
+- reviews
+- users
+
+3. Document counts captured for backend-owned collections
+Result at time of check:
+- users: 5
+- loyalty_rules: 3
+- purchases: 0
+- orders: 0
+- cart_items: 0
+- delivery_details: 0
+
+4. Database sync executed
+Command:
+- npm run db:sync
+Result:
+- success: true
+- database: hotel_management_system
+- loyaltyRules: 3
+
+5. Indexes verified in live database
+Result:
+- users: _id_, email_1
+- loyalty_rules: _id_, id_1
+- purchases: _id_, id_1, orderId_1, userEmail_1
+- orders: _id_, id_1, orderId_1, userEmail_1
+- cart_items: _id_, id_1, userEmail_1
+- delivery_details: _id_, userEmail_1
+
+6. PayHere configuration reviewed
+Result:
+- Merchant ID present in backend/.env
+- Merchant secret present in backend/.env
+- Sandbox mode enabled
+- Return and cancel URLs present
+- Notify URL still uses placeholder YOUR_PUBLIC_BACKEND_URL, so end-to-end live callback is not fully configured yet
+
+7. Backend payment integration code reviewed
+Result:
+- /api/checkout/payhere/init exists
+- /api/checkout/payhere/notify exists
+- Backend builds PayHere hash and verify signature logic
+- Frontend loads PayHere SDK from payhere.lk
+
+Notes:
+- These results are evidence of inspection and verification work done from this workspace.
+- For formal submission, you can pair this file with screenshots of terminal output and API calls.
