@@ -8,9 +8,18 @@ const DEMO_USER_PASSWORD = "user123";
 const AUTH_TOKEN_STORAGE_KEY = "hms_auth_token";
 const resolveDefaultApiBaseUrl = () => {
   try {
-    const host = typeof window !== "undefined" ? String(window.location.hostname || "").trim() : "";
-    const resolvedHost = host || "localhost";
-    return `http://${resolvedHost}:5000/api`;
+    const location = typeof window !== "undefined" ? window.location : null;
+    const hostname = location ? String(location.hostname || "").trim() : "";
+    const port = location ? String(location.port || "").trim() : "";
+
+    // Local/Vite dev (5173) or preview (4173) expects the API to run on :5000.
+    if (hostname === "localhost" || port === "5173" || port === "4173") {
+      const resolvedHost = hostname || "localhost";
+      return `http://${resolvedHost}:5000/api`;
+    }
+
+    // Production (Railway): serve API from same origin.
+    return `${String(location.origin || "").replace(/\/$/, "")}/api`;
   } catch {
     return "http://localhost:5000/api";
   }

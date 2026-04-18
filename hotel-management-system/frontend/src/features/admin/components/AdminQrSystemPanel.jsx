@@ -19,9 +19,16 @@ import { useAuth } from "../../auth/context/AuthContext";
 
 const resolveDefaultApiBaseUrl = () => {
   try {
-    const host = typeof window !== "undefined" ? String(window.location.hostname || "").trim() : "";
-    const resolvedHost = host || "localhost";
-    return `http://${resolvedHost}:5000/api`;
+    const location = typeof window !== "undefined" ? window.location : null;
+    const hostname = location ? String(location.hostname || "").trim() : "";
+    const port = location ? String(location.port || "").trim() : "";
+
+    if (hostname === "localhost" || port === "5173" || port === "4173") {
+      const resolvedHost = hostname || "localhost";
+      return `http://${resolvedHost}:5000/api`;
+    }
+
+    return `${String(location.origin || "").replace(/\/$/, "")}/api`;
   } catch {
     return "http://localhost:5000/api";
   }

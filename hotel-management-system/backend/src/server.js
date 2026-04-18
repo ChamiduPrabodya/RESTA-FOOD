@@ -1,5 +1,7 @@
 const express = require("express");
 const cors = require("cors");
+const fs = require("node:fs");
+const path = require("node:path");
 
 const { HOST, PORT, CLIENT_ORIGIN, CLIENT_ORIGINS } = require("./config/env");
 const { connectMongo } = require("./shared/db/mongo");
@@ -74,6 +76,14 @@ async function main() {
   );
 
   app.use("/api", apiRouter);
+
+  // Production: serve the built frontend from the same Railway service.
+  const frontendDist = path.join(__dirname, "..", "..", "frontend", "dist");
+  const indexHtml = path.join(frontendDist, "index.html");
+  if (fs.existsSync(frontendDist) && fs.existsSync(indexHtml)) {
+    app.use(express.static(frontendDist));
+    app.get("/", (_req, res) => res.sendFile(indexHtml));
+  }
 
   app.use(notFound);
   app.use(errorHandler);
