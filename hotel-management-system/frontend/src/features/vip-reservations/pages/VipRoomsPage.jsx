@@ -88,7 +88,10 @@ const LEGACY_SLOT_MAP = {
 };
 const getTodayDateText = () => {
   const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString().slice(0, 10);
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 };
 const mapLegacyTimeToSlot = (timeValue) => {
   if (!timeValue) return "";
@@ -122,6 +125,7 @@ function VipRoomsPage() {
   const [bookingDate, setBookingDate] = useState("");
   const [timeSlot, setTimeSlot] = useState("");
   const [guests, setGuests] = useState(4);
+  const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState({ open: false, message: "", severity: "success" });
   const reduceMotion = useReducedMotion();
   const navigate = useNavigate();
@@ -182,7 +186,9 @@ function VipRoomsPage() {
     return TIME_SLOTS.find((slot) => slot.value === selectedSlots[0])?.label || selectedSlots[0];
   };
 
-  const handleCheckAvailability = () => {
+  const handleCheckAvailability = async () => {
+    if (submitting) return;
+
     if (!authUser) {
       navigate("/sign-in", { state: { from: "/vip-rooms" } });
       return;
@@ -193,6 +199,15 @@ function VipRoomsPage() {
         open: true,
         message: "Admin accounts cannot book rooms. Use a user account.",
         severity: "warning",
+      });
+      return;
+    }
+
+    if (bookingDate && bookingDate < todayDateText) {
+      setNotice({
+        open: true,
+        message: "Booking date cannot be in the past.",
+        severity: "error",
       });
       return;
     }
@@ -237,19 +252,43 @@ function VipRoomsPage() {
       return;
     }
 
-    const result = addVipBooking({
-      suiteId,
-      date: bookingDate,
-      timeSlots: selectedSlots,
-      time: selectedSlots[0],
-      guests,
-    });
+    if (!TIME_SLOTS.some((slot) => slot.value === selectedSlots[0])) {
+      setNotice({
+        open: true,
+        message: "Please select a valid time slot.",
+        severity: "error",
+      });
+      return;
+    }
 
-    setNotice({
-      open: true,
-      message: result.success ? "VIP booking request submitted." : result.message,
-      severity: result.success ? "success" : "error",
-    });
+    if (!Number.isFinite(Number(guests)) || Number(guests) < 1 || Number(guests) > maxGuests) {
+      setNotice({
+        open: true,
+        message: `Guest count must be between 1 and ${maxGuests}.`,
+
+        severity: "error",
+      });
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const result = await addVipBooking?.({
+        suiteId,
+        date: bookingDate,
+        timeSlots: selectedSlots,
+        time: selectedSlots[0],
+        guests,
+      });
+
+      setNotice({
+        open: true,
+        message: result?.success ? "VIP booking request submitted." : result?.message || "Unable to submit booking.",
+        severity: result?.success ? "success" : "error",
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -457,9 +496,9 @@ function VipRoomsPage() {
               fullWidth
               sx={{ py: 1.6, mb: 2.2 }}
               onClick={handleCheckAvailability}
-              disabled={isSelectedDateFullyBooked}
+              disabled={submitting || isSelectedDateFullyBooked}
             >
-              Check Availability
+              {submitting ? "Submitting..." : "Check Availability"}
             </Button>
             {isSelectedDateFullyBooked && (
               <Typography sx={{ color: "text.secondary", textAlign: "center", mb: 1.1 }}>

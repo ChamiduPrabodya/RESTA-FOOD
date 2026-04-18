@@ -63,8 +63,8 @@ function AdminBookingsPanel({ vipBookings, users, updateVipBookingStatus }) {
   });
 
   const closeCancelDialog = () => setCancelDialog({ open: false, bookingId: "", reason: "" });
-  const confirmCancel = () => {
-    const result = updateVipBookingStatus?.(cancelDialog.bookingId, "Cancelled", cancelDialog.reason);
+  const confirmCancel = async () => {
+    const result = await updateVipBookingStatus?.(cancelDialog.bookingId, "Cancelled", cancelDialog.reason);
     if (!result?.success) {
       setNotice({ open: true, message: result?.message || "Unable to cancel booking.", severity: "error" });
       return;
@@ -232,8 +232,8 @@ function AdminBookingsPanel({ vipBookings, users, updateVipBookingStatus }) {
                       color="success"
                       sx={{ py: 1.2, borderRadius: 3 }}
                       disabled={bookingStatus === "Confirmed"}
-                      onClick={() => {
-                        const result = updateVipBookingStatus?.(booking.id, "Confirmed");
+                      onClick={async () => {
+                        const result = await updateVipBookingStatus?.(booking.id, "Confirmed");
                         setNotice({
                           open: true,
                           message: result?.message || (result?.success ? "Booking approved." : "Unable to approve booking."),

@@ -7,6 +7,8 @@ import SignInPage from "../../features/auth/pages/SignInPage";
 import SignUpPage from "../../features/auth/pages/SignUpPage";
 import AdminDashboardPage from "../../features/admin/pages/AdminDashboardPage";
 import CheckoutPage from "../../features/checkout/pages/CheckoutPage";
+import PaymentSuccessPage from "../../features/checkout/pages/PaymentSuccessPage";
+import PaymentCancelPage from "../../features/checkout/pages/PaymentCancelPage";
 import ProtectedRoute from "./ProtectedRoute";
 
 function ScrollToTop() {
@@ -42,6 +44,22 @@ function AppRouter() {
           element={
             <ProtectedRoute roles={["user"]}>
               <CheckoutPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/payment/success"
+          element={
+            <ProtectedRoute roles={["user"]}>
+              <PaymentSuccessPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/payment/cancel"
+          element={
+            <ProtectedRoute roles={["user"]}>
+              <PaymentCancelPage />
             </ProtectedRoute>
           }
         />

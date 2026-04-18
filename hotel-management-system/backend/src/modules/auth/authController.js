@@ -107,9 +107,7 @@ function looksLikeJwt(token) {
 let googleClient = null;
 function loadGoogleAuthLibrary() {
   try {
-    // Lazy require so the backend can run even if dependency isn't installed yet.
-    // Install with: npm install google-auth-library
-    // eslint-disable-next-line global-require
+   
     return require("google-auth-library");
   } catch {
     return null;

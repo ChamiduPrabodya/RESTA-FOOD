@@ -1,4 +1,4 @@
-Generated: 2026-04-03T14:56:47.033Z
+Generated: 2026-04-18T03:54:57.152Z
 
 admin-seed.test.js - ensureAdminUser: skips when env missing
 admin-seed.test.js - ensureAdminUser: creates admin when missing
@@ -32,6 +32,19 @@ menu-controllers.test.js - menuCategoryController: replaceMenuCategoriesControll
 menu-service.test.js - normalizeIncomingMenuItems: drops items without id/name
 menu-service.test.js - normalizeIncomingMenuItems: adds nameLower and normalizes loyaltyPoints
 menu-service.test.js - normalizeCategoryNames: trims and dedupes
+orders-service.test.js - ordersService.createOrderForUser: computes totals from menu portions + loyalty + delivery fee
+orders-service.test.js - ordersService mock payment: initiate + confirm sets paymentStatus to Paid
+payhere-service.test.js - payhere.generateCheckoutHash: matches documented MD5 formula
+payhere-service.test.js - payhere.applyPayhereNotification: verifies md5sig and marks order paymentStatus
+payhere-service.test.js - payhere.applyPayhereNotification: rejects invalid md5sig
 user-controller.test.js - userController.updateMe: forbids non-user role
 user-controller.test.js - userController.updateMe: validates phone number
 user-controller.test.js - userController.getMe: returns sanitized user
+vip-bookings-endpoints.test.js - vipBookings endpoints: POST/GET/PATCH work with auth + validations
+vip-bookings-service.test.js - vipBookingsService.createVipBookingForUser: normalizes legacy slots + enforces conflicts
+vip-bookings-service.test.js - vipBookingsService.createVipBookingForUser: rejects non-consecutive slots
+vip-bookings-service.test.js - vipBookingsService.setVipBookingStatusForActor: admin cancel requires reason
+vip-bookings-service.test.js - vipBookingsService.setVipBookingStatusForActor: user cannot cancel confirmed
+vip-bookings-validator.test.js - vipBookingsValidator.validateCreateVipBooking: normalizes timeSlots + guests
+vip-bookings-validator.test.js - vipBookingsValidator.validateUpdateVipBookingStatus: maps cancelled -> Cancelled
+vip-bookings-validator.test.js - vipBookingsValidator.validateUpdateVipBookingStatus: rejects invalid status

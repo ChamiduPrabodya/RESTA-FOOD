@@ -1,12 +1,22 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { DEFAULT_LOYALTY_RULES, calculateCheckoutPricing, normalizeLoyaltyRules } from "../../../common/utils/pricing";
 
 const ADMIN_EMAIL = String(import.meta.env.VITE_ADMIN_EMAIL || "").trim().toLowerCase();
 const DEMO_USER_EMAIL = "user@gmail.com";
 const DEMO_USER_PASSWORD = "user123";
 const AUTH_TOKEN_STORAGE_KEY = "hms_auth_token";
-const API_BASE_URL = String(import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api").trim().replace(/\/$/, "");
+const resolveDefaultApiBaseUrl = () => {
+  try {
+    const host = typeof window !== "undefined" ? String(window.location.hostname || "").trim() : "";
+    const resolvedHost = host || "localhost";
+    return `http://${resolvedHost}:5000/api`;
+  } catch {
+    return "http://localhost:5000/api";
+  }
+};
+
+const API_BASE_URL = String(import.meta.env.VITE_API_BASE_URL || resolveDefaultApiBaseUrl()).trim().replace(/\/$/, "");
 const USERS_STORAGE_KEY = "hms_users";
 const PURCHASES_STORAGE_KEY = "hms_purchases";
 const ORDER_COUNTER_STORAGE_KEY = "hms_order_counter";
@@ -14,96 +24,10 @@ const BOOKINGS_STORAGE_KEY = "hms_vip_bookings";
 const FEEDBACK_STORAGE_KEY = "hms_feedbacks";
 const PROMOTIONS_STORAGE_KEY = "hms_promotions";
 const LOYALTY_RULES_STORAGE_KEY = "hms_loyalty_rules";
-const MENU_ITEMS_STORAGE_KEY = "hms_menu_items";
-const MENU_CATEGORIES_STORAGE_KEY = "hms_menu_categories";
 const CART_STORAGE_KEY = "hms_cart_items";
 const DELIVERY_DETAILS_STORAGE_KEY = "hms_delivery_details";
-const DEFAULT_MENU_CATEGORIES = [
-  "Kottu",
-  "Rice",
-  "Chicken",
-  "Prawns",
-  "Pork",
-  "Biriyani",
-  "Deviled",
-  "Pasta",
-  "Set Menu",
-];
-
-const DEFAULT_MENU_ITEMS = [
-  {
-    id: "menu-cheese-kottu",
-    name: "Cheese Kottu",
-    category: "Kottu",
-    description: "Freshly made paratha chopped with vegetables and creamy cheese sauce.",
-    portions: { Small: "SLR 850", Medium: "SLR 1,150", Large: "SLR 1,450" },
-    image: "/images/home/popular-01.svg",
-    outOfStock: false,
-  },
-  {
-    id: "menu-chicken-biriyani",
-    name: "Chicken Biriyani",
-    category: "Biriyani",
-    description: "Fragrant basmati rice cooked with aromatic spices and tender chicken.",
-    portions: { Small: "SLR 950", Medium: "SLR 1,250", Large: "SLR 1,550" },
-    image: "/images/home/popular-02.svg",
-    outOfStock: false,
-  },
-  {
-    id: "menu-seafood-rice",
-    name: "Seafood Rice",
-    category: "Rice",
-    description: "Sri Lankan style seafood rice with prawns and cuttlefish.",
-    portions: { Small: "SLR 1,100", Medium: "SLR 1,450", Large: "SLR 1,850" },
-    image: "/images/home/popular-02.svg",
-    outOfStock: false,
-  },
-  {
-    id: "menu-deviled-chicken",
-    name: "Deviled Chicken",
-    category: "Deviled",
-    description: "Spicy and tangy chicken stir-fried with onions and peppers.",
-    portions: { "300g": "SLR 1,200", "500g": "SLR 1,800", "1kg": "SLR 3,300" },
-    image: "/images/home/popular-03.svg",
-    outOfStock: false,
-  },
-  {
-    id: "menu-black-curry-beef",
-    name: "Black Curry Beef",
-    category: "Black Curry",
-    description: "Slow-cooked black curry beef with roasted spices and deep flavor.",
-    portions: { "300g": "SLR 1,350", "500g": "SLR 2,000", "1kg": "SLR 3,700" },
-    image: "/images/home/popular-03.svg",
-    outOfStock: false,
-  },
-  {
-    id: "menu-chicken-isstu",
-    name: "Chicken Isstu",
-    category: "Isstu",
-    description: "Classic rich gravy style isstu made with tender chicken and spices.",
-    portions: { "300g": "SLR 1,150", "500g": "SLR 1,700", "1kg": "SLR 3,100" },
-    image: "/images/home/popular-01.svg",
-    outOfStock: false,
-  },
-  {
-    id: "menu-creamy-pasta",
-    name: "Creamy Pasta",
-    category: "Pasta",
-    description: "Penne pasta in rich cream sauce with chicken strips.",
-    portions: { Regular: "SLR 1,050" },
-    image: "/images/home/popular-01.svg",
-    outOfStock: false,
-  },
-  {
-    id: "menu-family-set",
-    name: "Family Set Menu",
-    category: "Set Menu",
-    description: "Special combo for four with mains, sides, and beverages.",
-    portions: { Regular: "SLR 3,800" },
-    image: "/images/home/popular-03.svg",
-    outOfStock: false,
-  },
-];
+const TABLE_CONTEXT_STORAGE_KEY = "hms_table_context";
+// Menu data must come from MongoDB (backend). Keep no local default menu seed here.
 
 const VIP_SUITE_CAPACITY = Object.freeze({
   platinum: 15,
@@ -143,6 +67,38 @@ const parseStoredJson = (key, fallback) => {
   }
 };
 
+const splitFullName = (fullName) => {
+  const text = String(fullName || "").trim().replace(/\s+/g, " ");
+  if (!text) return { firstName: "Customer", lastName: "HMS" };
+  const [firstName, ...rest] = text.split(" ");
+  return { firstName: firstName || "Customer", lastName: rest.join(" ").trim() || "HMS" };
+};
+
+const submitPostForm = ({ actionUrl, fields }) => {
+  if (!actionUrl || !fields || typeof fields !== "object") return false;
+  try {
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = String(actionUrl);
+
+    Object.entries(fields).forEach(([key, value]) => {
+      if (value === undefined || value === null) return;
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = String(key);
+      input.value = String(value);
+      form.appendChild(input);
+    });
+
+    document.body.appendChild(form);
+    form.submit();
+    form.remove();
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 export function AuthProvider({ children }) {
   const [authUser, setAuthUser] = useState(null);
   const [authToken, setAuthToken] = useState(() => String(localStorage.getItem(AUTH_TOKEN_STORAGE_KEY) || "").trim());
@@ -157,36 +113,23 @@ export function AuthProvider({ children }) {
   const [loyaltyRules, setLoyaltyRules] = useState(() =>
     normalizeLoyaltyRules(parseStoredJson(LOYALTY_RULES_STORAGE_KEY, DEFAULT_LOYALTY_RULES))
   );
-  const [menuItems, setMenuItems] = useState(() => {
-    const stored = parseStoredJson(MENU_ITEMS_STORAGE_KEY, []);
-    const source = Array.isArray(stored) && stored.length > 0 ? stored : DEFAULT_MENU_ITEMS;
-    return source.map((item) => ({
-      ...item,
-      id: item.id || crypto.randomUUID(),
-      outOfStock: Boolean(item.outOfStock),
-      loyaltyPoints:
-        item && Object.prototype.hasOwnProperty.call(item, "loyaltyPoints") && String(item.loyaltyPoints).trim() !== ""
-          ? Math.max(0, Math.round(Number(item.loyaltyPoints) || 0))
-          : undefined,
-    }));
-  });
+  const [menuItems, setMenuItems] = useState(() => []);
   const menuItemsRef = useRef(menuItems);
   useEffect(() => {
     menuItemsRef.current = menuItems;
   }, [menuItems]);
-  const [menuCategories, setMenuCategories] = useState(() => {
-    const stored = parseStoredJson(MENU_CATEGORIES_STORAGE_KEY, []);
-    const baseCategories =
-      Array.isArray(stored) && stored.length > 0 ? stored : DEFAULT_MENU_CATEGORIES;
-    const categoriesFromItems = (Array.isArray(menuItems) ? menuItems : [])
-      .map((item) => String(item.category || "").trim())
-      .filter(Boolean);
-    return [...new Set([...baseCategories, ...categoriesFromItems])];
-  });
+  const [menuCategories, setMenuCategories] = useState(() => []);
   const [cartItems, setCartItems] = useState(() => parseStoredJson(CART_STORAGE_KEY, []));
   const [deliveryDetailsByUser, setDeliveryDetailsByUser] = useState(() =>
     parseStoredJson(DELIVERY_DETAILS_STORAGE_KEY, {})
   );
+  const [tableContext, setTableContextState] = useState(() => parseStoredJson(TABLE_CONTEXT_STORAGE_KEY, null));
+
+  const getGuestCartKey = useCallback(() => {
+    const sessionId = String(tableContext?.sessionId || "").trim();
+    if (!sessionId) return "";
+    return `guest:${sessionId}`;
+  }, [tableContext?.sessionId]);
 
   useEffect(() => {
     safeLocalStorageSetItem(USERS_STORAGE_KEY, JSON.stringify(users));
@@ -195,6 +138,18 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     safeLocalStorageSetItem(PURCHASES_STORAGE_KEY, JSON.stringify(purchases));
   }, [purchases]);
+
+  useEffect(() => {
+    try {
+      if (!tableContext) {
+        localStorage.removeItem(TABLE_CONTEXT_STORAGE_KEY);
+        return;
+      }
+      safeLocalStorageSetItem(TABLE_CONTEXT_STORAGE_KEY, JSON.stringify(tableContext));
+    } catch {
+      // ignore
+    }
+  }, [tableContext]);
 
   useEffect(() => {
     setPurchases((current) => {
@@ -287,13 +242,7 @@ export function AuthProvider({ children }) {
     safeLocalStorageSetItem(LOYALTY_RULES_STORAGE_KEY, JSON.stringify(loyaltyRules));
   }, [loyaltyRules]);
 
-  useEffect(() => {
-    safeLocalStorageSetItem(MENU_ITEMS_STORAGE_KEY, JSON.stringify(menuItems));
-  }, [menuItems]);
-
-  useEffect(() => {
-    safeLocalStorageSetItem(MENU_CATEGORIES_STORAGE_KEY, JSON.stringify(menuCategories));
-  }, [menuCategories]);
+  // Menu items/categories are fetched from the backend (MongoDB). Do not persist locally.
 
   useEffect(() => {
     const minimized = (Array.isArray(cartItems) ? cartItems : []).map((item) => ({
@@ -351,7 +300,7 @@ export function AuthProvider({ children }) {
     });
   };
 
-  const apiRequest = async (path, { method = "GET", body, token } = {}) => {
+  const apiRequest = useCallback(async (path, { method = "GET", body, token } = {}) => {
     const headers = {};
     if (body !== undefined) headers["Content-Type"] = "application/json";
     if (token) headers.Authorization = `Bearer ${String(token).trim()}`;
@@ -370,7 +319,42 @@ export function AuthProvider({ children }) {
     }
 
     return { ok: response.ok, status: response.status, data };
-  };
+  }, []);
+
+  const startTableSession = useCallback(async ({ tableId, tableToken } = {}) => {
+    const normalizedTableId = String(tableId || "").trim();
+    const normalizedToken = String(tableToken || "").trim();
+    if (!normalizedTableId) return { success: false, message: "Missing tableId." };
+
+    try {
+      const { ok, data } = await apiRequest("/sessions/start", {
+        method: "POST",
+        body: { tableId: normalizedTableId, tableToken: normalizedToken },
+      });
+      if (!ok || !data || data.success !== true || !data.session) {
+        return { success: false, message: data?.message || "Unable to start table session." };
+      }
+
+      setTableContextState({
+        tableId: data.tableId || normalizedTableId,
+        tableLabel: data.tableLabel || "",
+        sessionId: data.session?.id || "",
+        tableToken: normalizedToken,
+        startedAt: data.session?.createdAt || new Date().toISOString(),
+      });
+      return { success: true, tableId: data.tableId, tableLabel: data.tableLabel, session: data.session, reused: data.reused };
+    } catch {
+      return { success: false, message: "Backend is not reachable. Start the backend server." };
+    }
+  }, [apiRequest]);
+
+  const clearTableContext = useCallback(() => {
+    const guestKey = getGuestCartKey();
+    setTableContextState(null);
+    if (guestKey) {
+      setCartItems((current) => (Array.isArray(current) ? current : []).filter((item) => item.userEmail !== guestKey));
+    }
+  }, [getGuestCartKey]);
 
   const refreshMenuItemsFromServer = async ({ token, seedIfEmpty = false } = {}) => {
     try {
@@ -380,26 +364,30 @@ export function AuthProvider({ children }) {
       }
 
       const serverItems = data.items;
-      if (serverItems.length > 0) {
-        setMenuItems(
-          serverItems.map((item) => ({
-            ...item,
-            id: item.id || crypto.randomUUID(),
-            outOfStock: Boolean(item.outOfStock),
-            loyaltyPoints:
-              item && Object.prototype.hasOwnProperty.call(item, "loyaltyPoints") && item.loyaltyPoints !== undefined && item.loyaltyPoints !== null
-                ? Math.max(0, Math.round(Number(item.loyaltyPoints) || 0))
-                : undefined,
-          }))
-        );
-      } else if (seedIfEmpty) {
-        const normalizedToken = String(token || "").trim();
-        const localItems = Array.isArray(menuItemsRef.current) ? menuItemsRef.current : [];
-        if (normalizedToken && localItems.length > 0) {
-          await saveMenuItemsToServer(localItems, normalizedToken);
-        }
-      }
+      const normalized = serverItems.map((item) => ({
+        ...item,
+        id: item.id || crypto.randomUUID(),
+        outOfStock: Boolean(item.outOfStock),
+        loyaltyPoints:
+          item && Object.prototype.hasOwnProperty.call(item, "loyaltyPoints") && item.loyaltyPoints !== undefined && item.loyaltyPoints !== null
+            ? Math.max(0, Math.round(Number(item.loyaltyPoints) || 0))
+            : undefined,
+      }));
+      setMenuItems(normalized);
       return { success: true, items: data.items };
+    } catch {
+      return { success: false, message: "Backend is not reachable. Start the backend server." };
+    }
+  };
+
+  const refreshMenuCategoriesFromServer = async () => {
+    try {
+      const { ok, data } = await apiRequest("/menu/categories");
+      if (!ok || !data || data.success !== true || !Array.isArray(data.categories)) {
+        return { success: false, message: data?.message || "Unable to load menu categories." };
+      }
+      setMenuCategories(data.categories.map((name) => String(name || "").trim()).filter(Boolean));
+      return { success: true, categories: data.categories };
     } catch {
       return { success: false, message: "Backend is not reachable. Start the backend server." };
     }
@@ -426,8 +414,33 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     refreshMenuItemsFromServer();
+    refreshMenuCategoriesFromServer();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const saveMenuCategoriesToServer = async (categories, token = authToken) => {
+    const normalizedToken = String(token || "").trim();
+    if (!normalizedToken) return { success: false, message: "Missing auth token." };
+
+    try {
+      const payload = (Array.isArray(categories) ? categories : [])
+        .map((name) => String(name || "").trim())
+        .filter(Boolean);
+
+      const { ok, data } = await apiRequest("/menu/categories", {
+        method: "PUT",
+        token: normalizedToken,
+        body: { categories: payload },
+      });
+      if (!ok || !data || data.success !== true || !Array.isArray(data.categories)) {
+        return { success: false, message: data?.message || "Unable to save menu categories." };
+      }
+      setMenuCategories(data.categories.map((name) => String(name || "").trim()).filter(Boolean));
+      return { success: true, categories: data.categories };
+    } catch {
+      return { success: false, message: "Backend is not reachable. Start the backend server." };
+    }
+  };
 
   const refreshLoyaltyRules = async () => {
     try {
@@ -507,6 +520,24 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const refreshVipBookingsFromServer = async (token = authToken) => {
+    const normalizedToken = String(token || "").trim();
+    if (!normalizedToken) {
+      return { success: false, message: "Missing auth token." };
+    }
+
+    try {
+      const { ok, data } = await apiRequest("/vip-bookings", { token: normalizedToken });
+      if (!ok || !data || data.success !== true || !Array.isArray(data.bookings)) {
+        return { success: false, message: data?.message || "Unable to load VIP bookings." };
+      }
+      setVipBookings(data.bookings);
+      return { success: true, bookings: data.bookings };
+    } catch {
+      return { success: false, message: "Backend is not reachable. Start the backend server." };
+    }
+  };
+
   const refreshLoyaltySummary = async (token = authToken) => {
     const normalizedToken = String(token || "").trim();
     if (!normalizedToken) {
@@ -558,12 +589,14 @@ export function AuthProvider({ children }) {
         upsertLocalUser(data.user);
         if (String(data.user.role || "") !== "admin") {
           refreshLoyaltySummary(token);
+          refreshVipBookingsFromServer(token);
         } else {
           setLoyaltySummary({ points: 0, discountPercent: 0 });
           refreshLoyaltyRules();
           refreshMenuItemsFromServer({ token, seedIfEmpty: true });
           refreshAdminUsers(token);
           refreshAdminLoyaltyPurchases(token);
+          refreshVipBookingsFromServer(token);
         }
       } catch {
         // ignore if backend offline
@@ -835,7 +868,12 @@ export function AuthProvider({ children }) {
   };
 
   const addToCart = ({ menuItemId, itemName, price, image, size = "Small" }) => {
-    if (!authUser || authUser.role !== "user") {
+    const guestKey = getGuestCartKey();
+    const isGuest = !authUser && Boolean(guestKey);
+    if (!authUser && !isGuest) {
+      return { success: false, message: "Please login as user to use cart." };
+    }
+    if (authUser && authUser.role !== "user") {
       return { success: false, message: "Please login as user to use cart." };
     }
     const menuItem = menuItems.find(
@@ -851,9 +889,10 @@ export function AuthProvider({ children }) {
     }
 
     const priceValue = parsePrice(price);
+    const cartOwnerKey = authUser ? authUser.email : guestKey;
     const existing = cartItems.find(
       (item) =>
-        item.userEmail === authUser.email &&
+        item.userEmail === cartOwnerKey &&
         item.itemName === itemName &&
         item.size === size
     );
@@ -877,17 +916,21 @@ export function AuthProvider({ children }) {
       image,
       unitPrice: priceValue,
       quantity: 1,
-      userEmail: authUser.email,
+      userEmail: cartOwnerKey,
     };
     setCartItems((current) => [cartItem, ...current]);
     return { success: true };
   };
 
   const increaseCartQty = (cartItemId) => {
-    if (!authUser || authUser.role !== "user") return;
+    const guestKey = getGuestCartKey();
+    const isGuest = !authUser && Boolean(guestKey);
+    if (!authUser && !isGuest) return;
+    if (authUser && authUser.role !== "user") return;
+    const cartOwnerKey = authUser ? authUser.email : guestKey;
     setCartItems((current) =>
       current.map((item) =>
-        item.id === cartItemId && item.userEmail === authUser.email
+        item.id === cartItemId && item.userEmail === cartOwnerKey
           ? { ...item, quantity: item.quantity + 1 }
           : item
       )
@@ -895,10 +938,14 @@ export function AuthProvider({ children }) {
   };
 
   const decreaseCartQty = (cartItemId) => {
-    if (!authUser || authUser.role !== "user") return;
+    const guestKey = getGuestCartKey();
+    const isGuest = !authUser && Boolean(guestKey);
+    if (!authUser && !isGuest) return;
+    if (authUser && authUser.role !== "user") return;
+    const cartOwnerKey = authUser ? authUser.email : guestKey;
     setCartItems((current) =>
       current.map((item) =>
-        item.id === cartItemId && item.userEmail === authUser.email
+        item.id === cartItemId && item.userEmail === cartOwnerKey
           ? { ...item, quantity: Math.max(1, item.quantity - 1) }
           : item
       )
@@ -906,27 +953,41 @@ export function AuthProvider({ children }) {
   };
 
   const removeFromCart = (cartItemId) => {
-    if (!authUser || authUser.role !== "user") return;
+    const guestKey = getGuestCartKey();
+    const isGuest = !authUser && Boolean(guestKey);
+    if (!authUser && !isGuest) return;
+    if (authUser && authUser.role !== "user") return;
+    const cartOwnerKey = authUser ? authUser.email : guestKey;
     setCartItems((current) =>
       current.filter(
-        (item) => !(item.id === cartItemId && item.userEmail === authUser.email)
+        (item) => !(item.id === cartItemId && item.userEmail === cartOwnerKey)
       )
     );
   };
 
   const clearCart = () => {
-    if (!authUser || authUser.role !== "user") return;
+    const guestKey = getGuestCartKey();
+    const isGuest = !authUser && Boolean(guestKey);
+    if (!authUser && !isGuest) return;
+    if (authUser && authUser.role !== "user") return;
+    const cartOwnerKey = authUser ? authUser.email : guestKey;
     setCartItems((current) =>
-      (Array.isArray(current) ? current : []).filter((item) => String(item?.userEmail || "").trim().toLowerCase() !== String(authUser.email || "").trim().toLowerCase())
+      (Array.isArray(current) ? current : []).filter((item) => String(item?.userEmail || "").trim().toLowerCase() !== String(cartOwnerKey || "").trim().toLowerCase())
     );
   };
 
   const placeOrderFromCart = async (checkoutDetails = {}) => {
-    if (!authUser || authUser.role !== "user") {
+    const guestKey = getGuestCartKey();
+    const isGuest = !authUser && Boolean(guestKey);
+    if (!authUser && !isGuest) {
+      return { success: false, message: "Please login as user to place order." };
+    }
+    if (authUser && authUser.role !== "user") {
       return { success: false, message: "Please login as user to place order." };
     }
 
-    const userCart = cartItems.filter((item) => item.userEmail === authUser.email);
+    const cartOwnerKey = authUser ? authUser.email : guestKey;
+    const userCart = cartItems.filter((item) => item.userEmail === cartOwnerKey);
     if (userCart.length === 0) {
       return { success: false, message: "Your cart is empty." };
     }
@@ -948,8 +1009,44 @@ export function AuthProvider({ children }) {
       };
     }
 
+    if (isGuest) {
+      const tableId = String(tableContext?.tableId || "").trim();
+      const tableSessionId = String(tableContext?.sessionId || "").trim();
+      const tableToken = String(tableContext?.tableToken || "").trim();
+      if (!tableId || !tableSessionId) {
+        return { success: false, message: "Missing dine-in session. Scan the table QR again." };
+      }
+
+      try {
+        const { ok, data } = await apiRequest("/orders/dine-in", {
+          method: "POST",
+          body: {
+            tableId,
+            tableSessionId,
+            tableToken,
+            items: userCart.map((item) => ({
+              menuItemId: item.menuItemId || "",
+              itemName: item.itemName || "",
+              quantity: item.quantity,
+              size: item.size || "",
+            })),
+          },
+        });
+
+        if (!ok || !data || data.success !== true || !data.order) {
+          return { success: false, message: data?.message || "Unable to place dine-in order." };
+        }
+
+        setCartItems((current) => (Array.isArray(current) ? current : []).filter((item) => item.userEmail !== guestKey));
+        return { success: true, order: data.order, mode: "guest-dine-in" };
+      } catch {
+        return { success: false, message: "Backend is not reachable. Start the backend server." };
+      }
+    }
+
     const { orderType = "Delivery", paymentMethod = "Cash", deliveryDetails } = checkoutDetails;
     const normalizedDeliveryDetails = deliveryDetails && typeof deliveryDetails === "object" ? deliveryDetails : null;
+    const normalizedOrderType = String(orderType || "").trim();
 
     const storedUser = users.find(
       (item) => String(item.email || "").toLowerCase() === String(authUser.email || "").toLowerCase()
@@ -994,7 +1091,7 @@ export function AuthProvider({ children }) {
       promotions,
       points: loyaltySummary?.points,
       loyaltyPercent: loyaltySummary?.discountPercent,
-      orderType,
+      orderType: normalizedOrderType,
       deliveryAddress: resolvedDeliveryDetails?.location,
       deliveryCityTown: resolvedDeliveryDetails?.cityTown,
     });
@@ -1003,7 +1100,60 @@ export function AuthProvider({ children }) {
       return { success: false, message: "Delivery is not available for this area. Please choose Takeaway." };
     }
 
-    const orderId = crypto.randomUUID();
+   const token = String(authToken || "").trim();
+    const paymentMethodText = String(paymentMethod || "").trim().toLowerCase();
+    const normalizedPaymentMethod = paymentMethodText.includes("card") ? "Card" : "Cash";
+
+    let serverOrder = null;
+    let serverOrderId = "";
+
+    // Prefer server-side order creation so totals + delivery fees are authoritative and PayHere can reference the order id.
+    if (token) {
+      try {
+        if (normalizedOrderType === "DineIn") {
+          const sessionId = String(tableContext?.sessionId || "").trim();
+          const tableId = String(tableContext?.tableId || "").trim();
+          if (!tableId || !sessionId) {
+            return { success: false, message: "Missing dine-in session. Scan the table QR again." };
+          }
+        }
+
+        const { ok, data } = await apiRequest("/orders", {
+          method: "POST",
+          token,
+          body: {
+            orderType: normalizedOrderType,
+            paymentMethod: normalizedPaymentMethod,
+            promotionDiscount: pricing.promotionDiscount,
+            deliveryAddress: resolvedDeliveryDetails?.location || "",
+            deliveryCityTown: resolvedDeliveryDetails?.cityTown || "",
+            tableId: normalizedOrderType === "DineIn" ? String(tableContext?.tableId || "").trim() : "",
+            tableSessionId: normalizedOrderType === "DineIn" ? String(tableContext?.sessionId || "").trim() : "",
+            items: userCart.map((item) => ({
+              menuItemId: item.menuItemId || "",
+              itemName: item.itemName || "",
+              quantity: item.quantity,
+              size: item.size || "",
+            })),
+          },
+        });
+
+        if (ok && data && data.success === true && data.order) {
+          serverOrder = data.order;
+          serverOrderId = String(serverOrder.id || "").trim();
+        } else if (normalizedPaymentMethod === "Card") {
+          return { success: false, message: data?.message || "Unable to create order for card payment." };
+        }
+      } catch {
+        if (normalizedPaymentMethod === "Card") {
+          return { success: false, message: "Backend is not reachable. Start the backend server." };
+        }
+      }
+    } else if (normalizedPaymentMethod === "Card") {
+      return { success: false, message: "Please login again." };
+    }
+
+    const orderId = serverOrderId || crypto.randomUUID();
     const resolvedNextOrderNumber = (() => {
       try {
         const stored = Number.parseInt(localStorage.getItem(ORDER_COUNTER_STORAGE_KEY) || "", 10);
@@ -1019,7 +1169,7 @@ export function AuthProvider({ children }) {
     })();
     safeLocalStorageSetItem(ORDER_COUNTER_STORAGE_KEY, String(resolvedNextOrderNumber + 1));
     const orderRef = formatOrderRef(resolvedNextOrderNumber);
-    const createdAt = new Date().toISOString();
+    const createdAt = serverOrder?.createdAt || new Date().toISOString();
     let remainingDiscount = Math.min(pricing.totalDiscount, pricing.subtotal);
 
     const orderRows = userCart.map((item, index) => {
@@ -1065,21 +1215,21 @@ export function AuthProvider({ children }) {
         quantity: item.quantity,
         status: "Pending",
         userEmail: authUser.email,
-        orderType,
-        paymentMethod,
+        orderType: normalizedOrderType,
+        paymentMethod: normalizedPaymentMethod,
         deliveryDetails: resolvedDeliveryDetails,
         createdAt,
-        orderSubtotal: pricing.subtotal,
+        orderSubtotal: serverOrder?.subtotal ?? pricing.subtotal,
         orderTotalDiscount: pricing.totalDiscount,
-        deliveryZone: pricing.deliveryZone,
-        deliveryFee: pricing.deliveryFee,
-        orderTotal: pricing.grandTotal ?? pricing.total,
+        deliveryZone: serverOrder?.deliveryZone ?? pricing.deliveryZone,
+        deliveryFee: serverOrder?.deliveryFee ?? pricing.deliveryFee,
+        orderTotal: serverOrder?.finalPaid ?? (pricing.grandTotal ?? pricing.total),
         promotionId: pricing.promotion?.id || null,
         promotionTitle: pricing.promotion?.title || null,
-        promotionDiscount: pricing.promotionDiscount,
+        promotionDiscount: serverOrder?.promotionDiscount ?? pricing.promotionDiscount,
         loyaltyPointsAtPurchase: pricing.points,
-        loyaltyDiscountPercent: pricing.loyaltyPercent,
-        loyaltyDiscount: pricing.loyaltyDiscount,
+        loyaltyDiscountPercent: serverOrder?.loyaltyPercentUsed ?? pricing.loyaltyPercent,
+        loyaltyDiscount: serverOrder?.loyaltyDiscount ?? pricing.loyaltyDiscount,
         loyaltyPointsPerUnit,
         loyaltyPointsEarned,
       };
@@ -1104,17 +1254,52 @@ export function AuthProvider({ children }) {
       current.filter((item) => item.userEmail !== authUser.email)
     );
 
-    const token = String(authToken || "").trim();
-    if (token) {
+    // PayHere (Card): start the payment after order is created and cart is cleared.
+    if (token && normalizedPaymentMethod === "Card" && serverOrderId) {
+      try {
+        const nameParts = splitFullName(resolvedDeliveryDetails?.name || authUser.fullName || "");
+        const { ok, data } = await apiRequest(`/orders/${encodeURIComponent(orderId)}/payments`, {
+          method: "POST",
+          token,
+          body: {
+            provider: "payhere",
+            customer: {
+              firstName: nameParts.firstName,
+              lastName: nameParts.lastName,
+              email: authUser.email,
+              phone: resolvedDeliveryDetails?.phone || authUser.phone || "",
+              address: resolvedDeliveryDetails?.location || authUser.address || "",
+              city: resolvedDeliveryDetails?.cityTown || authUser.cityTown || "",
+              country: "Sri Lanka",
+            },
+          },
+        });
+
+        if (!ok || !data || data.success !== true || !data.checkout) {
+          return { success: false, message: data?.message || "Unable to start card payment." };
+        }
+
+        const submitted = submitPostForm({ actionUrl: data.checkout.actionUrl, fields: data.checkout.fields });
+        if (!submitted) {
+          return { success: false, message: "Unable to open payment gateway. Please try again." };
+        }
+        return { success: true, redirect: "payhere" };
+      } catch {
+        return { success: false, message: "Unable to start card payment. Backend is not reachable." };
+      }
+    }
+
+    // Fallback (older backend): sync the order into loyalty purchases if /orders isn't available.
+    if (token && !serverOrderId) {
       try {
         const grandTotal = pricing.grandTotal ?? pricing.total;
-        const payload = [
+          const payload = [
           {
             id: orderId,
             orderId,
             subtotal: pricing.subtotal,
             promotionDiscount: pricing.promotionDiscount,
-            orderType,
+            orderType: normalizedOrderType,
             status: "Pending",
             items: userCart.map((item) => ({
               menuItemId: item.menuItemId || "",
@@ -1125,6 +1310,8 @@ export function AuthProvider({ children }) {
             })),
             deliveryAddress: resolvedDeliveryDetails?.location || "",
             deliveryCityTown: resolvedDeliveryDetails?.cityTown || "",
+            tableId: normalizedOrderType === "DineIn" ? String(tableContext?.tableId || "").trim() : "",
+            tableSessionId: normalizedOrderType === "DineIn" ? String(tableContext?.sessionId || "").trim() : "",
             price: `SLR ${Math.round(Number(grandTotal) || 0)}`,
             createdAt,
           },
@@ -1259,7 +1446,11 @@ export function AuthProvider({ children }) {
     return text;
   };
 
-  const updateVipBookingStatus = (bookingId, status, cancelReason = "") => {
+  const updateVipBookingStatus = async (bookingId, status, cancelReason = "") => {
+    if (!authUser) {
+      return { success: false, message: "Please login again." };
+    }
+
     const normalizedBookingId = String(bookingId || "").trim();
     if (!normalizedBookingId) {
       return { success: false, message: "Booking id is required." };
@@ -1267,93 +1458,44 @@ export function AuthProvider({ children }) {
 
     const nextStatus = normalizeVipBookingStatus(status) || String(status || "").trim();
     const normalizedReason = String(cancelReason || "").trim();
-    if (nextStatus === "Cancelled" && !normalizedReason) {
+    if (authUser.role === "admin" && nextStatus === "Cancelled" && !normalizedReason) {
       return { success: false, message: "Please provide a cancellation reason." };
     }
 
-    const exists = vipBookings.some((booking) => String(booking?.id || "").trim() === normalizedBookingId);
-    if (!exists) {
-      return { success: false, message: "Booking not found." };
-    }
+    const token = String(authToken || "").trim();
+    if (!token) return { success: false, message: "Please login again." };
 
-    setVipBookings((current) =>
-      current.map((booking) => {
-        if (String(booking?.id || "").trim() !== normalizedBookingId) return booking;
-        if (nextStatus === "Cancelled") {
-          return {
-            ...booking,
-            status: nextStatus,
-            cancelReason: normalizedReason,
-            cancelledBy: authUser?.role === "admin" ? "admin" : booking.cancelledBy || "",
-            cancelledAt: new Date().toISOString(),
-            statusUpdatedAt: new Date().toISOString(),
-          };
-        }
-        return {
-          ...booking,
-          status: nextStatus,
-          cancelReason: "",
-          cancelledBy: "",
-          cancelledAt: "",
-          statusUpdatedAt: new Date().toISOString(),
-        };
-      })
-    );
-    return { success: true };
+    try {
+      const { ok, data } = await apiRequest(`/vip-bookings/${encodeURIComponent(normalizedBookingId)}/status`, {
+        method: "PATCH",
+        token,
+        body: { status: nextStatus, cancelReason: normalizedReason },
+      });
+
+      if (!ok || !data || data.success !== true || !data.booking) {
+        return { success: false, message: data?.message || "Unable to update booking status." };
+      }
+
+      setVipBookings((current) =>
+        (Array.isArray(current) ? current : []).map((booking) =>
+          String(booking?.id || "").trim() === normalizedBookingId ? data.booking : booking
+        )
+      );
+      return { success: true, booking: data.booking };
+    } catch {
+      return { success: false, message: "Backend is not reachable. Start the backend server." };
+    }
   };
 
-  const cancelVipBookingByUser = (bookingId) => {
+  const cancelVipBookingByUser = async (bookingId) => {
     if (!authUser || authUser.role !== "user") {
       return { success: false, message: "Only logged-in users can cancel bookings." };
     }
 
-    const booking = vipBookings.find(
-      (item) => item.id === bookingId && item.userEmail === authUser.email
-    );
-    if (!booking) {
-      return { success: false, message: "Booking not found." };
-    }
-    const normalizedStatus = String(booking.status || "Pending").trim().toLowerCase();
-    if (normalizedStatus === "cancelled") {
-      return { success: false, message: "This booking is already cancelled." };
-    }
-    if (normalizedStatus === "confirmed") {
-      return { success: false, message: "Bookings cannot be cancelled after admin approval." };
-    }
+    const result = await updateVipBookingStatus(bookingId, "Cancelled");
+    if (!result?.success) return result;
 
-    const resolveVipBookingStartTime = (value) => {
-      const text = String(value || "").trim();
-      if (!text) return "";
-      if (text.includes("-")) return text.split("-")[0].trim();
-      if (text.includes("|")) return text.split("|")[0].split("-")[0].trim();
-      return text;
-    };
-
-    const startSlot = Array.isArray(booking.timeSlots) && booking.timeSlots.length > 0 ? booking.timeSlots[0] : booking.time;
-    const startTime = resolveVipBookingStartTime(startSlot);
-    const startTimeText = /^\d{2}:\d{2}$/.test(startTime) ? `${startTime}:00` : startTime;
-    const bookingDateTime = new Date(`${booking.date}T${startTimeText}`);
-    if (Number.isNaN(bookingDateTime.getTime())) {
-      return { success: false, message: "Booking time is invalid." };
-    }
-
-    const threeHoursMs = 3 * 60 * 60 * 1000;
-    const timeUntilBooking = bookingDateTime.getTime() - Date.now();
-    if (timeUntilBooking < threeHoursMs) {
-      return {
-        success: false,
-        message: "Bookings can only be cancelled at least 3 hours before the reserved time.",
-      };
-    }
-
-    setVipBookings((current) =>
-      current.map((item) =>
-        item.id === bookingId && item.userEmail === authUser.email
-          ? { ...item, status: "Cancelled", cancelledBy: "user", cancelledAt: new Date().toISOString() }
-          : item
-      )
-    );
-    return { success: true, message: "Booking cancelled successfully." };
+    return { success: true, message: result?.message || "Booking cancelled successfully." };
   };
 
   const addFeedback = ({ rating, message }) => {
@@ -1559,138 +1701,34 @@ export function AuthProvider({ children }) {
     return { success: true };
   };
 
-  const addVipBooking = ({ suiteId, date, time, timeSlots, guests } = {}) => {
+  const addVipBooking = async ({ suiteId, date, time, timeSlots, guests } = {}) => {
     if (!authUser || authUser.role !== "user") {
       return { success: false, message: "Only logged-in users can book VIP rooms." };
     }
 
-    const normalizedSuiteId = String(suiteId || "").trim().toLowerCase();
-    const normalizedDate = String(date || "").trim();
-    const normalizedTimeSlots = (Array.isArray(timeSlots) ? timeSlots : [time])
-      .map((value) => String(value || "").trim())
-      .filter(Boolean);
-    const normalizedTime = normalizedTimeSlots[0] || "";
-    const guestsCount = Number(guests);
-    const maxGuests = Math.max(1, Number(VIP_SUITE_CAPACITY[normalizedSuiteId]) || 0);
+    const token = String(authToken || "").trim();
+    if (!token) return { success: false, message: "Please login again." };
 
-    if (!normalizedSuiteId || !normalizedDate || normalizedTimeSlots.length === 0) {
-      return { success: false, message: "Please add room type, date, and time." };
-    }
-    if (!Object.prototype.hasOwnProperty.call(VIP_SUITE_CAPACITY, normalizedSuiteId)) {
-      return { success: false, message: "Invalid VIP room type." };
-    }
-    if (!Number.isFinite(guestsCount) || guestsCount <= 0) {
-      return { success: false, message: "Please enter a valid guest count." };
-    }
-    if (guestsCount > maxGuests) {
-      return { success: false, message: `Guest count exceeds the suite capacity (${maxGuests}).` };
-    }
+    try {
+      const { ok, data } = await apiRequest("/vip-bookings", {
+        method: "POST",
+        token,
+        body: { suiteId, date, time, timeSlots, guests },
+      });
 
-    const bookingDay = new Date(`${normalizedDate}T00:00:00`);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (Number.isNaN(bookingDay.getTime()) || bookingDay.getTime() < today.getTime()) {
-      return { success: false, message: "Please select a booking date from today onwards." };
-    }
-
-    const legacySlotMap = {
-      "10:00-12:00": "11:00-14:00",
-      "11:00-13:00": "11:00-14:00",
-      "12:00-15:00": "14:00-17:00",
-      "13:00-16:00": "14:00-17:00",
-      "15:00-18:00": "17:00-20:00",
-      "16:00-19:00": "17:00-20:00",
-      "18:00-21:00": "20:00-23:00",
-      "19:00-22:00": "20:00-23:00",
-      "10:00": "11:00-14:00",
-      "11:00": "11:00-14:00",
-      "12:00": "14:00-17:00",
-      "13:00": "14:00-17:00",
-      "15:00": "17:00-20:00",
-      "16:00": "17:00-20:00",
-      "18:00": "20:00-23:00",
-      "19:00": "20:00-23:00",
-    };
-    const allowedSlotOrder = ["11:00-14:00", "14:00-17:00", "17:00-20:00", "20:00-23:00"];
-    const slotIndexByValue = allowedSlotOrder.reduce((acc, value, index) => {
-      acc[value] = index;
-      return acc;
-    }, {});
-    const normalizeSlotValue = (value) => {
-      const text = String(value || "").trim();
-      if (!text) return "";
-      if (Object.prototype.hasOwnProperty.call(legacySlotMap, text)) return legacySlotMap[text];
-      return text;
-    };
-
-    const uniqueRequestedSlots = [...new Set(normalizedTimeSlots.map(normalizeSlotValue).filter(Boolean))];
-    const slotIndexes = uniqueRequestedSlots
-      .map((slotValue) => slotIndexByValue[slotValue])
-      .filter((index) => typeof index === "number");
-
-    if (slotIndexes.length !== uniqueRequestedSlots.length) {
-      return { success: false, message: "Please select a valid VIP time slot." };
-    }
-
-    const sortedIndexes = [...slotIndexes].sort((a, b) => a - b);
-    const isConsecutiveRange = sortedIndexes.every((value, i) => i === 0 || value === sortedIndexes[i - 1] + 1);
-    if (!isConsecutiveRange) {
-      return { success: false, message: "Please select consecutive time slots only." };
-    }
-
-    if (normalizedDate === new Date().toISOString().slice(0, 10)) {
-      const resolveVipBookingStartTime = (value) => {
-        const text = String(value || "").trim();
-        if (!text) return "";
-        if (text.includes("-")) return text.split("-")[0].trim();
-        if (text.includes("|")) return text.split("|")[0].split("-")[0].trim();
-        return text;
-      };
-      const startTime = resolveVipBookingStartTime(uniqueRequestedSlots[0]);
-      const startTimeText = /^\d{2}:\d{2}$/.test(startTime) ? `${startTime}:00` : startTime;
-      const bookingDateTime = new Date(`${normalizedDate}T${startTimeText}`);
-      if (!Number.isNaN(bookingDateTime.getTime()) && Date.now() >= bookingDateTime.getTime()) {
-        return { success: false, message: "Selected time slot has already started. Please choose a later slot." };
+      if (!ok || !data || data.success !== true || !data.booking) {
+        return { success: false, message: data?.message || "Unable to submit VIP booking request." };
       }
+
+      setVipBookings((current) => {
+        const list = Array.isArray(current) ? current : [];
+        const filtered = list.filter((booking) => String(booking?.id || "").trim() !== String(data.booking.id || "").trim());
+        return [data.booking, ...filtered];
+      });
+      return { success: true, booking: data.booking };
+    } catch {
+      return { success: false, message: "Backend is not reachable. Start the backend server." };
     }
-
-    const requested = new Set(uniqueRequestedSlots);
-    const slotTaken = vipBookings.some((booking) => {
-      if (String(booking.suiteId || "").trim().toLowerCase() !== normalizedSuiteId) return false;
-      if (String(booking.date || "").trim() !== normalizedDate) return false;
-      if (String(booking.status || "").trim().toLowerCase() === "cancelled") return false;
-
-      const existingSlots = Array.isArray(booking.timeSlots) && booking.timeSlots.length > 0
-        ? booking.timeSlots
-        : String(booking.time || "").includes("|")
-          ? String(booking.time || "").split("|")
-          : [booking.time];
-
-      return existingSlots
-        .map(normalizeSlotValue)
-        .filter(Boolean)
-        .some((slotValue) => requested.has(slotValue));
-    });
-    if (slotTaken) {
-      return {
-        success: false,
-        message: "This time slot is already booked for the selected room. Please choose another time.",
-      };
-    }
-
-    const booking = {
-      id: crypto.randomUUID(),
-      suiteId: normalizedSuiteId,
-      date: normalizedDate,
-      time: normalizedTime,
-      timeSlots: uniqueRequestedSlots,
-      guests: guestsCount,
-      status: "Pending",
-      userEmail: authUser.email,
-      createdAt: new Date().toISOString(),
-    };
-    setVipBookings((current) => [booking, ...current]);
-    return { success: true };
   };
 
   const addMenuItem = ({ name, category, description, portions, image, outOfStock = false, loyaltyPoints }) => {
@@ -1740,7 +1778,11 @@ export function AuthProvider({ children }) {
       if (current.some((item) => item.toLowerCase() === normalizedCategory.toLowerCase())) {
         return current;
       }
-      return [...current, normalizedCategory];
+      const next = [...current, normalizedCategory];
+      queueMicrotask(() => {
+        if (authUser?.role === "admin") saveMenuCategoriesToServer(next);
+      });
+      return next;
     });
     return { success: true };
   };
@@ -1759,7 +1801,13 @@ export function AuthProvider({ children }) {
     if (exists) {
       return { success: false, message: "This category already exists." };
     }
-    setMenuCategories((current) => [...current, normalizedCategory]);
+    setMenuCategories((current) => {
+      const next = [...current, normalizedCategory];
+      queueMicrotask(() => {
+        if (authUser?.role === "admin") saveMenuCategoriesToServer(next);
+      });
+      return next;
+    });
     return { success: true };
   };
 
@@ -1789,18 +1837,26 @@ export function AuthProvider({ children }) {
       return { success: false, message: "A category with this name already exists." };
     }
 
-    setMenuCategories((current) =>
-      current.map((category) =>
+    setMenuCategories((current) => {
+      const next = current.map((category) =>
         category.toLowerCase() === normalizedCurrent.toLowerCase() ? normalizedNext : category
-      )
-    );
-    setMenuItems((current) =>
-      current.map((item) =>
+      );
+      queueMicrotask(() => {
+        if (authUser?.role === "admin") saveMenuCategoriesToServer(next);
+      });
+      return next;
+    });
+    setMenuItems((current) => {
+      const next = current.map((item) =>
         String(item.category || "").toLowerCase() === normalizedCurrent.toLowerCase()
           ? { ...item, category: normalizedNext }
           : item
-      )
-    );
+      );
+      queueMicrotask(() => {
+        if (authUser?.role === "admin") saveMenuItemsToServer(next);
+      });
+      return next;
+    });
     return { success: true };
   };
 
@@ -1830,9 +1886,13 @@ export function AuthProvider({ children }) {
       };
     }
 
-    setMenuCategories((current) =>
-      current.filter((category) => category.toLowerCase() !== normalizedCategory.toLowerCase())
-    );
+    setMenuCategories((current) => {
+      const next = current.filter((category) => category.toLowerCase() !== normalizedCategory.toLowerCase());
+      queueMicrotask(() => {
+        if (authUser?.role === "admin") saveMenuCategoriesToServer(next);
+      });
+      return next;
+    });
     return { success: true };
   };
 
@@ -1926,6 +1986,9 @@ export function AuthProvider({ children }) {
     deleteMenuCategory,
     updateMenuItem,
     deleteMenuItem,
+    tableContext,
+    startTableSession,
+    clearTableContext,
     cartItems,
     addToCart,
     increaseCartQty,

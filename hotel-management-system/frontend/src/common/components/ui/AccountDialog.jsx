@@ -76,6 +76,7 @@ function AccountDialog({
   const [ordersFilter, setOrdersFilter] = useState("active");
   const [notice, setNotice] = useState({ message: "", severity: "success" });
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [cancelingBookingId, setCancelingBookingId] = useState("");
   const defaultProfileForm = useMemo(
     () => ({
       fullName: displayName || "",
@@ -486,13 +487,21 @@ function AccountDialog({
                       size="small"
                       color="error"
                       variant="outlined"
-                      disabled={!canCancelBooking(booking)}
-                      onClick={() => {
-                        const result = onCancelBooking?.(booking.id);
-                        setNotice({
-                          message: result?.message || "Unable to cancel booking.",
-                          severity: result?.success ? "success" : "error",
-                        });
+                      disabled={!canCancelBooking(booking) || Boolean(cancelingBookingId)}
+                      onClick={async () => {
+                        const bookingId = String(booking.id || "").trim();
+                        if (!bookingId || cancelingBookingId) return;
+
+                        try {
+                          setCancelingBookingId(bookingId);
+                          const result = await onCancelBooking?.(bookingId);
+                          setNotice({
+                            message: result?.message || "Unable to cancel booking.",
+                            severity: result?.success ? "success" : "error",
+                          });
+                        } finally {
+                          setCancelingBookingId("");
+                        }
                       }}
                     >
                       Cancel

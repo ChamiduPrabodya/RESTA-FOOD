@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useMemo, useState, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   Alert,
@@ -119,12 +119,13 @@ function MenuCard({ item, index, onBuy }) {
 }
 
 function MenuPage() {
+  const location = useLocation();
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [search, setSearch] = useState("");
   const [notice, setNotice] = useState({ open: false, message: "", severity: "success" });
   const reduceMotion = useReducedMotion();
   const navigate = useNavigate();
-  const { authUser, menuItems, purchases, addToCart } = useAuth();
+  const { authUser, menuItems, purchases, addToCart, tableContext, startTableSession, clearTableContext } = useAuth();
   const categories = useMemo(
     () => ["All", ...new Set(menuItems.map((item) => item.category))],
     [menuItems]
@@ -148,12 +149,12 @@ function MenuPage() {
   }, [menuItems, purchaseCounts, search, selectedCategory]);
 
   const handleBuy = (item, size, price) => {
-    if (!authUser) {
+    if (!authUser && !tableContext?.sessionId) {
       navigate("/sign-in", { state: { from: "/menu" } });
       return;
     }
 
-    if (authUser.role !== "user") {
+    if (authUser && authUser.role !== "user") {
       setNotice({
         open: true,
         message: "Admin accounts cannot buy items. Use a user account.",
@@ -176,6 +177,27 @@ function MenuPage() {
     });
   };
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tableId = String(params.get("tableId") || "").trim();
+    const tableToken = String(params.get("tableToken") || "").trim();
+    if (!tableId) return;
+
+    startTableSession({ tableId, tableToken }).then((result) => {
+      if (!result?.success) {
+        setNotice({ open: true, message: result?.message || "Unable to start table session.", severity: "error" });
+        return;
+      }
+
+      const label = String(result?.tableLabel || "").trim();
+      setNotice({
+        open: true,
+        message: label ? `Ordering for ${label}.` : "Table session started.",
+        severity: "success",
+      });
+    });
+  }, [location.search, startTableSession]);
+
   return (
     <Box sx={{ bgcolor: "background.default", color: "text.primary", minHeight: "100vh" }}>
       <Box sx={{ px: sectionPaddingX, borderBottom: "1px solid rgba(212,178,95,0.2)" }}>
@@ -190,6 +212,42 @@ function MenuPage() {
           </Stack>
           <AuthHeaderActions />
         </Stack>
+
+        {tableContext?.sessionId && (
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            justifyContent="space-between"
+            alignItems={{ xs: "flex-start", sm: "center" }}
+            gap={1.2}
+            sx={{ pb: 2.2 }}
+          >
+            <Typography sx={{ color: "text.secondary", fontWeight: 700 }}>
+              Table session:{" "}
+              <Box component="span" sx={{ color: "primary.main" }}>
+                {String(tableContext.tableLabel || tableContext.tableId || "").trim() || "Table"}
+              </Box>
+            </Typography>
+            <Stack direction="row" spacing={1}>
+              <Button
+                size="small"
+                onClick={() => navigate("/checkout")}
+                sx={{ borderRadius: 999, px: 2, border: "1px solid rgba(212,178,95,0.28)", color: "text.primary" }}
+              >
+                Go to Checkout
+              </Button>
+              <Button
+                size="small"
+                onClick={() => {
+                  clearTableContext();
+                  navigate("/menu");
+                }}
+                sx={{ borderRadius: 999, px: 2, border: "1px solid rgba(255,107,122,0.35)", color: "#ff6b7a" }}
+              >
+                Clear Table
+              </Button>
+            </Stack>
+          </Stack>
+        )}
       </Box>
 
       <Box

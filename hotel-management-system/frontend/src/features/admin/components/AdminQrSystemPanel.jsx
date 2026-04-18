@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   Box,
   Button,
@@ -8,44 +8,185 @@ import {
   Stack,
   TextField,
   Typography,
+  Snackbar,
+  Alert,
 } from "@mui/material";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import PrintOutlinedIcon from "@mui/icons-material/PrintOutlined";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
+import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
+import { useAuth } from "../../auth/context/AuthContext";
 
-const buildQrUrl = (tableLabel) => {
-  const targetUrl = `https://resta-fast-food.local/menu?table=${encodeURIComponent(tableLabel)}`;
+const resolveDefaultApiBaseUrl = () => {
+  try {
+    const host = typeof window !== "undefined" ? String(window.location.hostname || "").trim() : "";
+    const resolvedHost = host || "localhost";
+    return `http://${resolvedHost}:5000/api`;
+  } catch {
+    return "http://localhost:5000/api";
+  }
+};
+
+const API_BASE_URL = String(import.meta.env.VITE_API_BASE_URL || resolveDefaultApiBaseUrl()).trim().replace(/\/$/, "");
+
+const buildQrImageUrl = (targetUrl) => {
   return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(targetUrl)}`;
 };
 
 function AdminQrSystemPanel() {
+  const { authUser, authToken } = useAuth();
   const [tableInput, setTableInput] = useState("");
-  const [tables, setTables] = useState(["TABLE 1", "TABLE 2", "TABLE 3"]);
+  const [tables, setTables] = useState([]);
+  const [notice, setNotice] = useState({ open: false, message: "", severity: "success" });
+
+  const apiRequest = async (path, { method = "GET", body, token } = {}) => {
+    const headers = {};
+    if (body !== undefined) headers["Content-Type"] = "application/json";
+    if (token) headers.Authorization = `Bearer ${String(token).trim()}`;
+
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+
+    let data = null;
+    try {
+      data = await response.json();
+    } catch {
+      data = null;
+    }
+
+    return { ok: response.ok, status: response.status, data };
+  };
+
+  const refreshTables = async () => {
+    const token = String(authToken || "").trim();
+    if (!token) return;
+
+    try {
+      const { ok, data } = await apiRequest("/tables", { token });
+      if (!ok || !data || data.success !== true || !Array.isArray(data.tables)) {
+        setNotice({ open: true, message: data?.message || "Unable to load tables.", severity: "error" });
+        return;
+      }
+      setTables(data.tables);
+    } catch {
+      setNotice({ open: true, message: "Backend is not reachable. Start the backend server.", severity: "error" });
+    }
+  };
+
+  useEffect(() => {
+    if (!authUser || authUser.role !== "admin") return;
+    refreshTables();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser?.role, authToken]);
 
   const tableCards = useMemo(
     () =>
-      tables.map((label) => ({
-        id: label,
-        label,
-        qrUrl: buildQrUrl(label),
+      tables.map((table) => ({
+        id: table.id,
+        label: table.label,
+        targetUrl: String(table.qrUrl || "").trim(),
+        qrUrl: buildQrImageUrl(String(table.qrUrl || "").trim()),
       })),
     [tables]
   );
 
-  const handleAddTable = () => {
+  const handleAddTable = async () => {
+    if (!authUser || authUser.role !== "admin") {
+      setNotice({ open: true, message: "Only admins can manage QR tables.", severity: "warning" });
+      return;
+    }
+
     const trimmed = tableInput.trim().toUpperCase();
     if (!trimmed) return;
-    if (tables.includes(trimmed)) return;
-    setTables((current) => [...current, trimmed]);
-    setTableInput("");
+
+    const token = String(authToken || "").trim();
+    if (!token) {
+      setNotice({ open: true, message: "Missing auth token. Please sign in again.", severity: "error" });
+      return;
+    }
+
+    try {
+      const { ok, data } = await apiRequest("/tables", {
+        method: "POST",
+        token,
+        body: { label: trimmed },
+      });
+      if (!ok || !data || data.success !== true || !data.table) {
+        setNotice({ open: true, message: data?.message || "Unable to create table.", severity: "error" });
+        return;
+      }
+      setTables((current) => [...(Array.isArray(current) ? current : []), data.table]);
+      setTableInput("");
+      setNotice({ open: true, message: `${data.table.label} added.`, severity: "success" });
+    } catch {
+      setNotice({ open: true, message: "Backend is not reachable. Start the backend server.", severity: "error" });
+    }
   };
 
-  const handleDeleteTable = (label) => {
-    setTables((current) => current.filter((item) => item !== label));
+  const handleDeleteTable = async (tableId) => {
+    if (!authUser || authUser.role !== "admin") {
+      setNotice({ open: true, message: "Only admins can manage QR tables.", severity: "warning" });
+      return;
+    }
+
+    const token = String(authToken || "").trim();
+    if (!token) {
+      setNotice({ open: true, message: "Missing auth token. Please sign in again.", severity: "error" });
+      return;
+    }
+
+    try {
+      const { ok, data } = await apiRequest(`/tables/${encodeURIComponent(tableId)}`, {
+        method: "DELETE",
+        token,
+      });
+      if (!ok || !data || data.success !== true || !data.table) {
+        setNotice({ open: true, message: data?.message || "Unable to delete table.", severity: "error" });
+        return;
+      }
+      setTables((current) => (Array.isArray(current) ? current : []).filter((t) => t.id !== tableId));
+      setNotice({ open: true, message: `${data.table.label} deleted.`, severity: "success" });
+    } catch {
+      setNotice({ open: true, message: "Backend is not reachable. Start the backend server.", severity: "error" });
+    }
   };
 
   const handlePrint = (qrUrl) => {
     window.open(qrUrl, "_blank", "noopener,noreferrer");
+  };
+
+  const handleCopy = async (text) => {
+    const value = String(text || "").trim();
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      setNotice({ open: true, message: "Link copied.", severity: "success" });
+    } catch {
+      try {
+        const textarea = document.createElement("textarea");
+        textarea.value = value;
+        textarea.setAttribute("readonly", "true");
+        textarea.style.position = "fixed";
+        textarea.style.left = "-9999px";
+        textarea.style.top = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        const ok = document.execCommand("copy");
+        textarea.remove();
+        if (ok) {
+          setNotice({ open: true, message: "Link copied.", severity: "success" });
+          return;
+        }
+      } catch {
+        // ignore
+      }
+
+      setNotice({ open: true, message: "Unable to copy link. Tap and hold to copy manually.", severity: "error" });
+    }
   };
 
   return (
@@ -122,6 +263,21 @@ function AdminQrSystemPanel() {
                 Digital Menu Access
               </Typography>
 
+              {table.targetUrl && table.targetUrl.toLowerCase().includes("localhost") && (
+                <Alert severity="warning" variant="outlined" sx={{ mb: 1.4 }}>
+                  QR link uses <strong>localhost</strong>. Set backend <code>PUBLIC_FRONTEND_ORIGIN</code> to your PC IP and re-generate.
+                </Alert>
+              )}
+
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.4 }}>
+                <Typography variant="body2" sx={{ color: "text.secondary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+                  {table.targetUrl || "-"}
+                </Typography>
+                <IconButton onClick={() => handleCopy(table.targetUrl)} sx={{ borderRadius: 2.5, border: "1px solid rgba(212,178,95,0.28)" }}>
+                  <ContentCopyRoundedIcon fontSize="small" />
+                </IconButton>
+              </Stack>
+
               <Stack direction="row" spacing={1.1}>
                 <Button
                   fullWidth
@@ -139,7 +295,7 @@ function AdminQrSystemPanel() {
                 </Button>
                 <IconButton
                   color="error"
-                  onClick={() => handleDeleteTable(table.label)}
+                  onClick={() => handleDeleteTable(table.id)}
                   sx={{ borderRadius: 2.5, border: "1px solid rgba(255,77,79,0.45)" }}
                 >
                   <DeleteOutlineRoundedIcon />
@@ -149,6 +305,22 @@ function AdminQrSystemPanel() {
           </Card>
         ))}
       </Box>
+
+      <Snackbar
+        open={notice.open}
+        autoHideDuration={3200}
+        onClose={() => setNotice((current) => ({ ...current, open: false }))}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          onClose={() => setNotice((current) => ({ ...current, open: false }))}
+          severity={notice.severity}
+          variant="filled"
+          sx={{ width: "100%" }}
+        >
+          {notice.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

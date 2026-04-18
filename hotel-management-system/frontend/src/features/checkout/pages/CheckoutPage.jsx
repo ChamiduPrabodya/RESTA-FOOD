@@ -5,9 +5,7 @@ import {
   Button,
   Card,
   CardContent,
-  Checkbox,
   Divider,
-  FormControlLabel,
   Stack,
   TextField,
   Typography,
@@ -24,45 +22,19 @@ import { calculateCheckoutPricing } from "../../../common/utils/pricing";
 const sectionPaddingX = { xs: 2.5, sm: 5, md: 8, lg: 12 };
 const toSLR = (value) => `SLR ${Math.round(value).toLocaleString()}`;
 
-const SAVED_CARD_STORAGE_KEY = "hms_saved_cards";
-
-const readSavedCards = () => {
-  try {
-    const raw = localStorage.getItem(SAVED_CARD_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-};
-
-const writeSavedCards = (value) => {
-  localStorage.setItem(SAVED_CARD_STORAGE_KEY, JSON.stringify(value));
-};
-
-const detectCardBrand = (digits) => {
-  if (/^4/.test(digits)) return "VISA";
-  if (/^(34|37)/.test(digits)) return "AMEX";
-  if (/^5[1-5]/.test(digits)) return "MASTERCARD";
-  if (/^6(?:011|5)/.test(digits)) return "DISCOVER";
-  return "CARD";
-};
-
 function CheckoutPage() {
   const navigate = useNavigate();
-  const { authUser, cartItems, placeOrderFromCart, promotions, loyaltyRules, loyaltySummary, lastDeliveryDetails } = useAuth();
+  const { authUser, cartItems, placeOrderFromCart, promotions, loyaltyRules, loyaltySummary, lastDeliveryDetails, tableContext, clearTableContext } = useAuth();
+  const isGuest = !authUser && Boolean(tableContext?.sessionId);
+  const cartOwnerKey = authUser?.email || (isGuest ? `guest:${String(tableContext?.sessionId || "").trim()}` : "");
 
   const userCartItems = useMemo(
-    () => cartItems.filter((item) => item.userEmail === authUser?.email),
-    [cartItems, authUser]
+    () => cartItems.filter((item) => item.userEmail === cartOwnerKey),
+    [cartItems, cartOwnerKey]
   );
 
-  const [orderType, setOrderType] = useState("Delivery");
-  const [paymentMethod, setPaymentMethod] = useState("Card (Online)");
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardExpiry, setCardExpiry] = useState("");
-  const [cardCvv, setCardCvv] = useState("");
-  const [saveCardDetails, setSaveCardDetails] = useState(true);
-  const [cardErrors, setCardErrors] = useState({ cardNumber: "", cardExpiry: "", cardCvv: "" });
+  const [orderType, setOrderType] = useState(() => (tableContext?.sessionId ? "DineIn" : "Delivery"));
+  const [paymentMethod, setPaymentMethod] = useState(() => (isGuest ? "Cash" : "Card (Online)"));
   const [errorMessage, setErrorMessage] = useState("");
 
   const profileDelivery = {
@@ -123,56 +95,19 @@ function CheckoutPage() {
     [userCartItems, authUser, promotions, loyaltyRules, loyaltySummary?.points, loyaltySummary?.discountPercent, orderType, formattedDeliveryAddress, deliveryCityTown]
   );
 
-  if (!authUser) {
+  useEffect(() => {
+    if (!tableContext?.sessionId && orderType === "DineIn") {
+      setOrderType("Delivery");
+    }
+  }, [tableContext?.sessionId, orderType]);
+
+  if (!authUser && !isGuest) {
     return <Navigate to="/sign-in" replace state={{ from: "/checkout" }} />;
   }
 
   if (userCartItems.length === 0) {
     return <Navigate to="/menu" replace />;
   }
-
-  const cardDigits = cardNumber.replace(/\D/g, "");
-  const cardBrand = detectCardBrand(cardDigits);
-  const expiryOk = /^\d{2}\/\d{2}$/.test(cardExpiry);
-  const cvvOk = /^\d{3,4}$/.test(cardCvv);
-  const cardFormComplete = cardDigits.length === 16 && expiryOk && cvvOk;
-
-  const validateCardNumber = (value) => {
-    const digits = value.replace(/\D/g, "");
-    if (digits.length !== 16) return "Card number must be 16 digits.";
-    return "";
-  };
-
-  const validateExpiry = (value) => {
-    if (!/^\d{2}\/\d{2}$/.test(value)) return "Expiry must be in MM/YY format.";
-    const [monthText, yearText] = value.split("/");
-    const month = Number(monthText);
-    if (month < 1 || month > 12) return "Invalid expiry month.";
-
-    const now = new Date();
-    const currentYear = now.getFullYear() % 100;
-    const currentMonth = now.getMonth() + 1;
-    const year = Number(yearText);
-    if (year < currentYear || (year === currentYear && month < currentMonth)) {
-      return "Card has expired.";
-    }
-    return "";
-  };
-
-  const validateCvv = (value) => {
-    if (!/^\d{3,4}$/.test(value)) return "CVV must be 3 or 4 digits.";
-    return "";
-  };
-
-  const validateCardDetails = () => {
-    const nextErrors = {
-      cardNumber: validateCardNumber(cardNumber),
-      cardExpiry: validateExpiry(cardExpiry),
-      cardCvv: validateCvv(cardCvv),
-    };
-    setCardErrors(nextErrors);
-    return !nextErrors.cardNumber && !nextErrors.cardExpiry && !nextErrors.cardCvv;
-  };
 
   const handlePlaceOrder = async () => {
     if (orderType === "Delivery") {
@@ -195,19 +130,12 @@ function CheckoutPage() {
       return;
     }
 
-    if (paymentMethod === "Card (Online)") {
-      if (!validateCardDetails()) {
-        setErrorMessage("Please enter valid card details.");
-        return;
-      }
-    }
-
     setErrorMessage("");
     const result = await placeOrderFromCart({
-      orderType,
-      paymentMethod,
+      orderType: isGuest ? "DineIn" : orderType,
+      paymentMethod: isGuest ? "Cash" : paymentMethod,
       deliveryDetails:
-        orderType === "Delivery"
+        !isGuest && orderType === "Delivery"
           ? {
               phone: String(deliveryPhone || "").trim(),
               streetAddress1: String(deliveryStreet1 || "").trim(),
@@ -222,10 +150,9 @@ function CheckoutPage() {
       return;
     }
 
-    if (paymentMethod === "Card (Online)" && authUser?.email && saveCardDetails) {
-      const savedCards = readSavedCards();
-      savedCards[authUser.email] = { cardNumber, cardExpiry, cardCvv };
-      writeSavedCards(savedCards);
+    if (result?.redirect === "payhere") {
+      // Browser will navigate to PayHere gateway (form POST). Do not SPA-navigate.
+      return;
     }
 
     navigate("/menu");
@@ -252,13 +179,40 @@ function CheckoutPage() {
       </Box>
 
       <Box sx={{ px: sectionPaddingX, py: { xs: 5, md: 7 } }}>
-        <Stack spacing={2.5} sx={{ maxWidth: 1080, mx: "auto" }}>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <ShoppingCartCheckoutRoundedIcon sx={{ color: "primary.main" }} />
-            <Typography variant="h1" sx={{ fontSize: { xs: "34px", md: "46px" }, lineHeight: 1.05 }}>
-              Checkout
-            </Typography>
-          </Stack>
+          <Stack spacing={2.5} sx={{ maxWidth: 1080, mx: "auto" }}>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <ShoppingCartCheckoutRoundedIcon sx={{ color: "primary.main" }} />
+              <Typography variant="h1" sx={{ fontSize: { xs: "34px", md: "46px" }, lineHeight: 1.05 }}>
+                Checkout
+              </Typography>
+            </Stack>
+
+            {tableContext?.sessionId && (
+              <Card sx={{ bgcolor: "#0f1116", border: "1px solid rgba(212,178,95,0.14)", borderRadius: 4 }}>
+                <CardContent sx={{ p: 2.2 }}>
+                  <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} gap={1}>
+                    <Box>
+                      <Typography sx={{ color: "primary.main", fontWeight: 800, letterSpacing: 0.8, textTransform: "uppercase", fontSize: 13 }}>
+                        Table Session
+                      </Typography>
+                      <Typography sx={{ fontWeight: 900, fontSize: 18 }}>
+                        {String(tableContext.tableLabel || tableContext.tableId || "").trim() || "Table"}
+                      </Typography>
+                    </Box>
+                    <Button
+                      size="small"
+                      onClick={() => {
+                        clearTableContext();
+                        setOrderType("Delivery");
+                      }}
+                      sx={{ borderRadius: 999, px: 2, border: "1px solid rgba(255,107,122,0.35)", color: "#ff6b7a" }}
+                    >
+                      Clear Table
+                    </Button>
+                  </Stack>
+                </CardContent>
+              </Card>
+            )}
 
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "1.1fr 0.9fr" }, gap: 2 }}>
             <Box sx={{ display: "grid", gap: 2 }}>
@@ -268,7 +222,7 @@ function CheckoutPage() {
                     Order Type
                   </Typography>
                   <Stack direction="row" spacing={1.4}>
-                    {["Delivery", "Takeaway"].map((type) => (
+                    {(isGuest ? ["DineIn"] : (tableContext?.sessionId ? ["DineIn", "Delivery", "Takeaway"] : ["Delivery", "Takeaway"])).map((type) => (
                       <Button
                         key={type}
                         onClick={() => {
@@ -285,7 +239,7 @@ function CheckoutPage() {
                           fontWeight: 700,
                         }}
                       >
-                        {type}
+                        {type === "DineIn" ? "Dine-In" : type}
                       </Button>
                     ))}
                   </Stack>
@@ -367,112 +321,54 @@ function CheckoutPage() {
                   <Typography sx={{ color: "primary.main", textTransform: "uppercase", letterSpacing: 1.2, fontWeight: 700, mb: 1.2 }}>
                     Payment Method
                   </Typography>
-                  <Stack direction="row" spacing={1.4} sx={{ mb: 2 }}>
-                    {["Cash", "Card"].map((method) => (
-                      <Button
-                        key={method}
-                        onClick={() => {
-                          setPaymentMethod(method === "Card" ? "Card (Online)" : "Cash");
-                          setErrorMessage("");
-                          if (method === "Cash") {
-                            setCardErrors({ cardNumber: "", cardExpiry: "", cardCvv: "" });
-                          }
-                        }}
-                        sx={{
-                          flex: 1,
-                          borderRadius: 3,
-                          py: 1.2,
-                          bgcolor: (paymentMethod === "Card (Online)" ? "Card" : "Cash") === method ? "primary.main" : "transparent",
-                          color: (paymentMethod === "Card (Online)" ? "Card" : "Cash") === method ? "#111214" : "text.secondary",
-                          border: "1px solid rgba(212,178,95,0.28)",
-                          fontWeight: 700,
-                        }}
-                      >
-                        {method}
-                      </Button>
-                    ))}
-                  </Stack>
-
-                  {paymentMethod === "Card (Online)" && (
+                  {isGuest ? (
                     <Card sx={{ bgcolor: "#0f1116", border: "1px solid rgba(212,178,95,0.14)", borderRadius: 3 }}>
                       <CardContent sx={{ p: 2.2 }}>
-                        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.2 }}>
-                          <Typography sx={{ color: "primary.main", textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 700 }}>
-                            Card Payment
-                          </Typography>
-                          <Box sx={{ px: 1, py: 0.3, borderRadius: 1.5, bgcolor: "rgba(212,178,95,0.16)", color: "primary.main", fontWeight: 700, fontSize: 12 }}>
-                            {cardBrand}
-                          </Box>
-                        </Stack>
+                        <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
+                          Guest dine-in orders use cash payment (pay at counter).
+                        </Typography>
+                        <Typography sx={{ mt: 0.8, fontWeight: 900, color: "primary.main" }}>
+                          Cash
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <Stack direction="row" spacing={1.4} sx={{ mb: 2 }}>
+                      {["Cash", "Card"].map((method) => (
+                        <Button
+                          key={method}
+                          onClick={() => {
+                            setPaymentMethod(method === "Card" ? "Card (Online)" : "Cash");
+                            setErrorMessage("");
+                          }}
+                          sx={{
+                            flex: 1,
+                            borderRadius: 3,
+                            py: 1.2,
+                            bgcolor: (paymentMethod === "Card (Online)" ? "Card" : "Cash") === method ? "primary.main" : "transparent",
+                            color: (paymentMethod === "Card (Online)" ? "Card" : "Cash") === method ? "#111214" : "text.secondary",
+                            border: "1px solid rgba(212,178,95,0.28)",
+                            fontWeight: 700,
+                          }}
+                        >
+                          {method}
+                        </Button>
+                      ))}
+                    </Stack>
+                  )}
 
-                        <Divider sx={{ borderColor: "rgba(212,178,95,0.14)", mb: 1.4 }} />
-
+                  {!isGuest && paymentMethod === "Card (Online)" && (
+                    <Card sx={{ bgcolor: "#0f1116", border: "1px solid rgba(212,178,95,0.14)", borderRadius: 3 }}>
+                      <CardContent sx={{ p: 2.2 }}>
                         <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.2 }}>
                           <CreditCardRoundedIcon sx={{ color: "primary.main", fontSize: 20 }} />
                           <Typography sx={{ color: "primary.main", textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 700 }}>
-                            Card Details
+                            PayHere Card Payment
                           </Typography>
                         </Stack>
-
-                        <TextField
-                          fullWidth
-                          label="Card Number"
-                          placeholder="1234 5678 9012 3456"
-                          value={cardNumber}
-                          onChange={(event) => {
-                            const digits = event.target.value.replace(/\D/g, "").slice(0, 16);
-                            const formatted = digits.replace(/(\d{4})(?=\d)/g, "$1 ").trim();
-                            setCardNumber(formatted);
-                            setCardErrors((current) => ({ ...current, cardNumber: "" }));
-                          }}
-                          error={Boolean(cardErrors.cardNumber)}
-                          helperText={cardErrors.cardNumber || " "}
-                          sx={{ mb: 1.2, "& .MuiOutlinedInput-root": { bgcolor: "#0d1118", borderRadius: 2.5 } }}
-                        />
-                        <Stack direction="row" spacing={1.3}>
-                          <TextField
-                            fullWidth
-                            label="Expiry"
-                            placeholder="MM/YY"
-                            value={cardExpiry}
-                            onChange={(event) => {
-                              const digits = event.target.value.replace(/\D/g, "").slice(0, 4);
-                              const formatted = digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits;
-                              setCardExpiry(formatted);
-                              setCardErrors((current) => ({ ...current, cardExpiry: "" }));
-                            }}
-                            error={Boolean(cardErrors.cardExpiry)}
-                            helperText={cardErrors.cardExpiry || " "}
-                            sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0d1118", borderRadius: 2.5 } }}
-                          />
-                          <TextField
-                            fullWidth
-                            label="CVV"
-                            placeholder="123"
-                            value={cardCvv}
-                            onChange={(event) => {
-                              const digits = event.target.value.replace(/\D/g, "").slice(0, 4);
-                              setCardCvv(digits);
-                              setCardErrors((current) => ({ ...current, cardCvv: "" }));
-                            }}
-                            error={Boolean(cardErrors.cardCvv)}
-                            helperText={cardErrors.cardCvv || " "}
-                            sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0d1118", borderRadius: 2.5 } }}
-                          />
-                        </Stack>
-                        <FormControlLabel
-                          sx={{ mt: 1.2, ml: 0 }}
-                          control={
-                            <Checkbox
-                              checked={saveCardDetails}
-                              onChange={(event) => setSaveCardDetails(event.target.checked)}
-                              sx={{ color: "primary.main", "&.Mui-checked": { color: "primary.main" } }}
-                            />
-                          }
-                          label={<Typography sx={{ color: "text.secondary", fontSize: 13 }}>Save card details for next time</Typography>}
-                        />
-                        <Typography sx={{ color: cardFormComplete ? "#7ce6a2" : "text.secondary", fontSize: 12, mt: 0.4 }}>
-                          {cardFormComplete ? "Card details look good." : "Fill all card fields to continue."}
+                        <Divider sx={{ borderColor: "rgba(212,178,95,0.14)", mb: 1.4 }} />
+                        <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
+                          You will be redirected to PayHere to enter your bank card details securely and complete the payment.
                         </Typography>
                       </CardContent>
                     </Card>
@@ -564,8 +460,7 @@ function CheckoutPage() {
                   disabled={
                     userCartItems.length === 0 ||
                     (orderType === "Delivery" && !hasDeliveryProfile) ||
-                    (orderType === "Delivery" && pricing.deliveryAllowed === false) ||
-                    (paymentMethod === "Card (Online)" && !cardFormComplete)
+                    (orderType === "Delivery" && pricing.deliveryAllowed === false)
                   }
                   sx={{ py: 1.5, borderRadius: 3.2, bgcolor: "primary.main", color: "#111214", fontWeight: 900, fontSize: "18px", "&:hover": { bgcolor: "#d4b25f" } }}
                 >
