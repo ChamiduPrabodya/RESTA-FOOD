@@ -26,6 +26,7 @@ const resolveDefaultApiBaseUrl = () => {
 };
 
 const API_BASE_URL = String(import.meta.env.VITE_API_BASE_URL || resolveDefaultApiBaseUrl()).trim().replace(/\/$/, "");
+const sleep = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
 const USERS_STORAGE_KEY = "hms_users";
 const PURCHASES_STORAGE_KEY = "hms_purchases";
 const ORDER_COUNTER_STORAGE_KEY = "hms_order_counter";
@@ -420,28 +421,38 @@ export function AuthProvider({ children }) {
     }
   }, [getGuestCartKey]);
 
-  const refreshMenuItemsFromServer = async () => {
-    try {
-      const { ok, data } = await apiRequest("/menu/items");
-      if (!ok || !data || data.success !== true || !Array.isArray(data.items)) {
-        return { success: false, message: data?.message || "Unable to load menu items." };
+  const refreshMenuItemsFromServer = async ({ retries = 0 } = {}) => {
+    let lastResult = { success: false, message: "Backend is not reachable. Start the backend server." };
+
+    for (let attempt = 0; attempt <= retries; attempt += 1) {
+      try {
+        const { ok, data } = await apiRequest("/menu/items");
+        if (!ok || !data || data.success !== true || !Array.isArray(data.items)) {
+          lastResult = { success: false, message: data?.message || "Unable to load menu items." };
+        } else {
+          const serverItems = data.items;
+          const normalized = serverItems.map((item) => ({
+            ...item,
+            id: item.id || crypto.randomUUID(),
+            outOfStock: Boolean(item.outOfStock),
+            loyaltyPoints:
+              item && Object.prototype.hasOwnProperty.call(item, "loyaltyPoints") && item.loyaltyPoints !== undefined && item.loyaltyPoints !== null
+                ? Math.max(0, Math.round(Number(item.loyaltyPoints) || 0))
+                : undefined,
+          }));
+          setMenuItems(normalized);
+          return { success: true, items: data.items };
+        }
+      } catch {
+        lastResult = { success: false, message: "Backend is not reachable. Start the backend server." };
       }
 
-      const serverItems = data.items;
-      const normalized = serverItems.map((item) => ({
-        ...item,
-        id: item.id || crypto.randomUUID(),
-        outOfStock: Boolean(item.outOfStock),
-        loyaltyPoints:
-          item && Object.prototype.hasOwnProperty.call(item, "loyaltyPoints") && item.loyaltyPoints !== undefined && item.loyaltyPoints !== null
-            ? Math.max(0, Math.round(Number(item.loyaltyPoints) || 0))
-            : undefined,
-      }));
-      setMenuItems(normalized);
-      return { success: true, items: data.items };
-    } catch {
-      return { success: false, message: "Backend is not reachable. Start the backend server." };
+      if (attempt < retries) {
+        await sleep(1800 * (attempt + 1));
+      }
     }
+
+    return lastResult;
   };
 
   const refreshMenuCategoriesFromServer = async () => {
@@ -503,7 +514,7 @@ export function AuthProvider({ children }) {
   };
 
   useEffect(() => {
-    refreshMenuItemsFromServer();
+    refreshMenuItemsFromServer({ retries: 3 });
     refreshMenuCategoriesFromServer();
     refreshPromotionsFromServer();
     refreshReviewsFromServer();
@@ -2194,6 +2205,7 @@ export function AuthProvider({ children }) {
     refreshLoyaltySummary,
     refreshPromotionsFromServer,
     refreshReviewsFromServer,
+    refreshMenuItemsFromServer,
     addMenuItem,
     addMenuCategory,
     updateMenuCategory,

@@ -126,11 +126,21 @@ function MenuPage() {
   const location = useLocation();
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [search, setSearch] = useState("");
+  const [isRetryingMenu, setIsRetryingMenu] = useState(false);
   const [notice, setNotice] = useState({ open: false, message: "", severity: "success" });
   const [guestPrompt, setGuestPrompt] = useState({ open: false, tableId: "", tableToken: "", guestCount: "1", error: "" });
   const reduceMotion = useReducedMotion();
   const navigate = useNavigate();
-  const { authUser, menuItems, purchases, addToCart, tableContext, startTableSession, clearTableContext } = useAuth();
+  const {
+    authUser,
+    menuItems,
+    purchases,
+    addToCart,
+    tableContext,
+    startTableSession,
+    clearTableContext,
+    refreshMenuItemsFromServer,
+  } = useAuth();
   const categories = useMemo(
     () => ["All", ...new Set(menuItems.map((item) => item.category))],
     [menuItems]
@@ -181,6 +191,19 @@ function MenuPage() {
       message: result.success ? `${item.name} (${size}) added to cart.` : result.message,
       severity: result.success ? "success" : "error",
     });
+  };
+
+  const handleRetryMenu = async () => {
+    setIsRetryingMenu(true);
+    const result = await refreshMenuItemsFromServer({ retries: 2 });
+    setIsRetryingMenu(false);
+    if (!result?.success) {
+      setNotice({
+        open: true,
+        message: result?.message || "Unable to load menu items.",
+        severity: "error",
+      });
+    }
   };
 
   useEffect(() => {
@@ -387,6 +410,34 @@ function MenuPage() {
             ))}
           </AnimatePresence>
         </Box>
+        {filteredItems.length === 0 && (
+          <Stack
+            spacing={2}
+            alignItems="center"
+            sx={{
+              mt: 4,
+              p: 3,
+              border: "1px solid rgba(212,178,95,0.24)",
+              borderRadius: 2,
+              bgcolor: "rgba(23,16,12,0.72)",
+            }}
+          >
+            <Typography sx={{ color: "text.secondary", textAlign: "center" }}>
+              {menuItems.length === 0 ? "Menu items are loading from the server." : "No dishes match your filters."}
+            </Typography>
+            {menuItems.length === 0 && (
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleRetryMenu}
+                disabled={isRetryingMenu}
+                sx={{ minWidth: 140 }}
+              >
+                {isRetryingMenu ? "Loading..." : "Retry"}
+              </Button>
+            )}
+          </Stack>
+        )}
       </Box>
       <Snackbar
         open={notice.open}
