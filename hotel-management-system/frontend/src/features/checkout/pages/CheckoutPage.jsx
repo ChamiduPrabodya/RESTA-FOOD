@@ -25,8 +25,8 @@ const toSLR = (value) => `SLR ${Math.round(value).toLocaleString()}`;
 function CheckoutPage() {
   const navigate = useNavigate();
   const { authUser, cartItems, placeOrderFromCart, promotions, loyaltyRules, loyaltySummary, lastDeliveryDetails, tableContext, clearTableContext } = useAuth();
-  const isGuest = !authUser && Boolean(tableContext?.sessionId);
-  const cartOwnerKey = authUser?.email || (isGuest ? `guest:${String(tableContext?.sessionId || "").trim()}` : "");
+  const isGuest = Boolean(tableContext?.sessionId) && (!authUser || authUser.role !== "user");
+  const cartOwnerKey = isGuest ? `guest:${String(tableContext?.sessionId || "").trim()}` : authUser?.email || "";
 
   const userCartItems = useMemo(
     () => cartItems.filter((item) => item.userEmail === cartOwnerKey),
@@ -63,11 +63,14 @@ function CheckoutPage() {
   const [deliveryErrors, setDeliveryErrors] = useState({ phone: "" });
 
   useEffect(() => {
-    setDeliveryPhone(seededDelivery.phone);
-    setDeliveryStreet1(seededDelivery.streetAddress1);
-    setDeliveryStreet2(seededDelivery.streetAddress2);
-    setDeliveryCityTown(seededDelivery.cityTown);
-    setDeliveryErrors({ phone: "" });
+    const timeoutId = window.setTimeout(() => {
+      setDeliveryPhone(seededDelivery.phone);
+      setDeliveryStreet1(seededDelivery.streetAddress1);
+      setDeliveryStreet2(seededDelivery.streetAddress2);
+      setDeliveryCityTown(seededDelivery.cityTown);
+      setDeliveryErrors({ phone: "" });
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [seededDelivery.phone, seededDelivery.streetAddress1, seededDelivery.streetAddress2, seededDelivery.cityTown]);
   const formattedDeliveryAddress =
     [deliveryStreet1, deliveryStreet2, deliveryCityTown]
@@ -97,8 +100,10 @@ function CheckoutPage() {
 
   useEffect(() => {
     if (!tableContext?.sessionId && orderType === "DineIn") {
-      setOrderType("Delivery");
+      const timeoutId = window.setTimeout(() => setOrderType("Delivery"), 0);
+      return () => window.clearTimeout(timeoutId);
     }
+    return undefined;
   }, [tableContext?.sessionId, orderType]);
 
   if (!authUser && !isGuest) {
@@ -198,6 +203,11 @@ function CheckoutPage() {
                       <Typography sx={{ fontWeight: 900, fontSize: 18 }}>
                         {String(tableContext.tableLabel || tableContext.tableId || "").trim() || "Table"}
                       </Typography>
+                      {Number(tableContext.guestCount) > 0 && (
+                        <Typography sx={{ color: "text.secondary", fontWeight: 700 }}>
+                          {Number(tableContext.guestCount)} guest{Number(tableContext.guestCount) === 1 ? "" : "s"}
+                        </Typography>
+                      )}
                     </Box>
                     <Button
                       size="small"

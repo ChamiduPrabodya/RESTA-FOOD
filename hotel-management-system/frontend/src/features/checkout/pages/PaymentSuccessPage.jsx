@@ -9,32 +9,30 @@ function PaymentSuccessPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const orderId = String(params.get("orderId") || "").trim();
-
-  const [state, setState] = useState({ loading: true, error: "", order: null });
-  const pollRef = useRef({ tries: 0, stop: false });
-
   const token = useMemo(() => String(localStorage.getItem(AUTH_TOKEN_STORAGE_KEY) || "").trim(), []);
 
+  const [state, setState] = useState(() => {
+    if (!orderId) return { loading: false, error: "Missing orderId.", order: null };
+    if (!token) return { loading: false, error: "Missing auth token. Please sign in again.", order: null };
+    return { loading: true, error: "", order: null };
+  });
+  const pollRef = useRef({ tries: 0, stop: false });
+
   useEffect(() => {
-    pollRef.current.stop = false;
-    pollRef.current.tries = 0;
-
-    if (!orderId) {
-      setState({ loading: false, error: "Missing orderId.", order: null });
+    if (!orderId || !token) {
       return () => {};
     }
 
-    if (!token) {
-      setState({ loading: false, error: "Missing auth token. Please sign in again.", order: null });
-      return () => {};
-    }
+    const pollState = pollRef.current;
+    pollState.stop = false;
+    pollState.tries = 0;
 
     let timeoutId = null;
     let intervalId = null;
 
     const fetchOrder = async () => {
-      if (pollRef.current.stop) return;
-      pollRef.current.tries += 1;
+      if (pollState.stop) return;
+      pollState.tries += 1;
       try {
         const response = await fetch(`${API_BASE_URL}/orders/${encodeURIComponent(orderId)}`, {
           method: "GET",
@@ -43,7 +41,7 @@ function PaymentSuccessPage() {
         const data = await response.json().catch(() => null);
         if (!response.ok || !data || data.success !== true) {
           setState({ loading: false, error: data?.message || "Unable to load order.", order: null });
-          pollRef.current.stop = true;
+          pollState.stop = true;
           return;
         }
 
@@ -52,26 +50,26 @@ function PaymentSuccessPage() {
 
         const paymentStatus = String(order?.paymentStatus || "").trim().toLowerCase();
         if (paymentStatus === "paid") {
-          pollRef.current.stop = true;
+          pollState.stop = true;
         }
 
-        if (pollRef.current.tries >= 12) {
-          pollRef.current.stop = true;
+        if (pollState.tries >= 12) {
+          pollState.stop = true;
         }
       } catch {
         setState({ loading: false, error: "Backend is not reachable. Start the backend server.", order: null });
-        pollRef.current.stop = true;
+        pollState.stop = true;
       }
     };
 
     fetchOrder();
     intervalId = window.setInterval(fetchOrder, 2000);
     timeoutId = window.setTimeout(() => {
-      pollRef.current.stop = true;
+      pollState.stop = true;
     }, 25_000);
 
     return () => {
-      pollRef.current.stop = true;
+      pollState.stop = true;
       if (intervalId) window.clearInterval(intervalId);
       if (timeoutId) window.clearTimeout(timeoutId);
     };
@@ -92,7 +90,7 @@ function PaymentSuccessPage() {
           ) : state.loading ? (
             <Stack direction="row" spacing={2} alignItems="center">
               <CircularProgress size={22} />
-              <Typography>Checking payment…</Typography>
+              <Typography>Checking payment...</Typography>
             </Stack>
           ) : state.error ? (
             <Typography color="error">{state.error}</Typography>
@@ -125,4 +123,3 @@ function PaymentSuccessPage() {
 }
 
 export default PaymentSuccessPage;
-

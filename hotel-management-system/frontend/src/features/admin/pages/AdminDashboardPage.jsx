@@ -173,6 +173,7 @@ function AdminDashboardPage() {
     promotions,
     menuItems,
     menuCategories,
+    refreshAdminOrders,
     refreshAdminLoyaltyPurchases,
     refreshAdminUsers,
     updatePurchaseStatus,
@@ -196,7 +197,14 @@ function AdminDashboardPage() {
     if (activeSection !== "customers") return;
     refreshAdminUsers?.();
     refreshAdminLoyaltyPurchases?.();
-  }, [activeSection, refreshAdminLoyaltyPurchases, refreshAdminUsers]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSection]);
+
+  useEffect(() => {
+    if (activeSection !== "liveOrders") return;
+    refreshAdminOrders?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSection]);
 
   const normalizedPurchases = purchases.map((purchase) => ({
     ...purchase,

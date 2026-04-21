@@ -26,17 +26,10 @@ function SignInPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { login, loginWithGoogle } = useAuth();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => localStorage.getItem(LAST_SIGNIN_EMAIL_KEY) || "");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    const savedEmail = localStorage.getItem(LAST_SIGNIN_EMAIL_KEY);
-    if (savedEmail) {
-      setEmail(savedEmail);
-    }
-  }, []);
 
   useEffect(() => {
     const trimmedEmail = email.trim();

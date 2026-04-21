@@ -35,6 +35,7 @@ function AuthHeaderActions() {
     vipBookings,
     cancelVipBookingByUser,
     cartItems,
+    tableContext,
     increaseCartQty,
     decreaseCartQty,
     removeFromCart,
@@ -43,8 +44,11 @@ function AuthHeaderActions() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
 
+  const isTableGuestMode = Boolean(tableContext?.sessionId) && (!authUser || authUser.role !== "user");
+  const guestCartKey = isTableGuestMode ? `guest:${String(tableContext?.sessionId || "").trim()}` : "";
+
   const userPurchases = useMemo(
-    () => purchases.filter((item) => item.userEmail === authUser?.email),
+    () => (authUser ? purchases.filter((item) => item.userEmail === authUser?.email) : []),
     [purchases, authUser]
   );
   const userBookings = useMemo(
@@ -52,16 +56,18 @@ function AuthHeaderActions() {
     [vipBookings, authUser]
   );
   const userCartItems = useMemo(
-    () => cartItems.filter((item) => item.userEmail === authUser?.email),
-    [cartItems, authUser]
+    () => cartItems.filter((item) => item.userEmail === (isTableGuestMode ? guestCartKey : authUser?.email)),
+    [cartItems, authUser, guestCartKey, isTableGuestMode]
   );
 
-  const isAdmin = authUser?.role === "admin";
+  const isAdmin = authUser?.role === "admin" && !isTableGuestMode;
   const points = isAdmin ? 0 : Number(loyaltySummary?.points) || 0;
   const tier = useMemo(() => getLoyaltyTier(points), [points]);
   const normalizedProvider = String(authUser?.authProvider || "").trim().toLowerCase();
   const isGoogleUser = normalizedProvider === "google";
-  const displayName = isAdmin
+  const displayName = isTableGuestMode
+    ? "Table Guest"
+    : isAdmin
     ? "Resta Admin"
     : (isGoogleUser ? authUser?.googleName : authUser?.fullName) ||
       authUser?.fullName ||
@@ -80,7 +86,7 @@ function AuthHeaderActions() {
     navigate("/");
   };
 
-  if (!authUser) {
+  if (!authUser && !isTableGuestMode) {
     return (
       <Button component={Link} to="/sign-in" variant="contained" color="primary" startIcon={<LoginRoundedIcon />}>
         Sign In
@@ -116,7 +122,20 @@ function AuthHeaderActions() {
           )}
         </Button>
 
-        {isAdmin ? (
+        {isTableGuestMode ? (
+          <Button
+            variant="outlined"
+            sx={{
+              borderRadius: 99,
+              borderColor: "rgba(212,178,95,0.35)",
+              color: "primary.main",
+              px: 2.1,
+              py: 0.8,
+            }}
+          >
+            {String(tableContext?.tableLabel || tableContext?.tableId || "Table").trim()}
+          </Button>
+        ) : isAdmin ? (
           <Button
             component={Link}
             to="/admin-dashboard"
@@ -151,28 +170,31 @@ function AuthHeaderActions() {
           </Button>
         )}
 
-        <Button
-          onClick={() => {
-            if (authUser?.role !== "admin") {
-              refreshLoyaltySummary?.();
-            }
-            setAccountOpen(true);
-          }}
-          sx={{
-            minWidth: 46,
-            width: 46,
-            height: 46,
-            borderRadius: "50%",
-            border: "1px solid rgba(212,178,95,0.45)",
-            color: "primary.main",
-            bgcolor: "#24180f",
-          }}
-        >
-          <PersonOutlineRoundedIcon />
-        </Button>
+        {!isTableGuestMode && (
+          <Button
+            onClick={() => {
+              if (authUser?.role !== "admin") {
+                refreshLoyaltySummary?.();
+              }
+              setAccountOpen(true);
+            }}
+            sx={{
+              minWidth: 46,
+              width: 46,
+              height: 46,
+              borderRadius: "50%",
+              border: "1px solid rgba(212,178,95,0.45)",
+              color: "primary.main",
+              bgcolor: "#24180f",
+            }}
+          >
+            <PersonOutlineRoundedIcon />
+          </Button>
+        )}
       </Stack>
 
-      <AccountDialog
+      {!isTableGuestMode && (
+        <AccountDialog
            open={accountOpen}
            onClose={() => setAccountOpen(false)}
            isAdmin={isAdmin}
@@ -195,7 +217,8 @@ function AuthHeaderActions() {
         userBookings={userBookings}
         onCancelBooking={cancelVipBookingByUser}
         onSaveProfile={updateUserProfile}
-      />
+        />
+      )}
       <CartDialog
         open={cartOpen}
         onClose={() => setCartOpen(false)}

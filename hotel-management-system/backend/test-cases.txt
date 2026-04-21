@@ -1,4 +1,4 @@
-Generated: 2026-04-18T03:54:57.152Z
+Generated: 2026-04-19T12:16:52.552Z
 
 admin-seed.test.js - ensureAdminUser: skips when env missing
 admin-seed.test.js - ensureAdminUser: creates admin when missing
@@ -37,6 +37,14 @@ orders-service.test.js - ordersService mock payment: initiate + confirm sets pay
 payhere-service.test.js - payhere.generateCheckoutHash: matches documented MD5 formula
 payhere-service.test.js - payhere.applyPayhereNotification: verifies md5sig and marks order paymentStatus
 payhere-service.test.js - payhere.applyPayhereNotification: rejects invalid md5sig
+promotions-service.test.js - promotionsService.addPromotion: normalizes payload and discount text
+promotions-service.test.js - promotionsService.addPromotion: rejects invalid date range
+promotions-service.test.js - promotionsService.editPromotion: updates existing promotion
+reviews-service.test.js - reviewsService.addReviewForUser: creates review with stored user name
+reviews-service.test.js - reviewsService.addReviewForUser: rejects missing auth
+reviews-service.test.js - reviewsService.addReviewForUser: validates rating and message
+sessions-service.test.js - sessionsService.startSession: stores guestCount
+sessions-service.test.js - sessionsService.startSession: rejects more than six guests
 user-controller.test.js - userController.updateMe: forbids non-user role
 user-controller.test.js - userController.updateMe: validates phone number
 user-controller.test.js - userController.getMe: returns sanitized user

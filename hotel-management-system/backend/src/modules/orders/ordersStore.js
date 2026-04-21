@@ -16,6 +16,11 @@ const orderSchema = new mongoose.Schema(
     paymentStatus: { type: String, default: "Unpaid", trim: true, index: true },
     payment: { type: Object, default: null },
 
+    tableId: { type: String, trim: true, index: true },
+    tableLabel: { type: String, trim: true },
+    tableSessionId: { type: String, trim: true, index: true },
+    guestCount: { type: Number },
+
     items: { type: Array, default: [] },
     deliveryAddress: { type: String, trim: true },
     deliveryCityTown: { type: String, trim: true },

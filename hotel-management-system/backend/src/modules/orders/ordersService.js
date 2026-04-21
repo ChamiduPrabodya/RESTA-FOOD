@@ -99,6 +99,8 @@ async function createOrderForUser(userEmail, input, meta = {}) {
 
   const tableId = String(input && input.tableId !== undefined ? input.tableId : "").trim();
   const tableSessionId = String(input && input.tableSessionId !== undefined ? input.tableSessionId : input && input.sessionId !== undefined ? input.sessionId : "").trim();
+  let tableLabel = "";
+  let guestCount = 0;
   if (orderType === "DineIn") {
     if (!tableId) throw httpError(400, "tableId is required for dine-in orders.");
     if (!tableSessionId) throw httpError(400, "tableSessionId is required for dine-in orders.");
@@ -108,6 +110,7 @@ async function createOrderForUser(userEmail, input, meta = {}) {
 
     const table = await Table.findOne({ id: tableId }).lean();
     if (!table) throw httpError(404, "Table not found.");
+    tableLabel = String(table.label || table.id || "").trim();
 
     const session = await TableSession.findOne({ id: tableSessionId }).lean();
     if (!session) throw httpError(404, "Table session not found.");
@@ -117,6 +120,7 @@ async function createOrderForUser(userEmail, input, meta = {}) {
     if (String(session.status || "").trim() !== "active") {
       throw httpError(409, "Table session is not active.");
     }
+    guestCount = Math.max(1, Math.min(6, Math.round(Number(session.guestCount || input.guestCount || 1) || 1)));
   }
 
   const items = Array.isArray(input && input.items ? input.items : []) ? input.items : [];
@@ -187,7 +191,9 @@ async function createOrderForUser(userEmail, input, meta = {}) {
     paymentStatus: "Unpaid",
     payment: null,
     tableId: orderType === "DineIn" ? tableId : undefined,
+    tableLabel: orderType === "DineIn" ? tableLabel : undefined,
     tableSessionId: orderType === "DineIn" ? tableSessionId : undefined,
+    guestCount: orderType === "DineIn" ? guestCount : undefined,
     items: resolvedItems,
     deliveryAddress: deliveryAddress || undefined,
     deliveryCityTown: deliveryCityTown || undefined,

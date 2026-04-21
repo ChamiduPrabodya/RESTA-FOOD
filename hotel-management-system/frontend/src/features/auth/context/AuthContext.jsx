@@ -108,6 +108,51 @@ const submitPostForm = ({ actionUrl, fields }) => {
   }
 };
 
+const formatSLRValue = (value) => `SLR ${Math.round(Number(value) || 0).toLocaleString()}`;
+
+const flattenServerOrderRows = (orders) =>
+  (Array.isArray(orders) ? orders : []).flatMap((order, orderIndex) => {
+    const orderId = String(order?.id || order?.orderId || "").trim();
+    if (!orderId) return [];
+    const orderRef = String(order?.orderRef || "").trim() || formatOrderRef(ORDER_REF_START + orderIndex);
+    const items = Array.isArray(order?.items) && order.items.length > 0 ? order.items : [{ itemName: "Order", quantity: 1 }];
+    const orderTotal = Number(order?.finalPaid ?? order?.orderTotal ?? 0) || 0;
+
+    return items.map((item, index) => {
+      const quantity = Math.max(1, Number(item?.quantity) || 1);
+      const unitPrice = Math.max(0, Number(item?.unitPrice) || 0);
+      const rowTotal = Number(item?.finalAmount ?? item?.total ?? unitPrice * quantity) || 0;
+      return {
+        id: String(item?.id || `${orderId}:${index}`),
+        orderId,
+        orderRef,
+        menuItemId: item?.menuItemId || "",
+        image: item?.image || "",
+        itemName: String(item?.itemName || item?.name || "Order").trim(),
+        price: item?.price || formatSLRValue(rowTotal),
+        size: String(item?.size || "").trim() || "Regular",
+        unitPrice,
+        quantity,
+        status: item?.status || order?.status || "Pending",
+        userEmail: order?.userEmail || "",
+        orderType: order?.orderType || "Delivery",
+        paymentMethod: order?.paymentMethod || "",
+        paymentStatus: order?.paymentStatus || "",
+        deliveryDetails: order?.deliveryDetails || null,
+        createdAt: order?.createdAt || "",
+        orderSubtotal: Number(order?.subtotal) || 0,
+        orderTotalDiscount: (Number(order?.promotionDiscount) || 0) + (Number(order?.loyaltyDiscount) || 0),
+        deliveryZone: order?.deliveryZone || "",
+        deliveryFee: Number(order?.deliveryFee) || 0,
+        orderTotal,
+        tableId: order?.tableId || "",
+        tableLabel: order?.tableLabel || "",
+        tableSessionId: order?.tableSessionId || "",
+        guestCount: Number(order?.guestCount) || 0,
+      };
+    });
+  });
+
 export function AuthProvider({ children }) {
   const [authUser, setAuthUser] = useState(null);
   const [authToken, setAuthToken] = useState(() => String(localStorage.getItem(AUTH_TOKEN_STORAGE_KEY) || "").trim());
@@ -330,15 +375,22 @@ export function AuthProvider({ children }) {
     return { ok: response.ok, status: response.status, data };
   }, []);
 
-  const startTableSession = useCallback(async ({ tableId, tableToken } = {}) => {
+  const startTableSession = useCallback(async ({ tableId, tableToken, guestCount } = {}) => {
     const normalizedTableId = String(tableId || "").trim();
     const normalizedToken = String(tableToken || "").trim();
+    const normalizedGuestCount = Math.round(Number(guestCount));
     if (!normalizedTableId) return { success: false, message: "Missing tableId." };
+    if (!Number.isFinite(normalizedGuestCount) || normalizedGuestCount < 1) {
+      return { success: false, message: "Please enter at least 1 guest." };
+    }
+    if (normalizedGuestCount > 6) {
+      return { success: false, message: "Maximum 6 guests are allowed per table order." };
+    }
 
     try {
       const { ok, data } = await apiRequest("/sessions/start", {
         method: "POST",
-        body: { tableId: normalizedTableId, tableToken: normalizedToken },
+        body: { tableId: normalizedTableId, tableToken: normalizedToken, guestCount: normalizedGuestCount },
       });
       if (!ok || !data || data.success !== true || !data.session) {
         return { success: false, message: data?.message || "Unable to start table session." };
@@ -348,6 +400,7 @@ export function AuthProvider({ children }) {
         tableId: data.tableId || normalizedTableId,
         tableLabel: data.tableLabel || "",
         sessionId: data.session?.id || "",
+        guestCount: Number(data.session?.guestCount || normalizedGuestCount) || normalizedGuestCount,
         tableToken: normalizedToken,
         startedAt: data.session?.createdAt || new Date().toISOString(),
       });
@@ -365,7 +418,7 @@ export function AuthProvider({ children }) {
     }
   }, [getGuestCartKey]);
 
-  const refreshMenuItemsFromServer = async ({ token, seedIfEmpty = false } = {}) => {
+  const refreshMenuItemsFromServer = async () => {
     try {
       const { ok, data } = await apiRequest("/menu/items");
       if (!ok || !data || data.success !== true || !Array.isArray(data.items)) {
@@ -402,6 +455,32 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const refreshPromotionsFromServer = async () => {
+    try {
+      const { ok, data } = await apiRequest("/promotions");
+      if (!ok || !data || data.success !== true || !Array.isArray(data.promotions)) {
+        return { success: false, message: data?.message || "Unable to load promotions." };
+      }
+      setPromotions(data.promotions);
+      return { success: true, promotions: data.promotions };
+    } catch {
+      return { success: false, message: "Backend is not reachable. Start the backend server." };
+    }
+  };
+
+  const refreshReviewsFromServer = async () => {
+    try {
+      const { ok, data } = await apiRequest("/reviews");
+      if (!ok || !data || data.success !== true || !Array.isArray(data.reviews)) {
+        return { success: false, message: data?.message || "Unable to load feedback." };
+      }
+      setFeedbacks(data.reviews);
+      return { success: true, reviews: data.reviews };
+    } catch {
+      return { success: false, message: "Backend is not reachable. Start the backend server." };
+    }
+  };
+
   const saveMenuItemsToServer = async (items, token = authToken) => {
     const normalizedToken = String(token || "").trim();
     if (!normalizedToken) return { success: false, message: "Missing auth token." };
@@ -424,6 +503,8 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     refreshMenuItemsFromServer();
     refreshMenuCategoriesFromServer();
+    refreshPromotionsFromServer();
+    refreshReviewsFromServer();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -508,6 +589,23 @@ export function AuthProvider({ children }) {
         setAdminPointsByEmail({});
       }
       return { success: true, purchases: data.purchases };
+    } catch {
+      return { success: false, message: "Backend is not reachable. Start the backend server." };
+    }
+  };
+
+  const refreshAdminOrders = async (token = authToken) => {
+    const normalizedToken = String(token || "").trim();
+    if (!normalizedToken) return { success: false, message: "Missing auth token." };
+
+    try {
+      const { ok, data } = await apiRequest("/orders", { token: normalizedToken });
+      if (!ok || !data || data.success !== true || !Array.isArray(data.orders)) {
+        return { success: false, message: data?.message || "Unable to load orders." };
+      }
+      const rows = flattenServerOrderRows(data.orders);
+      setPurchases(rows);
+      return { success: true, orders: data.orders, purchases: rows };
     } catch {
       return { success: false, message: "Backend is not reachable. Start the backend server." };
     }
@@ -602,8 +700,11 @@ export function AuthProvider({ children }) {
         } else {
           setLoyaltySummary({ points: 0, discountPercent: 0 });
           refreshLoyaltyRules();
-          refreshMenuItemsFromServer({ token, seedIfEmpty: true });
+          refreshMenuItemsFromServer();
+          refreshPromotionsFromServer();
+          refreshReviewsFromServer();
           refreshAdminUsers(token);
+          refreshAdminOrders(token);
           refreshAdminLoyaltyPurchases(token);
           refreshVipBookingsFromServer(token);
         }
@@ -878,11 +979,11 @@ export function AuthProvider({ children }) {
 
   const addToCart = ({ menuItemId, itemName, price, image, size = "Small" }) => {
     const guestKey = getGuestCartKey();
-    const isGuest = !authUser && Boolean(guestKey);
+    const isGuest = Boolean(guestKey) && (!authUser || authUser.role !== "user");
     if (!authUser && !isGuest) {
       return { success: false, message: "Please login as user to use cart." };
     }
-    if (authUser && authUser.role !== "user") {
+    if (authUser && authUser.role !== "user" && !isGuest) {
       return { success: false, message: "Please login as user to use cart." };
     }
     const menuItem = menuItems.find(
@@ -898,7 +999,7 @@ export function AuthProvider({ children }) {
     }
 
     const priceValue = parsePrice(price);
-    const cartOwnerKey = authUser ? authUser.email : guestKey;
+    const cartOwnerKey = isGuest ? guestKey : authUser.email;
     const existing = cartItems.find(
       (item) =>
         item.userEmail === cartOwnerKey &&
@@ -933,10 +1034,10 @@ export function AuthProvider({ children }) {
 
   const increaseCartQty = (cartItemId) => {
     const guestKey = getGuestCartKey();
-    const isGuest = !authUser && Boolean(guestKey);
+    const isGuest = Boolean(guestKey) && (!authUser || authUser.role !== "user");
     if (!authUser && !isGuest) return;
-    if (authUser && authUser.role !== "user") return;
-    const cartOwnerKey = authUser ? authUser.email : guestKey;
+    if (authUser && authUser.role !== "user" && !isGuest) return;
+    const cartOwnerKey = isGuest ? guestKey : authUser.email;
     setCartItems((current) =>
       current.map((item) =>
         item.id === cartItemId && item.userEmail === cartOwnerKey
@@ -948,10 +1049,10 @@ export function AuthProvider({ children }) {
 
   const decreaseCartQty = (cartItemId) => {
     const guestKey = getGuestCartKey();
-    const isGuest = !authUser && Boolean(guestKey);
+    const isGuest = Boolean(guestKey) && (!authUser || authUser.role !== "user");
     if (!authUser && !isGuest) return;
-    if (authUser && authUser.role !== "user") return;
-    const cartOwnerKey = authUser ? authUser.email : guestKey;
+    if (authUser && authUser.role !== "user" && !isGuest) return;
+    const cartOwnerKey = isGuest ? guestKey : authUser.email;
     setCartItems((current) =>
       current.map((item) =>
         item.id === cartItemId && item.userEmail === cartOwnerKey
@@ -963,10 +1064,10 @@ export function AuthProvider({ children }) {
 
   const removeFromCart = (cartItemId) => {
     const guestKey = getGuestCartKey();
-    const isGuest = !authUser && Boolean(guestKey);
+    const isGuest = Boolean(guestKey) && (!authUser || authUser.role !== "user");
     if (!authUser && !isGuest) return;
-    if (authUser && authUser.role !== "user") return;
-    const cartOwnerKey = authUser ? authUser.email : guestKey;
+    if (authUser && authUser.role !== "user" && !isGuest) return;
+    const cartOwnerKey = isGuest ? guestKey : authUser.email;
     setCartItems((current) =>
       current.filter(
         (item) => !(item.id === cartItemId && item.userEmail === cartOwnerKey)
@@ -976,10 +1077,10 @@ export function AuthProvider({ children }) {
 
   const clearCart = () => {
     const guestKey = getGuestCartKey();
-    const isGuest = !authUser && Boolean(guestKey);
+    const isGuest = Boolean(guestKey) && (!authUser || authUser.role !== "user");
     if (!authUser && !isGuest) return;
-    if (authUser && authUser.role !== "user") return;
-    const cartOwnerKey = authUser ? authUser.email : guestKey;
+    if (authUser && authUser.role !== "user" && !isGuest) return;
+    const cartOwnerKey = isGuest ? guestKey : authUser.email;
     setCartItems((current) =>
       (Array.isArray(current) ? current : []).filter((item) => String(item?.userEmail || "").trim().toLowerCase() !== String(cartOwnerKey || "").trim().toLowerCase())
     );
@@ -987,15 +1088,15 @@ export function AuthProvider({ children }) {
 
   const placeOrderFromCart = async (checkoutDetails = {}) => {
     const guestKey = getGuestCartKey();
-    const isGuest = !authUser && Boolean(guestKey);
+    const isGuest = Boolean(guestKey) && (!authUser || authUser.role !== "user");
     if (!authUser && !isGuest) {
       return { success: false, message: "Please login as user to place order." };
     }
-    if (authUser && authUser.role !== "user") {
+    if (authUser && authUser.role !== "user" && !isGuest) {
       return { success: false, message: "Please login as user to place order." };
     }
 
-    const cartOwnerKey = authUser ? authUser.email : guestKey;
+    const cartOwnerKey = isGuest ? guestKey : authUser.email;
     const userCart = cartItems.filter((item) => item.userEmail === cartOwnerKey);
     if (userCart.length === 0) {
       return { success: false, message: "Your cart is empty." };
@@ -1033,6 +1134,7 @@ export function AuthProvider({ children }) {
             tableId,
             tableSessionId,
             tableToken,
+            guestCount: Number(tableContext?.guestCount) || 1,
             items: userCart.map((item) => ({
               menuItemId: item.menuItemId || "",
               itemName: item.itemName || "",
@@ -1388,7 +1490,7 @@ export function AuthProvider({ children }) {
     return { success: true };
   };
 
-  const updateOrderStatus = (orderId, status, cancelReason = "") => {
+  const updateOrderStatus = async (orderId, status, cancelReason = "") => {
     const normalizedOrderId = String(orderId || "").trim();
     if (!normalizedOrderId) {
       return { success: false, message: "Order id is required." };
@@ -1398,6 +1500,34 @@ export function AuthProvider({ children }) {
     const normalizedReason = String(cancelReason || "").trim();
     if (nextStatus === "Cancelled" && !normalizedReason) {
       return { success: false, message: "Please provide a cancellation reason." };
+    }
+
+    const token = String(authToken || "").trim();
+    if (token && authUser?.role === "admin") {
+      try {
+        const { ok, data } = await apiRequest(`/orders/${encodeURIComponent(normalizedOrderId)}/status`, {
+          method: "PATCH",
+          token,
+          body: { status: nextStatus, cancelReason: normalizedReason },
+        });
+
+        if (!ok || !data || data.success !== true || !data.order) {
+          return { success: false, message: data?.message || "Unable to update order status." };
+        }
+
+        const rows = flattenServerOrderRows([data.order]);
+        setPurchases((current) => [
+          ...rows,
+          ...(Array.isArray(current) ? current : []).filter((purchase) => {
+            const purchaseOrderId = String(purchase?.orderId || "").trim();
+            const purchaseId = String(purchase?.id || "").trim();
+            return purchaseOrderId !== normalizedOrderId && purchaseId !== normalizedOrderId;
+          }),
+        ]);
+        return { success: true, order: data.order };
+      } catch {
+        return { success: false, message: "Backend is not reachable. Start the backend server." };
+      }
     }
 
     const matches = purchases.some((purchase) => {
@@ -1422,26 +1552,6 @@ export function AuthProvider({ children }) {
         };
       })
     );
-
-    const token = String(authToken || "").trim();
-    if (token && authUser?.role === "admin") {
-      try {
-        const matching = (Array.isArray(purchases) ? purchases : []).find((purchase) => {
-          const purchaseOrderId = String(purchase?.orderId || "").trim();
-          const purchaseId = String(purchase?.id || "").trim();
-          return purchaseOrderId === normalizedOrderId || purchaseId === normalizedOrderId;
-        });
-        const loyaltyPurchaseId = matching?.orderId ? String(matching.orderId).trim() : normalizedOrderId;
-        const userEmail = matching?.userEmail ? String(matching.userEmail).trim().toLowerCase() : "";
-        apiRequest(`/loyalty/purchases/${encodeURIComponent(loyaltyPurchaseId)}/status`, {
-          method: "PATCH",
-          token,
-          body: { status: nextStatus, cancelReason: normalizedReason, userEmail },
-        });
-      } catch {
-        // ignore sync errors
-      }
-    }
     return { success: true };
   };
 
@@ -1507,10 +1617,12 @@ export function AuthProvider({ children }) {
     return { success: true, message: result?.message || "Booking cancelled successfully." };
   };
 
-  const addFeedback = ({ rating, message }) => {
+  const addFeedback = async ({ rating, message }) => {
     if (!authUser || authUser.role !== "user") {
       return { success: false, message: "Only logged-in users can submit feedback." };
     }
+    const token = String(authToken || "").trim();
+    if (!token) return { success: false, message: "Please login again." };
 
     const normalizedMessage = String(message || "").trim();
     const ratingValue = Number(rating);
@@ -1521,19 +1633,28 @@ export function AuthProvider({ children }) {
       return { success: false, message: "Please select a rating between 1 and 5." };
     }
 
-    const feedback = {
-      id: crypto.randomUUID(),
-      userEmail: authUser.email,
-      userName: authUser.fullName || authUser.email,
-      rating: ratingValue,
-      message: normalizedMessage,
-      createdAt: new Date().toISOString(),
-    };
-    setFeedbacks((current) => [feedback, ...current]);
-    return { success: true };
+    try {
+      const { ok, data } = await apiRequest("/reviews", {
+        method: "POST",
+        token,
+        body: {
+          rating: ratingValue,
+          message: normalizedMessage,
+        },
+      });
+
+      if (!ok || !data || data.success !== true || !data.review) {
+        return { success: false, message: data?.message || "Unable to submit feedback." };
+      }
+
+      setFeedbacks((current) => [data.review, ...(Array.isArray(current) ? current : []).filter((item) => item.id !== data.review.id)]);
+      return { success: true, review: data.review };
+    } catch {
+      return { success: false, message: "Backend is not reachable. Start the backend server." };
+    }
   };
 
-  const addPromotion = ({
+  const addPromotion = async ({
     type,
     title,
     description,
@@ -1551,6 +1672,8 @@ export function AuthProvider({ children }) {
     if (!authUser || authUser.role !== "admin") {
       return { success: false, message: "Only admins can create promotions." };
     }
+    const token = String(authToken || "").trim();
+    if (!token) return { success: false, message: "Please login again." };
 
     const normalizedType = type === "vip" ? "vip" : "food";
     const normalizedTitle = String(title || "").trim();
@@ -1574,51 +1697,76 @@ export function AuthProvider({ children }) {
       return { success: false, message: "End date must be after start date." };
     }
 
-    const normalizedDiscount =
-      normalizedDiscountType === "fixed"
-        ? `SLR ${Math.round(normalizedDiscountValue).toLocaleString()} OFF`
-        : `${normalizedDiscountValue}% OFF`;
+    try {
+      const { ok, data } = await apiRequest("/promotions", {
+        method: "POST",
+        token,
+        body: {
+          type: normalizedType,
+          title: normalizedTitle,
+          description: normalizedDescription,
+          discountType: normalizedDiscountType,
+          discountValue: normalizedDiscountValue,
+          maxDiscount: normalizedMaxDiscount,
+          minOrderValue: normalizedMinOrderValue,
+          promoCode: normalizedPromoCode,
+          startDate: normalizedStartDate,
+          endDate: normalizedEndDate,
+          imageUrl: normalizedImageUrl,
+          displayInHomeHeader: Boolean(displayInHomeHeader),
+          activateNow: Boolean(activateNow),
+        },
+      });
 
-    const promotion = {
-      id: crypto.randomUUID(),
-      type: normalizedType,
-      title: normalizedTitle,
-      description: normalizedDescription,
-      discountType: normalizedDiscountType,
-      discountValue: normalizedDiscountValue,
-      maxDiscount: normalizedMaxDiscount,
-      minOrderValue: normalizedMinOrderValue,
-      promoCode: normalizedPromoCode,
-      startDate: normalizedStartDate,
-      endDate: normalizedEndDate,
-      imageUrl: normalizedImageUrl,
-      displayInHomeHeader: Boolean(displayInHomeHeader),
-      discountText: normalizedDiscount,
-      active: Boolean(activateNow),
-      createdAt: new Date().toISOString(),
-    };
-    setPromotions((current) => [promotion, ...current]);
-    return { success: true };
+      if (!ok || !data || data.success !== true || !data.promotion) {
+        return { success: false, message: data?.message || "Unable to create promotion." };
+      }
+
+      setPromotions((current) => [data.promotion, ...(Array.isArray(current) ? current : []).filter((item) => item.id !== data.promotion.id)]);
+      return { success: true, promotion: data.promotion };
+    } catch {
+      return { success: false, message: "Backend is not reachable. Start the backend server." };
+    }
   };
 
-  const togglePromotionStatus = (promotionId) => {
+  const togglePromotionStatus = async (promotionId) => {
     if (!authUser || authUser.role !== "admin") {
       return { success: false, message: "Only admins can update promotions." };
     }
-    setPromotions((current) =>
-      current.map((promotion) =>
-        promotion.id === promotionId
-          ? { ...promotion, active: !promotion.active }
-          : promotion
-      )
-    );
-    return { success: true };
+    const token = String(authToken || "").trim();
+    if (!token) return { success: false, message: "Please login again." };
+
+    const existing = promotions.find((promotion) => promotion.id === promotionId);
+    if (!existing) return { success: false, message: "Promotion not found." };
+
+    try {
+      const { ok, data } = await apiRequest(`/promotions/${encodeURIComponent(promotionId)}`, {
+        method: "PATCH",
+        token,
+        body: { active: !existing.active },
+      });
+
+      if (!ok || !data || data.success !== true || !data.promotion) {
+        return { success: false, message: data?.message || "Unable to update promotion." };
+      }
+
+      setPromotions((current) =>
+        (Array.isArray(current) ? current : []).map((promotion) =>
+          promotion.id === promotionId ? data.promotion : promotion
+        )
+      );
+      return { success: true, promotion: data.promotion };
+    } catch {
+      return { success: false, message: "Backend is not reachable. Start the backend server." };
+    }
   };
 
-  const updatePromotion = (promotionId, updates) => {
+  const updatePromotion = async (promotionId, updates) => {
     if (!authUser || authUser.role !== "admin") {
       return { success: false, message: "Only admins can update promotions." };
     }
+    const token = String(authToken || "").trim();
+    if (!token) return { success: false, message: "Please login again." };
 
     const existingPromotion = promotions.find((promotion) => promotion.id === promotionId);
     if (!existingPromotion) {
@@ -1671,43 +1819,64 @@ export function AuthProvider({ children }) {
       return { success: false, message: "End date must be after start date." };
     }
 
-    const normalizedDiscount =
-      normalizedDiscountType === "fixed"
-        ? `SLR ${Math.round(normalizedDiscountValue).toLocaleString()} OFF`
-        : `${normalizedDiscountValue}% OFF`;
+    try {
+      const { ok, data } = await apiRequest(`/promotions/${encodeURIComponent(promotionId)}`, {
+        method: "PATCH",
+        token,
+        body: {
+          type: normalizedType,
+          title: normalizedTitle,
+          description: normalizedDescription,
+          discountType: normalizedDiscountType,
+          discountValue: normalizedDiscountValue,
+          maxDiscount: normalizedMaxDiscount,
+          minOrderValue: normalizedMinOrderValue,
+          promoCode: normalizedPromoCode,
+          startDate: normalizedStartDate,
+          endDate: normalizedEndDate,
+          imageUrl: normalizedImageUrl,
+          displayInHomeHeader: normalizedDisplayInHomeHeader,
+          active: normalizedActive,
+        },
+      });
 
-    const nextPromotion = {
-      ...existingPromotion,
-      type: normalizedType,
-      title: normalizedTitle,
-      description: normalizedDescription,
-      discountType: normalizedDiscountType,
-      discountValue: normalizedDiscountValue,
-      maxDiscount: normalizedMaxDiscount,
-      minOrderValue: normalizedMinOrderValue,
-      promoCode: normalizedPromoCode,
-      startDate: normalizedStartDate,
-      endDate: normalizedEndDate,
-      imageUrl: normalizedImageUrl,
-      displayInHomeHeader: normalizedDisplayInHomeHeader,
-      discountText: normalizedDiscount,
-      active: normalizedActive,
-      updatedAt: new Date().toISOString(),
-    };
+      if (!ok || !data || data.success !== true || !data.promotion) {
+        return { success: false, message: data?.message || "Unable to update promotion." };
+      }
 
-    setPromotions((current) =>
-      current.map((promotion) => (promotion.id === promotionId ? nextPromotion : promotion))
-    );
-
-    return { success: true };
+      setPromotions((current) =>
+        (Array.isArray(current) ? current : []).map((promotion) =>
+          promotion.id === promotionId ? data.promotion : promotion
+        )
+      );
+      return { success: true, promotion: data.promotion };
+    } catch {
+      return { success: false, message: "Backend is not reachable. Start the backend server." };
+    }
   };
 
-  const deletePromotion = (promotionId) => {
+  const deletePromotion = async (promotionId) => {
     if (!authUser || authUser.role !== "admin") {
       return { success: false, message: "Only admins can delete promotions." };
     }
-    setPromotions((current) => current.filter((promotion) => promotion.id !== promotionId));
-    return { success: true };
+    const token = String(authToken || "").trim();
+    if (!token) return { success: false, message: "Please login again." };
+
+    try {
+      const { ok, data } = await apiRequest(`/promotions/${encodeURIComponent(promotionId)}`, {
+        method: "DELETE",
+        token,
+      });
+
+      if (!ok || !data || data.success !== true) {
+        return { success: false, message: data?.message || "Unable to delete promotion." };
+      }
+
+      setPromotions((current) => (Array.isArray(current) ? current : []).filter((promotion) => promotion.id !== promotionId));
+      return { success: true };
+    } catch {
+      return { success: false, message: "Backend is not reachable. Start the backend server." };
+    }
   };
 
   const addVipBooking = async ({ suiteId, date, time, timeSlots, guests } = {}) => {
@@ -1986,9 +2155,12 @@ export function AuthProvider({ children }) {
     addLoyaltyRule,
     removeLoyaltyRule,
     saveLoyaltyRulesToServer,
+    refreshAdminOrders,
     refreshAdminLoyaltyPurchases,
     refreshAdminUsers,
     refreshLoyaltySummary,
+    refreshPromotionsFromServer,
+    refreshReviewsFromServer,
     addMenuItem,
     addMenuCategory,
     updateMenuCategory,

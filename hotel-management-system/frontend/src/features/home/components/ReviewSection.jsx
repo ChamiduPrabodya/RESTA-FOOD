@@ -45,8 +45,8 @@ function ReviewSection({ sectionPaddingX, sectionReveal }) {
       .slice(0, 3);
   }, [feedbacks]);
 
-  const handleSubmitFeedback = () => {
-    const result = addFeedback({
+  const handleSubmitFeedback = async () => {
+    const result = await addFeedback({
       rating: feedbackRating,
       message: feedbackMessage,
     });

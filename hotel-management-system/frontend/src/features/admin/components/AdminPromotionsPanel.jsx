@@ -191,16 +191,16 @@ function AdminPromotionsPanel({
     setFormOpen(true);
   };
 
-  const handleSubmit = () => {
-    const result = isEditing ? updatePromotion(editingPromotionId, form) : addPromotion(form);
+  const handleSubmit = async () => {
+    const result = await (isEditing ? updatePromotion(editingPromotionId, form) : addPromotion(form));
     if (!result.success) return;
     closeForm();
   };
 
-  const handleDelete = (promotion) => {
+  const handleDelete = async (promotion) => {
     const confirmed = window.confirm(`Delete promotion "${promotion.title}"? This can't be undone.`);
     if (!confirmed) return;
-    const result = deletePromotion(promotion.id);
+    const result = await deletePromotion(promotion.id);
     if (!result.success) return;
     if (editingPromotionId === promotion.id) {
       closeForm();

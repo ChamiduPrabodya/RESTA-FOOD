@@ -3,6 +3,8 @@ const { TableSession } = require("../../models/TableSession");
 const { Table } = require("../../models/Table");
 const { requireTable } = require("../tables/tablesService");
 
+const MAX_DINE_IN_GUESTS = 6;
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -11,9 +13,21 @@ function mapSession(session) {
   return {
     id: String(session.id || ""),
     tableId: String(session.tableId || ""),
+    guestCount: Math.max(1, Math.min(MAX_DINE_IN_GUESTS, Math.round(Number(session.guestCount) || 1))),
     status: ["active", "closed", "expired"].includes(session.status) ? session.status : "active",
     createdAt: String(session.createdAt || nowIso()),
   };
+}
+
+function normalizeGuestCount(value) {
+  const count = Math.round(Number(value));
+  if (!Number.isFinite(count) || count < 1) {
+    throw httpError(400, "guestCount must be at least 1.");
+  }
+  if (count > MAX_DINE_IN_GUESTS) {
+    throw httpError(400, `guestCount cannot be more than ${MAX_DINE_IN_GUESTS}.`);
+  }
+  return count;
 }
 
 async function getNextSessionId() {
@@ -35,6 +49,7 @@ async function getActiveSessionByTableId(tableId) {
 async function startSession(payload = {}) {
   const tableId = String(payload.tableId || "").trim();
   const tableToken = String(payload.tableToken || "").trim();
+  const guestCount = normalizeGuestCount(payload.guestCount);
   if (!tableId) {
     throw httpError(400, "tableId is required.");
   }
@@ -47,10 +62,15 @@ async function startSession(payload = {}) {
 
   const existing = await getActiveSessionByTableId(table.id);
   if (existing) {
+    let session = existing;
+    if (!Number(existing.guestCount)) {
+      await TableSession.updateOne({ id: existing.id }, { $set: { guestCount } });
+      session = { ...existing, guestCount };
+    }
     return {
       tableId: table.id,
       tableLabel: table.label,
-      session: mapSession(existing),
+      session: mapSession(session),
       reused: true,
       message: `Reusing the active session for ${table.label}.`,
     };
@@ -71,6 +91,7 @@ async function startSession(payload = {}) {
   const session = await TableSession.create({
     id: await getNextSessionId(),
     tableId: table.id,
+    guestCount,
     status: "active",
     createdAt: nowIso(),
   });
@@ -115,5 +136,6 @@ module.exports = {
   getActiveSessionByTableId,
   getSessionById,
   getSessionForTable,
+  MAX_DINE_IN_GUESTS,
   startSession,
 };

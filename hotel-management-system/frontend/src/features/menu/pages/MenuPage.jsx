@@ -8,6 +8,10 @@ import {
   Card,
   CardContent,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   InputAdornment,
   Snackbar,
   Stack,
@@ -123,6 +127,7 @@ function MenuPage() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [search, setSearch] = useState("");
   const [notice, setNotice] = useState({ open: false, message: "", severity: "success" });
+  const [guestPrompt, setGuestPrompt] = useState({ open: false, tableId: "", tableToken: "", guestCount: "1", error: "" });
   const reduceMotion = useReducedMotion();
   const navigate = useNavigate();
   const { authUser, menuItems, purchases, addToCart, tableContext, startTableSession, clearTableContext } = useAuth();
@@ -149,12 +154,13 @@ function MenuPage() {
   }, [menuItems, purchaseCounts, search, selectedCategory]);
 
   const handleBuy = (item, size, price) => {
+    const isTableGuestMode = Boolean(tableContext?.sessionId) && (!authUser || authUser.role !== "user");
     if (!authUser && !tableContext?.sessionId) {
       navigate("/sign-in", { state: { from: "/menu" } });
       return;
     }
 
-    if (authUser && authUser.role !== "user") {
+    if (authUser && authUser.role !== "user" && !isTableGuestMode) {
       setNotice({
         open: true,
         message: "Admin accounts cannot buy items. Use a user account.",
@@ -182,21 +188,42 @@ function MenuPage() {
     const tableId = String(params.get("tableId") || "").trim();
     const tableToken = String(params.get("tableToken") || "").trim();
     if (!tableId) return;
+    if (tableContext?.sessionId && String(tableContext.tableId || "").trim() === tableId) return;
+    const timeoutId = window.setTimeout(() => {
+      setGuestPrompt({ open: true, tableId, tableToken, guestCount: "1", error: "" });
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [location.search, tableContext?.sessionId, tableContext?.tableId]);
 
-    startTableSession({ tableId, tableToken }).then((result) => {
-      if (!result?.success) {
-        setNotice({ open: true, message: result?.message || "Unable to start table session.", severity: "error" });
-        return;
-      }
+  const submitGuestPrompt = async () => {
+    const guestCount = Math.round(Number(guestPrompt.guestCount));
+    if (!Number.isFinite(guestCount) || guestCount < 1) {
+      setGuestPrompt((current) => ({ ...current, error: "Please enter at least 1 guest." }));
+      return;
+    }
+    if (guestCount > 6) {
+      setGuestPrompt((current) => ({ ...current, error: "Maximum 6 guests are allowed per table order." }));
+      return;
+    }
 
-      const label = String(result?.tableLabel || "").trim();
-      setNotice({
-        open: true,
-        message: label ? `Ordering for ${label}.` : "Table session started.",
-        severity: "success",
-      });
+    const result = await startTableSession({
+      tableId: guestPrompt.tableId,
+      tableToken: guestPrompt.tableToken,
+      guestCount,
     });
-  }, [location.search, startTableSession]);
+    if (!result?.success) {
+      setGuestPrompt((current) => ({ ...current, error: result?.message || "Unable to start table session." }));
+      return;
+    }
+
+    const label = String(result?.tableLabel || "").trim();
+    setGuestPrompt({ open: false, tableId: "", tableToken: "", guestCount: "1", error: "" });
+    setNotice({
+      open: true,
+      message: label ? `Ordering for ${label}.` : "Table session started.",
+      severity: "success",
+    });
+  };
 
   return (
     <Box sx={{ bgcolor: "background.default", color: "text.primary", minHeight: "100vh" }}>
@@ -371,6 +398,34 @@ function MenuPage() {
           {notice.message}
         </Alert>
       </Snackbar>
+      <Dialog
+        open={guestPrompt.open}
+        onClose={() => {}}
+        PaperProps={{ sx: { bgcolor: "#0f1116", border: "1px solid rgba(212,178,95,0.22)", color: "text.primary" } }}
+      >
+        <DialogTitle>How many guests?</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ color: "text.secondary", mb: 1.4 }}>
+            Enter the number of guests at this table. Maximum 6 guests are allowed.
+          </Typography>
+          <TextField
+            autoFocus
+            fullWidth
+            type="number"
+            value={guestPrompt.guestCount}
+            onChange={(event) => setGuestPrompt((current) => ({ ...current, guestCount: event.target.value, error: "" }))}
+            inputProps={{ min: 1, max: 6 }}
+            error={Boolean(guestPrompt.error)}
+            helperText={guestPrompt.error || " "}
+            sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#07090d", borderRadius: 2.5 } }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.2 }}>
+          <Button variant="contained" color="primary" onClick={submitGuestPrompt}>
+            Start Order
+          </Button>
+        </DialogActions>
+      </Dialog>
       <SiteFooter />
       <BackToTopButton />
     </Box>

@@ -100,9 +100,13 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus, updatePurchaseStat
             orderType: purchase.orderType || "Delivery",
             paymentMethod: purchase.paymentMethod || "",
             userEmail: purchase.userEmail || "",
-          deliveryDetails: purchase.deliveryDetails || null,
-          items: [purchase],
-        });
+            tableId: purchase.tableId || "",
+            tableLabel: purchase.tableLabel || "",
+            tableSessionId: purchase.tableSessionId || "",
+            guestCount: Number(purchase.guestCount) || 0,
+            deliveryDetails: purchase.deliveryDetails || null,
+            items: [purchase],
+          });
         return;
       }
 
@@ -115,6 +119,10 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus, updatePurchaseStat
       existing.orderType = existing.orderType || purchase.orderType;
       existing.paymentMethod = existing.paymentMethod || purchase.paymentMethod;
       existing.userEmail = existing.userEmail || purchase.userEmail;
+      existing.tableId = existing.tableId || purchase.tableId;
+      existing.tableLabel = existing.tableLabel || purchase.tableLabel;
+      existing.tableSessionId = existing.tableSessionId || purchase.tableSessionId;
+      existing.guestCount = existing.guestCount || Number(purchase.guestCount) || 0;
       existing.deliveryDetails = existing.deliveryDetails || purchase.deliveryDetails;
     });
 
@@ -147,12 +155,12 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus, updatePurchaseStat
         ? cancelledOrders
         : activeOrders;
   const closeCancelDialog = () => setCancelDialog({ open: false, targetId: "", mode: "order", reason: "" });
-  const handleOrderStatusChange = (orderId, nextStatus) => {
+  const handleOrderStatusChange = async (orderId, nextStatus) => {
     if (nextStatus === "Cancelled") {
       setCancelDialog({ open: true, targetId: orderId, mode: "order", reason: "" });
       return;
     }
-    const result = updateOrderStatus(orderId, nextStatus);
+    const result = await updateOrderStatus(orderId, nextStatus);
     if (!result.success) {
       setNotice({ open: true, message: result.message || "Unable to update order status.", severity: "error" });
       return;
@@ -164,7 +172,7 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus, updatePurchaseStat
     }
     setNotice({ open: true, message: "Order status updated.", severity: "success" });
   };
-  const handleItemStatusChange = (purchaseId, nextStatus) => {
+  const handleItemStatusChange = async (purchaseId, nextStatus) => {
     if (!updatePurchaseStatus) {
       setNotice({ open: true, message: "Item status updates are not available.", severity: "error" });
       return;
@@ -173,7 +181,7 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus, updatePurchaseStat
       setCancelDialog({ open: true, targetId: purchaseId, mode: "item", reason: "" });
       return;
     }
-    const result = updatePurchaseStatus(purchaseId, nextStatus);
+    const result = await updatePurchaseStatus(purchaseId, nextStatus);
     if (!result.success) {
       setNotice({ open: true, message: result.message || "Unable to update item status.", severity: "error" });
       return;
@@ -185,13 +193,13 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus, updatePurchaseStat
     }
     setNotice({ open: true, message: "Item status updated.", severity: "success" });
   };
-  const confirmCancelWithReason = () => {
+  const confirmCancelWithReason = async () => {
     const result =
       cancelDialog.mode === "item"
-        ? updatePurchaseStatus?.(cancelDialog.targetId, "Cancelled", cancelDialog.reason)
-        : updateOrderStatus(cancelDialog.targetId, "Cancelled", cancelDialog.reason);
-    if (!result.success) {
-      setNotice({ open: true, message: result.message || "Unable to cancel order.", severity: "error" });
+        ? await updatePurchaseStatus?.(cancelDialog.targetId, "Cancelled", cancelDialog.reason)
+        : await updateOrderStatus(cancelDialog.targetId, "Cancelled", cancelDialog.reason);
+    if (!result?.success) {
+      setNotice({ open: true, message: result?.message || "Unable to cancel order.", severity: "error" });
       return;
     }
     setNotice({
@@ -249,6 +257,12 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus, updatePurchaseStat
                 <Typography sx={{ color: "text.secondary", textTransform: "uppercase", letterSpacing: 0.8, fontSize: "0.78rem" }}>
                   {String(order.orderType || "Delivery")}
                 </Typography>
+                {String(order.orderType || "").toLowerCase() === "dinein" && (
+                  <Typography sx={{ color: "primary.main", fontWeight: 800, mt: 0.5 }}>
+                    {String(order.tableLabel || order.tableId || "Table").trim()}
+                    {Number(order.guestCount) > 0 ? ` - ${Number(order.guestCount)} guest${Number(order.guestCount) === 1 ? "" : "s"}` : ""}
+                  </Typography>
+                )}
               </Box>
                 <Select
                   size="small"
