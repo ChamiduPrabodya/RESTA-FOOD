@@ -10,6 +10,8 @@ services:
         value: 20
       - key: NODE_ENV
         value: production
+      - key: NPM_CONFIG_PRODUCTION
+        value: "false"
       - key: HOST
         value: 0.0.0.0
       - key: MONGODB_URI
