@@ -29,7 +29,7 @@ const ITEM_STATUSES = [
 
 const ORDER_STATUSES = ["Mixed", ...ITEM_STATUSES];
 
-const isCompletedOrder = (status) => ["Prepared (Ready)", "Delivered"].includes(status);
+const isCompletedOrder = (status) => status === "Delivered";
 const isCancelledOrder = (status) => status === "Cancelled";
 
 const parsePriceNumber = (value) => Number(String(value ?? "").replace(/[^\d.]/g, "")) || 0;
@@ -71,7 +71,7 @@ const isOrderCompleted = (items) => {
   return notCancelled.every((item) => isCompletedOrder(normalizeStatus(item.status)));
 };
 
-function AdminLiveOrdersPanel({ purchases, updateOrderStatus, updatePurchaseStatus }) {
+function AdminLiveOrdersPanel({ purchases, updateOrderStatus }) {
   const [liveOrdersFilter, setLiveOrdersFilter] = useState("active");
   const [cancelDialog, setCancelDialog] = useState({ open: false, targetId: "", mode: "order", reason: "" });
   const [notice, setNotice] = useState({ open: false, message: "", severity: "success" });
@@ -172,39 +172,15 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus, updatePurchaseStat
     }
     setNotice({ open: true, message: "Order status updated.", severity: "success" });
   };
-  const handleItemStatusChange = async (purchaseId, nextStatus) => {
-    if (!updatePurchaseStatus) {
-      setNotice({ open: true, message: "Item status updates are not available.", severity: "error" });
-      return;
-    }
-    if (nextStatus === "Cancelled") {
-      setCancelDialog({ open: true, targetId: purchaseId, mode: "item", reason: "" });
-      return;
-    }
-    const result = await updatePurchaseStatus(purchaseId, nextStatus);
-    if (!result.success) {
-      setNotice({ open: true, message: result.message || "Unable to update item status.", severity: "error" });
-      return;
-    }
-    if (liveOrdersFilter === "cancelled" || liveOrdersFilter === "completed") {
-      setLiveOrdersFilter("active");
-      setNotice({ open: true, message: "Item status updated (moved to Active).", severity: "success" });
-      return;
-    }
-    setNotice({ open: true, message: "Item status updated.", severity: "success" });
-  };
   const confirmCancelWithReason = async () => {
-    const result =
-      cancelDialog.mode === "item"
-        ? await updatePurchaseStatus?.(cancelDialog.targetId, "Cancelled", cancelDialog.reason)
-        : await updateOrderStatus(cancelDialog.targetId, "Cancelled", cancelDialog.reason);
+    const result = await updateOrderStatus(cancelDialog.targetId, "Cancelled", cancelDialog.reason);
     if (!result?.success) {
       setNotice({ open: true, message: result?.message || "Unable to cancel order.", severity: "error" });
       return;
     }
     setNotice({
       open: true,
-      message: cancelDialog.mode === "item" ? "Item cancelled with reason." : "Order cancelled with reason.",
+      message: "Order cancelled with reason.",
       severity: "success",
     });
     closeCancelDialog();
@@ -309,34 +285,6 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus, updatePurchaseStat
                     <Typography sx={{ fontWeight: 700, color: "text.secondary", fontSize: "0.9rem" }}>
                       {item.price}
                     </Typography>
-                    <Select
-                      size="small"
-                      value={normalizeStatus(item.status)}
-                      onChange={(event) => handleItemStatusChange(item.id, event.target.value)}
-                      sx={{
-                        minWidth: 170,
-                        borderRadius: 99,
-                        bgcolor: "#080c12",
-                        color: "primary.main",
-                        "& .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(212,178,95,0.55)" },
-                        "& .MuiSelect-icon": { color: "primary.main" },
-                      }}
-                      MenuProps={{
-                        PaperProps: {
-                          sx: {
-                            bgcolor: "#080c12",
-                            border: "1px solid rgba(212,178,95,0.35)",
-                            color: "primary.main",
-                          },
-                        },
-                      }}
-                    >
-                      {ITEM_STATUSES.map((status) => (
-                        <MenuItem key={status} value={status}>
-                          {status}
-                        </MenuItem>
-                      ))}
-                    </Select>
                   </Stack>
                 </Stack>
               ))}
@@ -369,7 +317,7 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus, updatePurchaseStat
         onClose={closeCancelDialog}
         PaperProps={{ sx: { bgcolor: "#0f1116", border: "1px solid rgba(212,178,95,0.2)", color: "text.primary" } }}
       >
-        <DialogTitle>{cancelDialog.mode === "item" ? "Cancel Item" : "Cancel Order"}</DialogTitle>
+        <DialogTitle>Cancel Order</DialogTitle>
         <DialogContent>
           <Typography sx={{ color: "text.secondary", mb: 1 }}>Please provide a reason for cancellation.</Typography>
           <TextField
