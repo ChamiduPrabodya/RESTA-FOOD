@@ -133,7 +133,9 @@ const flattenServerOrderRows = (orders) =>
         size: String(item?.size || "").trim() || "Regular",
         unitPrice,
         quantity,
-        status: item?.status || order?.status || "Pending",
+        status: order?.status || item?.status || "Pending",
+        cancelReason: order?.cancelReason || item?.cancelReason || "",
+        statusUpdatedAt: order?.statusUpdatedAt || item?.statusUpdatedAt || "",
         userEmail: order?.userEmail || "",
         orderType: order?.orderType || "Delivery",
         paymentMethod: order?.paymentMethod || "",
@@ -594,7 +596,7 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const refreshAdminOrders = async (token = authToken) => {
+  const refreshOrdersFromServer = async (token = authToken) => {
     const normalizedToken = String(token || "").trim();
     if (!normalizedToken) return { success: false, message: "Missing auth token." };
 
@@ -610,6 +612,7 @@ export function AuthProvider({ children }) {
       return { success: false, message: "Backend is not reachable. Start the backend server." };
     }
   };
+  const refreshAdminOrders = refreshOrdersFromServer;
 
   const refreshAdminUsers = async (token = authToken) => {
     const normalizedToken = String(token || "").trim();
@@ -695,6 +698,7 @@ export function AuthProvider({ children }) {
         setAuthUser(data.user);
         upsertLocalUser(data.user);
         if (String(data.user.role || "") !== "admin") {
+          refreshOrdersFromServer(token);
           refreshLoyaltySummary(token);
           refreshVipBookingsFromServer(token);
         } else {
@@ -718,6 +722,35 @@ export function AuthProvider({ children }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authToken]);
+
+  useEffect(() => {
+    const token = String(authToken || "").trim();
+    if (!token || !authUser) return undefined;
+
+    const refreshLiveData = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      refreshOrdersFromServer(token);
+      refreshVipBookingsFromServer(token);
+      if (authUser.role === "admin") {
+        refreshAdminLoyaltyPurchases(token);
+        return;
+      }
+      refreshLoyaltySummary(token);
+    };
+
+    const intervalMs = authUser.role === "admin" ? 8000 : 12000;
+    const intervalId = window.setInterval(refreshLiveData, intervalMs);
+    const handleVisibilityChange = () => {
+      if (!document.hidden) refreshLiveData();
+    };
+
+    window.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authToken, authUser?.email, authUser?.role]);
 
 // login validation
   const login = async (email, password) => {
