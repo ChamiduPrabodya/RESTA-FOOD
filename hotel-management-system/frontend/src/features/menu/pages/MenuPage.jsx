@@ -262,7 +262,12 @@ function MenuPage() {
     });
     if (!result?.success) {
       const failureMessage = result?.message || "Unable to start table session.";
-      if (String(failureMessage).toLowerCase().includes("already in use")) {
+      const normalizedFailure = String(failureMessage).toLowerCase();
+      const shouldBlockQrOrdering =
+        normalizedFailure.includes("already in use") ||
+        normalizedFailure.includes("table not found") ||
+        normalizedFailure.includes("invalid table token");
+      if (shouldBlockQrOrdering) {
         setTableLockNotice({
           locked: true,
           tableId: guestPrompt.tableId,
