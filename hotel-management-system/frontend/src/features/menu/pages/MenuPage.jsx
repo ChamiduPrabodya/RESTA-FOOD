@@ -182,7 +182,7 @@ function MenuPage() {
   }, [menuItems, purchaseCounts, search, selectedCategory]);
 
   const handleBuy = (item, size, price) => {
-    const isTableGuestMode = Boolean(tableContext?.sessionId) && (!authUser || authUser.role !== "user");
+    const isTableGuestMode = Boolean(tableContext?.sessionId);
     if (tableOrderingLocked) {
       setNotice({
         open: true,

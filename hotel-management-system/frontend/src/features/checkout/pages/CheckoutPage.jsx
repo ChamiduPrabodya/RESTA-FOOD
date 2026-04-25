@@ -24,7 +24,7 @@ const toSLR = (value) => `SLR ${Math.round(value).toLocaleString()}`;
 function CheckoutPage() {
   const navigate = useNavigate();
   const { authUser, cartItems, placeOrderFromCart, promotions, loyaltyRules, loyaltySummary, lastDeliveryDetails, tableContext, clearTableContext } = useAuth();
-  const isGuest = Boolean(tableContext?.sessionId) && (!authUser || authUser.role !== "user");
+  const isGuest = Boolean(tableContext?.sessionId);
   const cartOwnerKey = isGuest ? `guest:${String(tableContext?.sessionId || "").trim()}` : authUser?.email || "";
 
   const userCartItems = useMemo(

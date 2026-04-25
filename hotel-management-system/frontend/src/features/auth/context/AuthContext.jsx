@@ -1023,7 +1023,7 @@ export function AuthProvider({ children }) {
 
   const addToCart = ({ menuItemId, itemName, price, image, size = "Small" }) => {
     const guestKey = getGuestCartKey();
-    const isGuest = Boolean(guestKey) && (!authUser || authUser.role !== "user");
+    const isGuest = Boolean(guestKey);
     if (!authUser && !isGuest) {
       return { success: false, message: "Please login as user to use cart." };
     }
@@ -1078,7 +1078,7 @@ export function AuthProvider({ children }) {
 
   const increaseCartQty = (cartItemId) => {
     const guestKey = getGuestCartKey();
-    const isGuest = Boolean(guestKey) && (!authUser || authUser.role !== "user");
+    const isGuest = Boolean(guestKey);
     if (!authUser && !isGuest) return;
     if (authUser && authUser.role !== "user" && !isGuest) return;
     const cartOwnerKey = isGuest ? guestKey : authUser.email;
@@ -1093,7 +1093,7 @@ export function AuthProvider({ children }) {
 
   const decreaseCartQty = (cartItemId) => {
     const guestKey = getGuestCartKey();
-    const isGuest = Boolean(guestKey) && (!authUser || authUser.role !== "user");
+    const isGuest = Boolean(guestKey);
     if (!authUser && !isGuest) return;
     if (authUser && authUser.role !== "user" && !isGuest) return;
     const cartOwnerKey = isGuest ? guestKey : authUser.email;
@@ -1108,7 +1108,7 @@ export function AuthProvider({ children }) {
 
   const removeFromCart = (cartItemId) => {
     const guestKey = getGuestCartKey();
-    const isGuest = Boolean(guestKey) && (!authUser || authUser.role !== "user");
+    const isGuest = Boolean(guestKey);
     if (!authUser && !isGuest) return;
     if (authUser && authUser.role !== "user" && !isGuest) return;
     const cartOwnerKey = isGuest ? guestKey : authUser.email;
@@ -1121,7 +1121,7 @@ export function AuthProvider({ children }) {
 
   const clearCart = () => {
     const guestKey = getGuestCartKey();
-    const isGuest = Boolean(guestKey) && (!authUser || authUser.role !== "user");
+    const isGuest = Boolean(guestKey);
     if (!authUser && !isGuest) return;
     if (authUser && authUser.role !== "user" && !isGuest) return;
     const cartOwnerKey = isGuest ? guestKey : authUser.email;
@@ -1132,7 +1132,7 @@ export function AuthProvider({ children }) {
 
   const placeOrderFromCart = async (checkoutDetails = {}) => {
     const guestKey = getGuestCartKey();
-    const isGuest = Boolean(guestKey) && (!authUser || authUser.role !== "user");
+    const isGuest = Boolean(guestKey);
     if (!authUser && !isGuest) {
       return { success: false, message: "Please login as user to place order." };
     }

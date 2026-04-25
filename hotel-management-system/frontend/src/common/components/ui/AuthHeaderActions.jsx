@@ -55,7 +55,7 @@ function AuthHeaderActions() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
 
-  const isTableGuestMode = Boolean(tableContext?.sessionId) && (!authUser || authUser.role !== "user");
+  const isTableGuestMode = Boolean(tableContext?.sessionId);
   const guestCartKey = isTableGuestMode ? `guest:${String(tableContext?.sessionId || "").trim()}` : "";
 
   const userPurchases = useMemo(
