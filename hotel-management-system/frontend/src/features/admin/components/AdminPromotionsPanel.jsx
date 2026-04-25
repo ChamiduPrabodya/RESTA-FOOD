@@ -6,6 +6,10 @@ import {
   Card,
   CardContent,
   Checkbox,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControlLabel,
   MenuItem,
   Snackbar,
@@ -155,6 +159,7 @@ function AdminPromotionsPanel({
   const [editingPromotionId, setEditingPromotionId] = useState(null);
   const [form, setForm] = useState(createInitialForm());
   const [notice, setNotice] = useState({ open: false, message: "", severity: "warning" });
+  const [blockingDialog, setBlockingDialog] = useState({ open: false, message: "" });
   const isEditing = Boolean(editingPromotionId);
 
   const stats = useMemo(() => {
@@ -183,21 +188,13 @@ function AdminPromotionsPanel({
   const showNegativeValueWarning = () => {
     const message = "Negative values are not allowed for promotions.";
     showNotice(message);
-    if (typeof window !== "undefined" && typeof window.alert === "function") {
-      window.setTimeout(() => {
-        window.alert(message);
-      }, 0);
-    }
+    setBlockingDialog({ open: true, message });
   };
 
   const showBlockingMessage = (message, severity = "warning") => {
     const text = String(message || "").trim() || "Please check the promotion details.";
     showNotice(text, severity);
-    if (typeof window !== "undefined" && typeof window.alert === "function") {
-      window.setTimeout(() => {
-        window.alert(text);
-      }, 0);
-    }
+    setBlockingDialog({ open: true, message: text });
   };
 
   const preventNegativeInput = (event) => {
@@ -295,6 +292,27 @@ function AdminPromotionsPanel({
     }
   };
 
+  const getNumberFieldError = (field, rawValue) => {
+    const value = String(rawValue ?? "").trim();
+    if (!value) return "";
+
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return "Enter a valid number.";
+
+    if (field === "discountValue") {
+      if (parsed < 0) return "Negative values are not allowed.";
+      if (parsed === 0) return "Discount value must be greater than zero.";
+      return "";
+    }
+
+    if (parsed < 0) return "Negative values are not allowed.";
+    return "";
+  };
+
+  const discountValueError = getNumberFieldError("discountValue", form.discountValue);
+  const maxDiscountError = getNumberFieldError("maxDiscount", form.maxDiscount);
+  const minOrderValueError = getNumberFieldError("minOrderValue", form.minOrderValue);
+
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" useFlexGap gap={1}>
@@ -390,30 +408,34 @@ function AdminPromotionsPanel({
                     Discount Value *
                   </Typography>
                   <TextField
-                      fullWidth
-                      type="number"
-                      value={form.discountValue}
-                      onChange={(event) => updateNonNegativeNumberField("discountValue", event.target.value)}
-                      onKeyDown={preventNegativeInput}
-                      onPaste={preventNegativePaste}
-                      inputProps={{ min: 0, step: "any" }}
-                      sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116", borderRadius: 2.5 } }}
-                    />
+                    fullWidth
+                    type="number"
+                    value={form.discountValue}
+                    onChange={(event) => updateNonNegativeNumberField("discountValue", event.target.value)}
+                    onKeyDown={preventNegativeInput}
+                    onPaste={preventNegativePaste}
+                    inputProps={{ min: 0, step: "any" }}
+                    error={Boolean(discountValueError)}
+                    helperText={discountValueError || " "}
+                    sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116", borderRadius: 2.5 } }}
+                  />
                 </Box>
                 <Box>
                   <Typography sx={{ color: "text.secondary", textTransform: "uppercase", fontWeight: 700, mb: 0.6 }}>
                     Max Discount (SLR)
                   </Typography>
                   <TextField
-                      fullWidth
-                      type="number"
-                      value={form.maxDiscount}
-                      onChange={(event) => updateNonNegativeNumberField("maxDiscount", event.target.value)}
-                      onKeyDown={preventNegativeInput}
-                      onPaste={preventNegativePaste}
-                      inputProps={{ min: 0, step: "any" }}
-                      sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116", borderRadius: 2.5 } }}
-                    />
+                    fullWidth
+                    type="number"
+                    value={form.maxDiscount}
+                    onChange={(event) => updateNonNegativeNumberField("maxDiscount", event.target.value)}
+                    onKeyDown={preventNegativeInput}
+                    onPaste={preventNegativePaste}
+                    inputProps={{ min: 0, step: "any" }}
+                    error={Boolean(maxDiscountError)}
+                    helperText={maxDiscountError || " "}
+                    sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116", borderRadius: 2.5 } }}
+                  />
                 </Box>
 
                 <Box>
@@ -421,15 +443,17 @@ function AdminPromotionsPanel({
                     Min Order Value (SLR)
                   </Typography>
                   <TextField
-                      fullWidth
-                      type="number"
-                      value={form.minOrderValue}
-                      onChange={(event) => updateNonNegativeNumberField("minOrderValue", event.target.value)}
-                      onKeyDown={preventNegativeInput}
-                      onPaste={preventNegativePaste}
-                      inputProps={{ min: 0, step: "any" }}
-                      sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116", borderRadius: 2.5 } }}
-                    />
+                    fullWidth
+                    type="number"
+                    value={form.minOrderValue}
+                    onChange={(event) => updateNonNegativeNumberField("minOrderValue", event.target.value)}
+                    onKeyDown={preventNegativeInput}
+                    onPaste={preventNegativePaste}
+                    inputProps={{ min: 0, step: "any" }}
+                    error={Boolean(minOrderValueError)}
+                    helperText={minOrderValueError || " "}
+                    sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116", borderRadius: 2.5 } }}
+                  />
                 </Box>
 
                 <Box>
@@ -551,6 +575,30 @@ function AdminPromotionsPanel({
           {notice.message}
         </Alert>
       </Snackbar>
+
+      <Dialog
+        open={blockingDialog.open}
+        onClose={() => setBlockingDialog({ open: false, message: "" })}
+        fullWidth
+        maxWidth="xs"
+        PaperProps={{
+          sx: {
+            bgcolor: "#17100c",
+            border: "1px solid rgba(212,178,95,0.18)",
+            borderRadius: 3,
+          },
+        }}
+      >
+        <DialogTitle sx={{ color: "primary.main", fontWeight: 800 }}>Validation Error</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ color: "text.primary" }}>{blockingDialog.message}</Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.4 }}>
+          <Button variant="contained" color="primary" onClick={() => setBlockingDialog({ open: false, message: "" })}>
+            OK
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
