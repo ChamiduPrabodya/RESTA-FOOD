@@ -216,7 +216,7 @@ function MenuCard({ item, index, onBuy }) {
 function HomePage() {
   const reduceMotion = useReducedMotion();
   const navigate = useNavigate();
-  const { authUser, addToCart, promotions, menuItems, purchases } = useAuth();
+  const { authUser, addToCart, promotions, menuItems, purchases, tableContext } = useAuth();
   const [notice, setNotice] = useState({ open: false, message: "", severity: "success" });
 
   const activePromotion = useMemo(() => {
@@ -251,12 +251,13 @@ function HomePage() {
   }, [menuItems, purchases]);
 
   const handleBuy = (item, size, price) => {
-    if (!authUser) {
+    const isTableGuestMode = Boolean(tableContext?.sessionId);
+    if (!authUser && !isTableGuestMode) {
       navigate("/sign-in", { state: { from: "/" } });
       return;
     }
 
-    if (authUser.role !== "user") {
+    if (authUser && authUser.role !== "user" && !isTableGuestMode) {
       setNotice({
         open: true,
         message: "Admin accounts cannot buy items. Use a user account.",

@@ -4,7 +4,7 @@ import { useAuth } from "../../features/auth/context/AuthContext";
 function ProtectedRoute({ roles, allowGuestTableSession = false, children }) {
   const { authUser, tableContext } = useAuth();
   const location = useLocation();
-  const hasGuestTableSession = Boolean(tableContext?.sessionId) && (!authUser || authUser.role !== "user");
+  const hasGuestTableSession = Boolean(tableContext?.sessionId);
 
   if (!authUser && !(allowGuestTableSession && hasGuestTableSession)) {
     return <Navigate to="/sign-in" replace state={{ from: location.pathname }} />;
