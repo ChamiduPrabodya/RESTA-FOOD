@@ -1,16 +1,38 @@
-# React + Vite
+# Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Frontend for the Resta Fast Food Hotel Management System, built with React, Vite, Material UI, and React Router.
 
-Currently, two official plugins are available:
+Live app: https://resta-food-ci45.vercel.app
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Available Scripts
 
-## React Compiler
+```bash
+npm run dev
+npm run build
+npm run preview
+npm run lint
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Environment Variables
 
-## Expanding the ESLint configuration
+Create `.env` from `.env.example`:
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```env
+VITE_API_BASE_URL=http://localhost:5000/api
+VITE_GOOGLE_CLIENT_ID=
+VITE_ADMIN_EMAIL=
+```
+
+## Main Pages
+
+- `/` - Home page
+- `/menu` - Food menu
+- `/vip-rooms` - VIP room reservations
+- `/sign-in` - Sign in
+- `/sign-up` - Account registration
+- `/checkout` - Checkout flow
+- `/payment/success` - Payment success page
+- `/payment/cancel` - Payment cancel page
+- `/admin-dashboard` - Admin dashboard
+
+For full project setup, backend configuration, and deployment notes, see the root [README](../../README.md).
