@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   Alert,
   Box,
@@ -160,6 +160,7 @@ function AdminPromotionsPanel({
   const [form, setForm] = useState(createInitialForm());
   const [notice, setNotice] = useState({ open: false, message: "", severity: "warning" });
   const [blockingDialog, setBlockingDialog] = useState({ open: false, message: "" });
+  const lastAlertAtRef = useRef(0);
   const isEditing = Boolean(editingPromotionId);
 
   const stats = useMemo(() => {
@@ -189,6 +190,13 @@ function AdminPromotionsPanel({
     const message = "Negative values are not allowed for promotions.";
     showNotice(message);
     setBlockingDialog({ open: true, message });
+    const now = Date.now();
+    if (now - lastAlertAtRef.current > 600) {
+      lastAlertAtRef.current = now;
+      window.setTimeout(() => {
+        window.alert(message);
+      }, 0);
+    }
   };
 
   const showBlockingMessage = (message, severity = "warning") => {

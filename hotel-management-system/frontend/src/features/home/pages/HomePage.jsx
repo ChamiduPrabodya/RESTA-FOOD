@@ -26,6 +26,7 @@ import AuthHeaderActions from "../../../common/components/ui/AuthHeaderActions";
 import ReviewSection from "../components/ReviewSection";
 import { useAuth } from "../../auth/context/AuthContext";
 import { getMostBoughtMenuItems } from "../../../common/utils/popularity";
+import { isPromotionActiveNow } from "../../../common/utils/pricing";
 
 // NOTE: Image files should be placed in: frontend/public/images/home/
 const heroImage = "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&q=80&w=1920";
@@ -222,6 +223,7 @@ function HomePage() {
 
   const heroSlides = useMemo(() => {
     const list = Array.isArray(promotions) ? promotions : [];
+    const now = new Date();
 
     const getPromoTimestamp = (promotion) => {
       const value = promotion?.updatedAt || promotion?.createdAt || "";
@@ -232,6 +234,7 @@ function HomePage() {
     const validPromotions = list
       .filter(
         (promotion) =>
+          isPromotionActiveNow(promotion, now) &&
           Boolean(
             String(promotion?.title || "").trim() ||
               String(promotion?.description || "").trim() ||
@@ -243,7 +246,7 @@ function HomePage() {
       .slice(0, 8);
 
     const headerOnly = validPromotions.filter((promotion) => Boolean(promotion?.displayInHomeHeader));
-    return headerOnly.length > 1 ? headerOnly : validPromotions;
+    return headerOnly.length > 0 ? headerOnly : validPromotions;
   }, [promotions]);
 
   useEffect(() => {
