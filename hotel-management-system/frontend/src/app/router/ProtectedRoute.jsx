@@ -6,7 +6,11 @@ function ProtectedRoute({ roles, allowGuestTableSession = false, children }) {
   const location = useLocation();
   const hasGuestTableSession = Boolean(tableContext?.sessionId);
 
-  if (!authUser && !(allowGuestTableSession && hasGuestTableSession)) {
+  if (allowGuestTableSession && hasGuestTableSession) {
+    return children;
+  }
+
+  if (!authUser) {
     return <Navigate to="/sign-in" replace state={{ from: location.pathname }} />;
   }
 
