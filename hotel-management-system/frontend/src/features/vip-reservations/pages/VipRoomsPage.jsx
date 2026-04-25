@@ -8,6 +8,7 @@ import {
   Card,
   Chip,
   FormControl,
+  InputAdornment,
   InputLabel,
   MenuItem,
   Select,
@@ -25,6 +26,7 @@ import MusicNoteRoundedIcon from "@mui/icons-material/MusicNoteRounded";
 import AirRoundedIcon from "@mui/icons-material/AirRounded";
 import Groups2RoundedIcon from "@mui/icons-material/Groups2Rounded";
 import SecurityRoundedIcon from "@mui/icons-material/SecurityRounded";
+import CalendarMonthRoundedIcon from "@mui/icons-material/CalendarMonthRounded";
 import BackToTopButton from "../../../common/components/ui/BackToTopButton";
 import SiteFooter from "../../../common/components/ui/SiteFooter";
 import { useAuth } from "../../auth/context/AuthContext";
@@ -412,26 +414,55 @@ function VipRoomsPage() {
             </FormControl>
 
             <Stack direction={{ xs: "column", sm: "row" }} spacing={1.8} sx={{ mb: 2.5 }}>
-              <TextField
-                fullWidth
-                label="Date"
-                type="date"
-                value={bookingDate}
-                onChange={(event) => {
-                  setBookingDate(event.target.value);
-                  setTimeSlot("");
-                }}
-                inputProps={{ min: minBookingDate }}
-                slotProps={{ inputLabel: { shrink: true } }}
-                sx={{
-                  flex: 1,
-                  "& .MuiOutlinedInput-root": { bgcolor: "#07090d", borderRadius: 3 },
-                  "& input::-webkit-calendar-picker-indicator": {
-                    filter: "invert(1)",
-                    opacity: 1,
-                  },
-                }}
-              />
+              <Box sx={{ flex: 1 }}>
+                <Typography
+                  sx={{
+                    color: "text.secondary",
+                    textTransform: "uppercase",
+                    fontWeight: 700,
+                    letterSpacing: 0.9,
+                    fontSize: "0.86rem",
+                    mb: 0.6,
+                  }}
+                >
+                  Date
+                </Typography>
+                <TextField
+                  fullWidth
+                  type="date"
+                  value={bookingDate}
+                  onChange={(event) => {
+                    setBookingDate(event.target.value);
+                    setTimeSlot("");
+                  }}
+                  inputProps={{ min: minBookingDate }}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <CalendarMonthRoundedIcon sx={{ color: "primary.main", fontSize: 20 }} />
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      bgcolor: "#07090d",
+                      borderRadius: 3,
+                    },
+                    "& .MuiInputBase-input": {
+                      py: 1.05,
+                      fontWeight: 700,
+                    },
+                    "& input::-webkit-calendar-picker-indicator": {
+                      position: "absolute",
+                      right: 0,
+                      width: 56,
+                      height: "100%",
+                      opacity: 0,
+                      cursor: "pointer",
+                    },
+                  }}
+                />
+              </Box>
               <FormControl fullWidth sx={{ flex: 1, minWidth: { sm: 280 } }}>
                 <InputLabel sx={{ color: "primary.main", textTransform: "uppercase", fontWeight: 700, letterSpacing: 0.9 }}>
                   Time Slot
