@@ -124,13 +124,6 @@ const parseStoredJson = (key, fallback) => {
   }
 };
 
-const splitFullName = (fullName) => {
-  const text = String(fullName || "").trim().replace(/\s+/g, " ");
-  if (!text) return { firstName: "Customer", lastName: "HMS" };
-  const [firstName, ...rest] = text.split(" ");
-  return { firstName: firstName || "Customer", lastName: rest.join(" ").trim() || "HMS" };
-};
-
 const submitPostForm = ({ actionUrl, fields }) => {
   if (!actionUrl || !fields || typeof fields !== "object") return false;
   try {
@@ -1158,7 +1151,6 @@ export function AuthProvider({ children }) {
   };
 
   const parsePrice = (price) => Number(String(price).replace(/[^\d.]/g, "")) || 0;
-  const formatPrice = (value) => `SLR ${Math.round(value).toLocaleString()}`;
 
   const updateLoyaltyRule = (id, field, value) => {
     const normalizedField = field === "discount" ? "discount" : "threshold";
@@ -1546,140 +1538,22 @@ export function AuthProvider({ children }) {
       return { success: false, message: "Delivery is not available for this area. Please choose Takeaway." };
     }
 
-   const token = String(authToken || "").trim();
-    const paymentMethodText = String(paymentMethod || "").trim().toLowerCase();
-    const normalizedPaymentMethod = paymentMethodText.includes("card") ? "Card" : "Cash";
-
-    let serverOrder = null;
-    let serverOrderId = "";
-
-    // Prefer server-side order creation so totals + delivery fees are authoritative and PayHere can reference the order id.
-    if (token) {
-      try {
-        if (normalizedOrderType === "DineIn") {
-          const sessionId = String(tableContext?.sessionId || "").trim();
-          const tableId = String(tableContext?.tableId || "").trim();
-          if (!tableId || !sessionId) {
-            return { success: false, message: "Missing dine-in session. Scan the table QR again." };
-          }
-        }
-
-        const { ok, data } = await apiRequest("/orders", {
-          method: "POST",
-          token,
-          body: {
-            orderType: normalizedOrderType,
-            paymentMethod: normalizedPaymentMethod,
-            promotionDiscount: pricing.promotionDiscount,
-            deliveryAddress: resolvedDeliveryDetails?.location || "",
-            deliveryCityTown: resolvedDeliveryDetails?.cityTown || "",
-            tableId: normalizedOrderType === "DineIn" ? String(tableContext?.tableId || "").trim() : "",
-            tableSessionId: normalizedOrderType === "DineIn" ? String(tableContext?.sessionId || "").trim() : "",
-            items: userCart.map((item) => ({
-              menuItemId: item.menuItemId || "",
-              itemName: item.itemName || "",
-              quantity: item.quantity,
-              size: item.size || "",
-            })),
-          },
-        });
-
-        if (ok && data && data.success === true && data.order) {
-          serverOrder = data.order;
-          serverOrderId = String(serverOrder.id || "").trim();
-        } else if (normalizedPaymentMethod === "Card") {
-          return { success: false, message: data?.message || "Unable to create order for card payment." };
-        }
-      } catch {
-        if (normalizedPaymentMethod === "Card") {
-          return { success: false, message: "Backend is not reachable. Start the backend server." };
-        }
-      }
-    } else if (normalizedPaymentMethod === "Card") {
+    const token = String(authToken || "").trim();
+    if (!token) {
       return { success: false, message: "Please login again." };
     }
 
-    const orderId = serverOrderId || crypto.randomUUID();
-    const resolvedNextOrderNumber = (() => {
-      try {
-        const stored = Number.parseInt(localStorage.getItem(ORDER_COUNTER_STORAGE_KEY) || "", 10);
-        if (Number.isFinite(stored) && stored >= ORDER_REF_START) return stored;
-      } catch {
-        // ignore
-      }
-      const existing = (Array.isArray(purchases) ? purchases : [])
-        .map((item) => Number(item?.orderNumber))
-        .filter((value) => Number.isFinite(value) && value >= ORDER_REF_START);
-      if (existing.length > 0) return Math.max(...existing) + 1;
-      return ORDER_REF_START;
-    })();
-    safeLocalStorageSetItem(ORDER_COUNTER_STORAGE_KEY, String(resolvedNextOrderNumber + 1));
-    const orderRef = formatOrderRef(resolvedNextOrderNumber);
-    const createdAt = serverOrder?.createdAt || new Date().toISOString();
-    let remainingDiscount = Math.min(pricing.totalDiscount, pricing.subtotal);
+    const paymentMethodText = String(paymentMethod || "").trim().toLowerCase();
+    const normalizedPaymentMethod = paymentMethodText.includes("card") ? "Card" : "Cash";
 
-    const orderRows = userCart.map((item, index) => {
-      const rowSubtotal = item.unitPrice * item.quantity;
-      const matchingMenuItem = menuItems.find(
-        (menuItem) => (item.menuItemId && menuItem.id === item.menuItemId) || menuItem.name === item.itemName
-      );
-      const loyaltyPointsPerUnit =
-        typeof matchingMenuItem?.loyaltyPoints === "number"
-          ? matchingMenuItem.loyaltyPoints
-          : Math.max(0, Math.round(Number(item.unitPrice) || 0));
-      const loyaltyPointsEarned = Math.max(0, Math.round(loyaltyPointsPerUnit * (Number(item.quantity) || 0)));
-      const share =
-        pricing.totalDiscount > 0 && pricing.subtotal > 0
-          ? index === userCart.length - 1
-            ? remainingDiscount
-            : Math.min(
-                remainingDiscount,
-                Math.min(
-                  rowSubtotal,
-                  Math.max(0, Math.round((rowSubtotal / pricing.subtotal) * pricing.totalDiscount))
-                )
-              )
-          : 0;
-      const safeShare = Math.min(rowSubtotal, Math.max(0, share));
-      remainingDiscount -= safeShare;
-      const finalRowTotal = Math.max(0, rowSubtotal - safeShare);
-
-      return {
-        id: crypto.randomUUID(),
-        orderId,
-        orderNumber: resolvedNextOrderNumber,
-        orderRef,
-        menuItemId: item.menuItemId,
-        image: item.image,
-        itemName: item.itemName,
-        originalPrice: formatPrice(rowSubtotal),
-        discountAmount: safeShare,
-        finalAmount: finalRowTotal,
-        price: formatPrice(finalRowTotal),
-        size: item.size,
-        unitPrice: item.unitPrice,
-        quantity: item.quantity,
-        status: "Pending",
-        userEmail: authUser.email,
-        orderType: normalizedOrderType,
-        paymentMethod: normalizedPaymentMethod,
-        deliveryDetails: resolvedDeliveryDetails,
-        createdAt,
-        orderSubtotal: serverOrder?.subtotal ?? pricing.subtotal,
-        orderTotalDiscount: pricing.totalDiscount,
-        deliveryZone: serverOrder?.deliveryZone ?? pricing.deliveryZone,
-        deliveryFee: serverOrder?.deliveryFee ?? pricing.deliveryFee,
-        orderTotal: serverOrder?.finalPaid ?? (pricing.grandTotal ?? pricing.total),
-        promotionId: pricing.promotion?.id || null,
-        promotionTitle: pricing.promotion?.title || null,
-        promotionDiscount: serverOrder?.promotionDiscount ?? pricing.promotionDiscount,
-        loyaltyPointsAtPurchase: pricing.points,
-        loyaltyDiscountPercent: serverOrder?.loyaltyPercentUsed ?? pricing.loyaltyPercent,
-        loyaltyDiscount: serverOrder?.loyaltyDiscount ?? pricing.loyaltyDiscount,
-        loyaltyPointsPerUnit,
-        loyaltyPointsEarned,
-      };
-    });
+    const checkoutPayload = {
+      orderType: normalizedOrderType,
+      paymentMethod: normalizedPaymentMethod === "Card" ? "Card (Online)" : "Cash",
+      deliveryDetails: resolvedDeliveryDetails,
+      promotions,
+      loyaltyRules,
+      menuItems,
+    };
 
     if (resolvedDeliveryDetails) {
       setDeliveryDetailsByUser((current) => ({
@@ -1695,89 +1569,63 @@ export function AuthProvider({ children }) {
       }));
     }
 
-    setPurchases((current) => [...orderRows, ...current]);
-    setCartItems((current) =>
-      current.filter((item) => item.userEmail !== authUser.email)
-    );
-
-    // PayHere (Card): start the payment after order is created and cart is cleared.
-    if (token && normalizedPaymentMethod === "Card" && serverOrderId) {
+    if (normalizedPaymentMethod === "Card") {
       try {
-        const nameParts = splitFullName(resolvedDeliveryDetails?.name || authUser.fullName || "");
-        const { ok, data } = await apiRequest(`/orders/${encodeURIComponent(orderId)}/payments`, {
+        const { ok, data } = await apiRequest("/checkout/payhere/init", {
           method: "POST",
           token,
-          body: {
-            provider: "payhere",
-            customer: {
-              firstName: nameParts.firstName,
-              lastName: nameParts.lastName,
-              email: authUser.email,
-              phone: resolvedDeliveryDetails?.phone || authUser.phone || "",
-              address: resolvedDeliveryDetails?.location || authUser.address || "",
-              city: resolvedDeliveryDetails?.cityTown || authUser.cityTown || "",
-              country: "Sri Lanka",
-            },
-          },
+          body: checkoutPayload,
         });
 
-        if (!ok || !data || data.success !== true || !data.checkout) {
+        if (!ok || !data || data.success !== true || !data.payment || !data.payment.action) {
           return { success: false, message: data?.message || "Unable to start card payment." };
         }
 
-        const submitted = submitPostForm({ actionUrl: data.checkout.actionUrl, fields: data.checkout.fields });
+        const paymentAction = String(data.payment.action || "").trim();
+        const paymentFields = { ...data.payment };
+        delete paymentFields.action;
+
+        const submitted = submitPostForm({ actionUrl: paymentAction, fields: paymentFields });
         if (!submitted) {
           return { success: false, message: "Unable to open payment gateway. Please try again." };
         }
-        return { success: true, redirect: "payhere" };
+        return { success: true, redirect: "payhere", orderId: String(data.orderId || "").trim() };
       } catch {
         return { success: false, message: "Unable to start card payment. Backend is not reachable." };
       }
     }
 
-    // Fallback (older backend): sync the order into loyalty purchases if /orders isn't available.
-    if (token && !serverOrderId) {
-      try {
-        const grandTotal = pricing.grandTotal ?? pricing.total;
-          const payload = [
-          {
-            id: orderId,
-            orderId,
-            subtotal: pricing.subtotal,
-            promotionDiscount: pricing.promotionDiscount,
-            orderType: normalizedOrderType,
-            status: "Pending",
-            items: userCart.map((item) => ({
-              menuItemId: item.menuItemId || "",
-              itemName: item.itemName || "",
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-              size: item.size || "",
-            })),
-            deliveryAddress: resolvedDeliveryDetails?.location || "",
-            deliveryCityTown: resolvedDeliveryDetails?.cityTown || "",
-            tableId: normalizedOrderType === "DineIn" ? String(tableContext?.tableId || "").trim() : "",
-            tableSessionId: normalizedOrderType === "DineIn" ? String(tableContext?.sessionId || "").trim() : "",
-            price: `SLR ${Math.round(Number(grandTotal) || 0)}`,
-            createdAt,
-          },
-        ];
-        const { ok, data } = await apiRequest("/loyalty/purchases", {
-          method: "POST",
-          token,
-          body: { purchases: payload },
-        });
-        if (ok && data && data.success === true && data.summary) {
-          setLoyaltySummary({
-            points: Number(data.summary.points) || 0,
-            discountPercent: Number(data.summary.discountPercent) || 0,
-          });
-        }
-      } catch {
-        // Ignore backend sync errors so checkout still succeeds.
+    try {
+      const { ok, data } = await apiRequest("/checkout/place-order", {
+        method: "POST",
+        token,
+        body: checkoutPayload,
+      });
+
+      if (!ok || !data || data.success !== true || !data.order) {
+        return { success: false, message: data?.message || "Unable to place order." };
       }
+
+      const serverPurchases = Array.isArray(data.purchases) ? data.purchases : [];
+      const newOrderId = String(data.order?.id || data.order?.orderId || "").trim();
+      setPurchases((current) => {
+        const existing = Array.isArray(current) ? current : [];
+        const filteredExisting = existing.filter((purchase) => String(purchase?.orderId || "").trim() !== newOrderId);
+        return [...serverPurchases, ...filteredExisting];
+      });
+      replaceUserCartItems(authUser.email, []);
+
+      if (data.pricing && typeof data.pricing === "object") {
+        setLoyaltySummary((current) => ({
+          points: Number(current?.points) || 0,
+          discountPercent: Number(data.pricing?.loyaltyPercentUsed ?? current?.discountPercent) || 0,
+        }));
+      }
+
+      return { success: true, order: data.order, pricing: data.pricing };
+    } catch {
+      return { success: false, message: "Backend is not reachable. Start the backend server." };
     }
-    return { success: true };
   };
 
   const normalizePurchaseStatus = (status) => {

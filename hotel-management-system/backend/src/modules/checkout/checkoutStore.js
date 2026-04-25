@@ -9,6 +9,53 @@ async function listCartItems() {
   return CartItemModel.find({}).sort({ createdAt: -1 }).lean();
 }
 
+async function listCartItemsByUser(userEmail) {
+  await connectMongo();
+  const normalizedEmail = String(userEmail || "").trim().toLowerCase();
+  return CartItemModel.find({ userEmail: normalizedEmail }).sort({ createdAt: -1 }).lean();
+}
+
+async function findCartItemByUserAndKey(userEmail, itemName, size) {
+  await connectMongo();
+  return CartItemModel.findOne({
+    userEmail: String(userEmail || "").trim().toLowerCase(),
+    itemName: String(itemName || "").trim(),
+    size: String(size || "Small").trim(),
+  }).lean();
+}
+
+async function createCartItem(item) {
+  await connectMongo();
+  const created = await CartItemModel.create({ ...(item || {}) });
+  return created.toObject();
+}
+
+async function updateCartItemByIdForUser(userEmail, cartItemId, updates = {}) {
+  await connectMongo();
+  return CartItemModel.findOneAndUpdate(
+    {
+      id: String(cartItemId || "").trim(),
+      userEmail: String(userEmail || "").trim().toLowerCase(),
+    },
+    { $set: { ...(updates || {}) } },
+    { new: true }
+  ).lean();
+}
+
+async function deleteCartItemByIdForUser(userEmail, cartItemId) {
+  await connectMongo();
+  const deleted = await CartItemModel.findOneAndDelete({
+    id: String(cartItemId || "").trim(),
+    userEmail: String(userEmail || "").trim().toLowerCase(),
+  }).lean();
+  return deleted;
+}
+
+async function deleteCartItemsByUser(userEmail) {
+  await connectMongo();
+  await CartItemModel.deleteMany({ userEmail: String(userEmail || "").trim().toLowerCase() });
+}
+
 async function saveCartItems(items) {
   await connectMongo();
   await CartItemModel.deleteMany({});
@@ -79,6 +126,12 @@ async function saveDeliveryDetailsByUser(users) {
 
 module.exports = {
   listCartItems,
+  listCartItemsByUser,
+  findCartItemByUserAndKey,
+  createCartItem,
+  updateCartItemByIdForUser,
+  deleteCartItemByIdForUser,
+  deleteCartItemsByUser,
   saveCartItems,
   listOrders,
   saveOrders,

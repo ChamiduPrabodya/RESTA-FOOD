@@ -14,8 +14,12 @@ const { normalizePurchaseStatus } = require("../../models/Purchase");
 const { findUserByEmail } = require("../auth/authStore");
 const { readRules } = require("../loyalty/loyaltyStore");
 const {
-  listCartItems,
-  saveCartItems,
+  listCartItemsByUser,
+  findCartItemByUserAndKey,
+  createCartItem,
+  updateCartItemByIdForUser,
+  deleteCartItemByIdForUser,
+  deleteCartItemsByUser,
   listOrders,
   saveOrders,
   listPurchases,
@@ -82,32 +86,20 @@ function resolveUserProfileSnapshot(email, authUser, storedUser) {
 
 async function getCartForUser(email) {
   const normalizedEmail = normalizeEmail(email);
-  const items = await listCartItems();
-  return items.filter((item) => normalizeEmail(item.userEmail) === normalizedEmail);
+  return listCartItemsByUser(normalizedEmail);
 }
 
 async function addCartItemForUser(email, input) {
   const normalizedEmail = normalizeEmail(email);
-  const items = await listCartItems();
-  const existing = items.find(
-    (item) =>
-      normalizeEmail(item.userEmail) === normalizedEmail &&
-      String(item.itemName || "").trim() === String(input.itemName || "").trim() &&
-      String(item.size || "Small").trim() === String(input.size || "Small").trim()
-  );
-
-  let nextItems;
+  const existing = await findCartItemByUserAndKey(normalizedEmail, input.itemName, input.size || "Small");
   if (existing) {
-    nextItems = items.map((item) =>
-      item.id === existing.id
-        ? { ...item, quantity: item.quantity + Math.max(1, Math.round(Number(input.quantity) || 1)), updatedAt: new Date().toISOString() }
-        : item
-    );
+    await updateCartItemByIdForUser(normalizedEmail, existing.id, {
+      quantity: existing.quantity + Math.max(1, Math.round(Number(input.quantity) || 1)),
+      updatedAt: new Date().toISOString(),
+    });
   } else {
-    nextItems = [normalizeCartItem(input, normalizedEmail), ...items];
+    await createCartItem(normalizeCartItem(input, normalizedEmail));
   }
-
-  await saveCartItems(nextItems);
   return getCartForUser(normalizedEmail);
 }
 
@@ -118,31 +110,22 @@ async function updateCartItemQuantityForUser(email, cartItemId, quantity) {
   // Clamp the value so the stored cart quantity never drops below one.
   const nextQuantity = Math.max(1, Math.round(Number(quantity) || 1));
 
-  const items = await listCartItems();
-
-  // Reject updates against cart items that do not belong to the current user.
-  const exists = items.some((item) => item.id === normalizedId && normalizeEmail(item.userEmail) === normalizedEmail);
-  if (!exists) {
+  const updated = await updateCartItemByIdForUser(normalizedEmail, normalizedId, {
+    quantity: nextQuantity,
+    updatedAt: new Date().toISOString(),
+  });
+  if (!updated) {
     const error = new Error("Cart item not found.");
     error.status = 404;
     throw error;
   }
-
-  const nextItems = items.map((item) =>
-    item.id === normalizedId && normalizeEmail(item.userEmail) === normalizedEmail
-      ? { ...item, quantity: nextQuantity, updatedAt: new Date().toISOString() }
-      : item
-  );
-  await saveCartItems(nextItems);
   return getCartForUser(normalizedEmail);
 }
 
 async function removeCartItemForUser(email, cartItemId) {
   const normalizedEmail = normalizeEmail(email);
   const normalizedId = String(cartItemId || "").trim();
-  const items = await listCartItems();
-  const nextItems = items.filter((item) => !(item.id === normalizedId && normalizeEmail(item.userEmail) === normalizedEmail));
-  await saveCartItems(nextItems);
+  await deleteCartItemByIdForUser(normalizedEmail, normalizedId);
   return getCartForUser(normalizedEmail);
 }
 
@@ -364,16 +347,15 @@ async function placeOrderForUser(email, authUser, options = {}) {
     updatedAt: now,
   };
 
-  const [orders, allCartItems, deliveryDetailsByUser] = await Promise.all([
+  const [orders, deliveryDetailsByUser] = await Promise.all([
     listOrders(),
-    listCartItems(),
     readDeliveryDetailsByUser(),
   ]);
 
   await Promise.all([
     saveOrders([order, ...orders]),
     savePurchases([...orderRows, ...purchases]),
-    saveCartItems(allCartItems.filter((item) => normalizeEmail(item.userEmail) !== normalizedEmail)),
+    deleteCartItemsByUser(normalizedEmail),
     saveDeliveryDetailsByUser(
       resolvedDeliveryDetails
         ? {
@@ -725,10 +707,9 @@ async function handlePayHereNotification(payload = {}) {
         };
       });
 
-      const allCartItems = await listCartItems();
       await Promise.all([
         savePurchases([...orderRows, ...purchases]),
-        saveCartItems(allCartItems.filter((item) => normalizeEmail(item.userEmail) !== normalizeEmail(targetOrder.userEmail))),
+        deleteCartItemsByUser(targetOrder.userEmail),
       ]);
     }
   }
