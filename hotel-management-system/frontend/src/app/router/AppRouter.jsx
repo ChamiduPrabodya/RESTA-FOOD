@@ -42,7 +42,7 @@ function AppRouter() {
         <Route
           path="/checkout"
           element={
-            <ProtectedRoute roles={["user"]}>
+            <ProtectedRoute roles={["user"]} allowGuestTableSession>
               <CheckoutPage />
             </ProtectedRoute>
           }
