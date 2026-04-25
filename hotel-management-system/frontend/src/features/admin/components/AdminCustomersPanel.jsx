@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import {
+  Alert,
   Box,
   Button,
   Card,
   IconButton,
+  Snackbar,
   Stack,
   TextField,
   Typography,
@@ -31,6 +33,7 @@ const getLoyaltyTier = (points) => {
 function AdminCustomersPanel({ users, purchases, pointsByEmail }) {
   const { loyaltyRules, updateLoyaltyRule, addLoyaltyRule, removeLoyaltyRule, saveLoyaltyRulesToServer } = useAuth();
   const [isConfiguring, setIsConfiguring] = useState(false);
+  const [notice, setNotice] = useState({ open: false, message: "", severity: "warning" });
 
   const rows = useMemo(() => {
     const byEmail = new Map();
@@ -89,6 +92,47 @@ function AdminCustomersPanel({ users, purchases, pointsByEmail }) {
   const updateRule = (id, field, value) => updateLoyaltyRule(id, field, value);
   const addRule = () => addLoyaltyRule();
   const removeRuleById = (id) => removeLoyaltyRule(id);
+  const getDiscountError = (value) => {
+    const normalized = String(value ?? "").trim();
+    if (!normalized) return "";
+
+    const numeric = Number(normalized);
+    if (!Number.isFinite(numeric) || numeric < 0) {
+      return "Discount must be between 0 and 100.";
+    }
+    if (numeric > 100) {
+      return "Discount cannot be over 100%.";
+    }
+    return "";
+  };
+
+  const handleSaveTiers = async () => {
+    const invalidRule = (Array.isArray(loyaltyRules) ? loyaltyRules : []).find(
+      (rule) => Boolean(getDiscountError(rule.discount))
+    );
+
+    if (invalidRule) {
+      setNotice({
+        open: true,
+        message: getDiscountError(invalidRule.discount),
+        severity: "error",
+      });
+      return;
+    }
+
+    const result = await saveLoyaltyRulesToServer?.();
+    if (!result?.success) {
+      setNotice({
+        open: true,
+        message: result?.message || "Unable to save loyalty rules.",
+        severity: "error",
+      });
+      return;
+    }
+
+    setNotice({ open: true, message: "Loyalty tiers saved.", severity: "success" });
+    setIsConfiguring(false);
+  };
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
@@ -110,10 +154,7 @@ function AdminCustomersPanel({ users, purchases, pointsByEmail }) {
             variant="contained"
             color="success"
             startIcon={<CheckRoundedIcon />}
-            onClick={async () => {
-              await saveLoyaltyRulesToServer?.();
-              setIsConfiguring(false);
-            }}
+            onClick={handleSaveTiers}
           >
             Save Tiers
           </Button>
@@ -214,6 +255,10 @@ function AdminCustomersPanel({ users, purchases, pointsByEmail }) {
                     size="small"
                     value={rule.discount}
                     onChange={(event) => updateRule(rule.id, "discount", event.target.value)}
+                    type="number"
+                    inputProps={{ min: 0, max: 100, step: "any" }}
+                    error={Boolean(getDiscountError(rule.discount))}
+                    helperText={getDiscountError(rule.discount) || " "}
                     sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#110d0c", borderRadius: 2 } }}
                   />
                   <IconButton color="error" onClick={() => removeRuleById(rule.id)}>
@@ -225,6 +270,22 @@ function AdminCustomersPanel({ users, purchases, pointsByEmail }) {
           </Box>
         </Card>
       )}
+
+      <Snackbar
+        open={notice.open}
+        autoHideDuration={2500}
+        onClose={() => setNotice((current) => ({ ...current, open: false }))}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          severity={notice.severity}
+          variant="filled"
+          onClose={() => setNotice((current) => ({ ...current, open: false }))}
+          sx={{ width: "100%" }}
+        >
+          {notice.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }
