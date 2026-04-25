@@ -315,6 +315,7 @@ function HomePage() {
         sx={{
           minHeight: "92vh",
           px: sectionPaddingX,
+          position: "relative",
           backgroundImage: `linear-gradient(90deg, rgba(6,8,12,0.95) 15%, rgba(7,9,13,0.65) 55%, rgba(7,9,13,0.25) 100%), url(${heroBackgroundImage})`,
           backgroundSize: "cover",
           backgroundPosition: "center",
@@ -493,33 +494,51 @@ function HomePage() {
                   {secondaryCta.label}
                 </Button>
           </Stack>
-          {heroPromotions.length > 1 && (
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ pt: 1 }}>
-              {heroPromotions.map((promotion, index) => {
-                const isActive = index === resolvedHeroIndex;
-                return (
-                  <Box
-                    key={promotion.id || `${promotion.title}-${index}`}
-                    component="button"
-                    type="button"
-                    aria-label={`Show promotion ${index + 1}`}
-                    onClick={() => setActiveHeroIndex(index)}
-                    sx={{
-                      width: isActive ? 40 : 12,
-                      height: 12,
-                      borderRadius: 999,
-                      border: "none",
-                      cursor: "pointer",
-                      bgcolor: isActive ? "primary.main" : "rgba(255,255,255,0.25)",
-                      transition: "all 180ms ease",
-                      p: 0,
-                    }}
-                  />
-                );
-              })}
-            </Stack>
-          )}
         </Stack>
+
+        {heroPromotions.length > 1 && (
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            sx={{
+              position: "absolute",
+              left: { xs: "50%", md: "58%" },
+              bottom: { xs: 20, md: 44 },
+              transform: "translateX(-50%)",
+              px: 2.2,
+              py: 1.4,
+              borderRadius: 999,
+              bgcolor: "rgba(10,12,16,0.55)",
+              border: "1px solid rgba(212,178,95,0.12)",
+              backdropFilter: "blur(8px)",
+            }}
+          >
+            {heroPromotions.map((promotion, index) => {
+              const isActive = index === resolvedHeroIndex;
+              return (
+                <Box
+                  key={promotion.id || `${promotion.title}-${index}`}
+                  component="button"
+                  type="button"
+                  aria-label={`Show promotion ${index + 1}`}
+                  onClick={() => setActiveHeroIndex(index)}
+                  sx={{
+                    width: isActive ? 40 : 14,
+                    height: 14,
+                    borderRadius: 999,
+                    border: "none",
+                    cursor: "pointer",
+                    bgcolor: isActive ? "primary.main" : "rgba(255,255,255,0.22)",
+                    boxShadow: isActive ? "0 0 18px rgba(212,178,95,0.28)" : "none",
+                    transition: "all 180ms ease",
+                    p: 0,
+                  }}
+                />
+              );
+            })}
+          </Stack>
+        )}
       </Box>
 
       <Box
