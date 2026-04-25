@@ -2,12 +2,15 @@ const { CartItemModel } = require("../../models/Cart");
 const { OrderModel } = require("../../models/Order");
 const { PurchaseModel } = require("../../models/Purchase");
 const { DeliveryDetailsModel } = require("../../models/DeliveryDetails");
+const { connectMongo } = require("../../shared/db/mongo");
 
 async function listCartItems() {
+  await connectMongo();
   return CartItemModel.find({}).sort({ createdAt: -1 }).lean();
 }
 
 async function saveCartItems(items) {
+  await connectMongo();
   await CartItemModel.deleteMany({});
   if (Array.isArray(items) && items.length > 0) {
     await CartItemModel.insertMany(items, { ordered: false });
@@ -15,10 +18,12 @@ async function saveCartItems(items) {
 }
 
 async function listOrders() {
+  await connectMongo();
   return OrderModel.find({}).sort({ createdAt: -1 }).lean();
 }
 
 async function saveOrders(orders) {
+  await connectMongo();
   await OrderModel.deleteMany({});
   if (Array.isArray(orders) && orders.length > 0) {
     await OrderModel.insertMany(orders, { ordered: false });
@@ -26,10 +31,12 @@ async function saveOrders(orders) {
 }
 
 async function listPurchases() {
+  await connectMongo();
   return PurchaseModel.find({}).sort({ createdAt: -1 }).lean();
 }
 
 async function savePurchases(purchases) {
+  await connectMongo();
   await PurchaseModel.deleteMany({});
   if (Array.isArray(purchases) && purchases.length > 0) {
     await PurchaseModel.insertMany(purchases, { ordered: false });
@@ -37,6 +44,7 @@ async function savePurchases(purchases) {
 }
 
 async function readDeliveryDetailsByUser() {
+  await connectMongo();
   const rows = await DeliveryDetailsModel.find({}).lean();
   return rows.reduce((accumulator, row) => {
     accumulator[String(row.userEmail || "").trim().toLowerCase()] = {
@@ -52,6 +60,7 @@ async function readDeliveryDetailsByUser() {
 }
 
 async function saveDeliveryDetailsByUser(users) {
+  await connectMongo();
   const entries = Object.entries(users && typeof users === "object" ? users : {}).map(([userEmail, details]) => ({
     userEmail: String(userEmail || "").trim().toLowerCase(),
     name: String(details && details.name ? details.name : "").trim(),

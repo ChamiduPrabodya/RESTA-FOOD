@@ -1,4 +1,4 @@
-Generated: 2026-04-25T13:28:11.040Z
+Generated: 2026-04-25T16:55:28.507Z
 
 admin-seed.test.js - ensureAdminUser: skips when env missing
 admin-seed.test.js - ensureAdminUser: creates admin when missing
@@ -13,6 +13,8 @@ auth-validator.test.js - authValidator.validateLogin: rejects invalid email form
 auth-validator.test.js - authValidator.validateLogin: preserves password whitespace
 auth-validator.test.js - authValidator.validateSignup: rejects weak password
 auth-validator.test.js - authValidator.validateSignup: returns normalized payload
+checkout-pricing.test.js - checkout pricing: ignores loyalty rules above 100 percent
+checkout-pricing.test.js - checkout pricing: caps applied loyalty percent at 100
 loyalty-service-points.test.js - loyaltyService.addPurchasesForUser: pointsEarned uses menu item loyaltyPoints * quantity
 loyalty-status-endpoint.test.js - PATCH status: requires auth
 loyalty-status-endpoint.test.js - PATCH status: user can only cancel
@@ -25,6 +27,8 @@ loyalty-utils.test.js - getUserPointsFromPurchases: sums only completed purchase
 loyalty-utils.test.js - computePointsFromLineItems: uses menu loyaltyPoints when available
 loyalty-utils.test.js - computePointsFromLineItems: falls back to unitPrice when menu item missing
 loyalty-validator.test.js - validateReplaceRules: rejects discounts above 100
+loyalty-validator.test.js - validateReplaceRules: rejects empty rules
+loyalty-validator.test.js - validateReplaceRules: rejects duplicate thresholds
 loyalty-validator.test.js - validateAddPurchases: rejects loyaltyPointsEarned from client
 loyalty-validator.test.js - validateAddPurchases: accepts status when valid
 loyalty-validator.test.js - validateAddPurchases: accepts dine-in order type

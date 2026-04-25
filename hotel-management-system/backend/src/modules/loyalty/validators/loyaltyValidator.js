@@ -3,6 +3,11 @@ function validateReplaceRules(body) {
   if (!Array.isArray(rules)) {
     return { ok: false, message: "rules must be an array." };
   }
+  if (rules.length === 0) {
+    return { ok: false, message: "rules must include at least one tier." };
+  }
+
+  const seenThresholds = new Set();
 
   for (const rule of rules) {
     const threshold = Number(rule && rule.threshold !== undefined ? rule.threshold : NaN);
@@ -13,6 +18,12 @@ function validateReplaceRules(body) {
     if (!Number.isFinite(discount) || discount < 0 || discount > 100) {
       return { ok: false, message: "Each rule.discount must be a number between 0 and 100." };
     }
+
+    const normalizedThreshold = String(Math.round(threshold));
+    if (seenThresholds.has(normalizedThreshold)) {
+      return { ok: false, message: `Duplicate rule.threshold is not allowed: ${normalizedThreshold}.` };
+    }
+    seenThresholds.add(normalizedThreshold);
   }
 
   return { ok: true, value: { rules } };

@@ -17,6 +17,25 @@ module.exports = [
     },
   },
   {
+    name: "validateReplaceRules: rejects empty rules",
+    fn: () => {
+      const result = validateReplaceRules({ rules: [] });
+      assert.equal(result.ok, false);
+    },
+  },
+  {
+    name: "validateReplaceRules: rejects duplicate thresholds",
+    fn: () => {
+      const result = validateReplaceRules({
+        rules: [
+          { threshold: 1000, discount: 5 },
+          { threshold: 1000, discount: 10 },
+        ],
+      });
+      assert.equal(result.ok, false);
+    },
+  },
+  {
     name: "validateAddPurchases: rejects loyaltyPointsEarned from client",
     fn: () => {
       const result = validateAddPurchases({

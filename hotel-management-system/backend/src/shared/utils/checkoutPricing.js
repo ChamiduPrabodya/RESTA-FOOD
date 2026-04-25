@@ -23,11 +23,28 @@ function formatSLR(value) {
 
 function normalizeLoyaltyRules(rules) {
   const source = Array.isArray(rules) ? rules : DEFAULT_LOYALTY_RULES;
-  return source.map((rule) => ({
-    id: String(rule && rule.id ? rule.id : crypto.randomUUID()),
-    threshold: String(rule && rule.threshold !== undefined ? rule.threshold : "").trim(),
-    discount: String(rule && rule.discount !== undefined ? rule.discount : "").trim(),
-  }));
+  const deduped = new Map();
+
+  source.forEach((rule) => {
+    const thresholdNumber = Number(rule && rule.threshold !== undefined ? rule.threshold : NaN);
+    const discountNumber = Number(rule && rule.discount !== undefined ? rule.discount : NaN);
+    if (!Number.isFinite(thresholdNumber) || thresholdNumber < 0) return;
+    if (!Number.isFinite(discountNumber) || discountNumber < 0 || discountNumber > 100) return;
+
+    const threshold = String(Math.round(thresholdNumber));
+    const discount = String(Math.round(discountNumber));
+    const existing = deduped.get(threshold);
+
+    if (!existing || Number(discount) >= Number(existing.discount)) {
+      deduped.set(threshold, {
+        id: String(rule && rule.id ? rule.id : existing && existing.id ? existing.id : crypto.randomUUID()),
+        threshold,
+        discount,
+      });
+    }
+  });
+
+  return [...deduped.values()].sort((a, b) => Number(a.threshold) - Number(b.threshold));
 }
 
 function getLoyaltyDiscountPercent(points, rules) {
@@ -44,9 +61,12 @@ function getLoyaltyDiscountPercent(points, rules) {
     null
   );
 
-  return Math.max(
-    0,
-    Number(matched && matched.discount !== undefined ? matched.discount : 0) || 0
+  return Math.min(
+    100,
+    Math.max(
+      0,
+      Number(matched && matched.discount !== undefined ? matched.discount : 0) || 0
+    )
   );
 }
 
@@ -208,7 +228,7 @@ function computeFinalPaidAndPoints({
   );
 
   const afterPromotion = Math.max(0, safeSubtotal - safePromotionDiscount);
-  const percent = Math.max(0, Number(discountPercent) || 0);
+  const percent = Math.min(100, Math.max(0, Number(discountPercent) || 0));
   const loyaltyDiscount = Math.min(
     afterPromotion,
     Math.max(0, Math.round((afterPromotion * percent) / 100))

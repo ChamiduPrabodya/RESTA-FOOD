@@ -42,6 +42,9 @@ const prepareLoyaltyRulesForSave = (rules) => {
   if (!Array.isArray(rules)) {
     return { success: false, message: "Loyalty rules must be an array." };
   }
+  if (rules.length === 0) {
+    return { success: false, message: "Add at least one loyalty tier before saving." };
+  }
 
   const deduped = new Map();
 
@@ -65,15 +68,15 @@ const prepareLoyaltyRulesForSave = (rules) => {
 
     const normalizedThreshold = String(Math.round(threshold));
     const normalizedDiscount = String(Math.round(discount));
-    const existing = deduped.get(normalizedThreshold);
-
-    if (!existing || Number(normalizedDiscount) >= Number(existing.discount)) {
-      deduped.set(normalizedThreshold, {
-        id: String(rule?.id || existing?.id || crypto.randomUUID()),
-        threshold: normalizedThreshold,
-        discount: normalizedDiscount,
-      });
+    if (deduped.has(normalizedThreshold)) {
+      return { success: false, message: `Duplicate loyalty threshold: ${normalizedThreshold} points.` };
     }
+
+    deduped.set(normalizedThreshold, {
+      id: String(rule?.id || crypto.randomUUID()),
+      threshold: normalizedThreshold,
+      discount: normalizedDiscount,
+    });
   }
 
   return {

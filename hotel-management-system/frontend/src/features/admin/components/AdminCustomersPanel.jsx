@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   Alert,
   Box,
@@ -39,6 +39,7 @@ function AdminCustomersPanel({ users, purchases, pointsByEmail }) {
   const [isConfiguring, setIsConfiguring] = useState(false);
   const [notice, setNotice] = useState({ open: false, message: "", severity: "warning" });
   const [blockingDialog, setBlockingDialog] = useState({ open: false, message: "" });
+  const ruleListEndRef = useRef(null);
   const [draftRules, setDraftRules] = useState(() =>
     (Array.isArray(loyaltyRules) ? loyaltyRules : []).map((rule) => ({ ...rule }))
   );
@@ -148,13 +149,16 @@ function AdminCustomersPanel({ users, purchases, pointsByEmail }) {
   const addRule = () => {
     const nextId = `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     setDraftRules((current) => [...(Array.isArray(current) ? current : []), { id: nextId, threshold: "", discount: "" }]);
+    window.setTimeout(() => {
+      ruleListEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    }, 80);
   };
 
   const removeRuleById = (id) => {
     const normalizedId = String(id || "");
     setDraftRules((current) => (Array.isArray(current) ? current : []).filter((rule) => String(rule.id) !== normalizedId));
   };
-  const getThresholdError = (value) => {
+  const getThresholdError = (value, id = "") => {
     const normalized = String(value ?? "").trim();
     if (!normalized) return "Threshold is required.";
 
@@ -162,6 +166,17 @@ function AdminCustomersPanel({ users, purchases, pointsByEmail }) {
     if (!Number.isFinite(numeric) || numeric < 0) {
       return "Threshold must be 0 or more.";
     }
+
+    const normalizedThreshold = String(Math.round(numeric));
+    const hasDuplicate = (Array.isArray(draftRules) ? draftRules : []).some((rule) => {
+      if (String(rule?.id || "") === String(id || "")) return false;
+      const ruleThreshold = Number(rule?.threshold);
+      return Number.isFinite(ruleThreshold) && String(Math.round(ruleThreshold)) === normalizedThreshold;
+    });
+    if (hasDuplicate) {
+      return `Duplicate threshold: ${normalizedThreshold} points already exists.`;
+    }
+
     return "";
   };
 
@@ -180,11 +195,22 @@ function AdminCustomersPanel({ users, purchases, pointsByEmail }) {
   };
 
   const handleSaveTiers = async () => {
+    if (!Array.isArray(draftRules) || draftRules.length === 0) {
+      const message = "Add at least one loyalty tier before saving.";
+      setNotice({
+        open: true,
+        message,
+        severity: "error",
+      });
+      setBlockingDialog({ open: true, message });
+      return;
+    }
+
     const invalidThresholdRule = (Array.isArray(draftRules) ? draftRules : []).find(
-      (rule) => Boolean(getThresholdError(rule.threshold))
+      (rule) => Boolean(getThresholdError(rule.threshold, rule.id))
     );
     if (invalidThresholdRule) {
-      const message = getThresholdError(invalidThresholdRule.threshold);
+      const message = getThresholdError(invalidThresholdRule.threshold, invalidThresholdRule.id);
       setNotice({
         open: true,
         message,
@@ -227,7 +253,29 @@ function AdminCustomersPanel({ users, purchases, pointsByEmail }) {
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" useFlexGap gap={1}>
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        alignItems="center"
+        flexWrap="wrap"
+        useFlexGap
+        gap={1}
+        sx={
+          isConfiguring
+            ? {
+                position: "sticky",
+                top: 0,
+                zIndex: 4,
+                px: { xs: 1.2, md: 1.6 },
+                py: 1.1,
+                borderRadius: 3,
+                border: "1px solid rgba(212,178,95,0.12)",
+                bgcolor: "rgba(15,17,22,0.92)",
+                backdropFilter: "blur(14px)",
+              }
+            : undefined
+        }
+      >
         <Box>
           <Typography variant="h2" sx={{ fontSize: { xs: "24px", md: "30px" } }}>
             Customer Loyalty Management
@@ -331,16 +379,16 @@ function AdminCustomersPanel({ users, purchases, pointsByEmail }) {
 
       {isConfiguring && (
         <Card sx={{ bgcolor: "#17100c", border: "1px solid rgba(212,178,95,0.14)", borderRadius: 4, p: 2.2 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.6 }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.6 }} flexWrap="wrap" useFlexGap gap={1}>
             <Stack direction="row" spacing={1} alignItems="center">
               <PercentRoundedIcon sx={{ color: "primary.main" }} />
               <Typography sx={{ color: "primary.main", textTransform: "uppercase", fontWeight: 700, letterSpacing: 1 }}>
                 Discount Rules
               </Typography>
             </Stack>
-            <Button startIcon={<AddRoundedIcon />} onClick={addRule} sx={{ color: "primary.main" }}>
-              Add Rule
-            </Button>
+            <Typography sx={{ color: "text.secondary", fontSize: "0.92rem" }}>
+              New loyalty levels will be added at the bottom of this section.
+            </Typography>
           </Stack>
 
           <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0, 1fr))" } }}>
@@ -356,8 +404,8 @@ function AdminCustomersPanel({ users, purchases, pointsByEmail }) {
                   onChange={(event) => updateRule(rule.id, "threshold", event.target.value)}
                   type="number"
                   inputProps={{ min: 0, step: "1" }}
-                  error={Boolean(getThresholdError(rule.threshold))}
-                  helperText={getThresholdError(rule.threshold) || " "}
+                  error={Boolean(getThresholdError(rule.threshold, rule.id))}
+                  helperText={getThresholdError(rule.threshold, rule.id) || " "}
                   sx={{ mb: 1.2, "& .MuiOutlinedInput-root": { bgcolor: "#110d0c", borderRadius: 2 } }}
                 />
                 <Typography sx={{ color: "text.secondary", textTransform: "uppercase", fontSize: "0.8rem", mb: 0.6 }}>
@@ -382,6 +430,29 @@ function AdminCustomersPanel({ users, purchases, pointsByEmail }) {
               </Box>
             ))}
           </Box>
+
+          <Box ref={ruleListEndRef} />
+
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+            flexWrap="wrap"
+            useFlexGap
+            gap={1}
+            sx={{
+              mt: 1.8,
+              pt: 1.8,
+              borderTop: "1px solid rgba(212,178,95,0.12)",
+            }}
+          >
+            <Typography sx={{ color: "text.secondary", fontSize: "0.92rem" }}>
+              Add another tier below the current list, then use the save button pinned at the top.
+            </Typography>
+            <Button startIcon={<AddRoundedIcon />} onClick={addRule} sx={{ color: "primary.main" }}>
+              Add Loyalty Level
+            </Button>
+          </Stack>
         </Card>
       )}
 
