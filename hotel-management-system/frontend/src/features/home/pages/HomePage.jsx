@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   Alert,
   Box,
@@ -219,8 +219,9 @@ function HomePage() {
   const navigate = useNavigate();
   const { authUser, addToCart, promotions, menuItems, purchases, tableContext } = useAuth();
   const [notice, setNotice] = useState({ open: false, message: "", severity: "success" });
+  const [activeHeroIndex, setActiveHeroIndex] = useState(0);
 
-  const activePromotion = useMemo(() => {
+  const heroPromotions = useMemo(() => {
     const list = Array.isArray(promotions) ? promotions : [];
 
     const getPromoTimestamp = (promotion) => {
@@ -229,18 +230,34 @@ function HomePage() {
       return Number.isFinite(timestamp) ? timestamp : 0;
     };
 
-    const pickLatest = (predicate) =>
+    const pickPromotions = (predicate) =>
       list
         .filter((promotion) => predicate(promotion))
-        .sort((a, b) => getPromoTimestamp(b) - getPromoTimestamp(a))[0] || null;
+        .sort((a, b) => getPromoTimestamp(b) - getPromoTimestamp(a));
 
-    return (
-      pickLatest((promotion) => isPromotionActiveNow(promotion) && promotion?.displayInHomeHeader) ||
-      pickLatest((promotion) => isPromotionActiveNow(promotion)) ||
-      null
-    );
+    const homeHeaderPromotions = pickPromotions(
+      (promotion) => isPromotionActiveNow(promotion) && promotion?.displayInHomeHeader
+    ).slice(0, 8);
+
+    if (homeHeaderPromotions.length > 0) {
+      return homeHeaderPromotions;
+    }
+
+    return pickPromotions((promotion) => isPromotionActiveNow(promotion)).slice(0, 8);
   }, [promotions]);
 
+  useEffect(() => {
+    if (heroPromotions.length <= 1) return undefined;
+
+    const intervalId = window.setInterval(() => {
+      setActiveHeroIndex((current) => (current + 1) % heroPromotions.length);
+    }, 5000);
+
+    return () => window.clearInterval(intervalId);
+  }, [heroPromotions.length]);
+
+  const resolvedHeroIndex = heroPromotions.length > 0 ? activeHeroIndex % heroPromotions.length : 0;
+  const activePromotion = heroPromotions[resolvedHeroIndex] || null;
   const heroBackgroundImage = String(activePromotion?.imageUrl || "").trim() || heroImage;
   const primaryCta =
     activePromotion?.type === "vip"
@@ -352,67 +369,81 @@ function HomePage() {
           transition={{ duration: 0.45, delay: 0.2 }}
           sx={{ maxWidth: 760, pt: { xs: 8, md: 12 }, pb: 8 }}
         >
-          <Box>
-            {activePromotion ? (
-              <>
-                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>
-                  <Chip
-                    label="LIMITED TIME OFFER"
-                    sx={{
-                      bgcolor: "rgba(212,178,95,0.14)",
-                      border: "1px solid rgba(212,178,95,0.28)",
-                      color: "primary.main",
-                      fontWeight: 800,
-                      letterSpacing: 0.8,
-                      px: 0.4,
-                    }}
-                  />
-                  {activePromotion.discountText && (
+          <Box sx={{ minHeight: { xs: 260, md: 330 } }}>
+            <AnimatePresence mode="wait">
+              {activePromotion ? (
+                  <MotionBox
+                  key={activePromotion.id || activePromotion.title || `promo-${resolvedHeroIndex}`}
+                  initial={reduceMotion ? { opacity: 1 } : { opacity: 0, y: 18 }}
+                  animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+                  exit={reduceMotion ? { opacity: 1 } : { opacity: 0, y: -18 }}
+                  transition={{ duration: reduceMotion ? 0 : 0.38 }}
+                >
+                  <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>
                     <Chip
-                      icon={<LocalOfferRoundedIcon sx={{ color: "primary.main" }} />}
-                      label={activePromotion.discountText}
+                      label="LIMITED TIME OFFER"
                       sx={{
-                        bgcolor: "rgba(15,20,30,0.55)",
-                        border: "1px solid rgba(212,178,95,0.22)",
-                        color: "text.primary",
-                        fontWeight: 700,
+                        bgcolor: "rgba(212,178,95,0.14)",
+                        border: "1px solid rgba(212,178,95,0.28)",
+                        color: "primary.main",
+                        fontWeight: 800,
+                        letterSpacing: 0.8,
+                        px: 0.4,
                       }}
                     />
-                  )}
-                </Stack>
+                    {activePromotion.discountText && (
+                      <Chip
+                        icon={<LocalOfferRoundedIcon sx={{ color: "primary.main" }} />}
+                        label={activePromotion.discountText}
+                        sx={{
+                          bgcolor: "rgba(15,20,30,0.55)",
+                          border: "1px solid rgba(212,178,95,0.22)",
+                          color: "text.primary",
+                          fontWeight: 700,
+                        }}
+                      />
+                    )}
+                  </Stack>
 
-                <Typography
-                  variant="h1"
-                  sx={{
-                    fontWeight: 900,
-                    lineHeight: 1.04,
-                    fontSize: { xs: "44px", md: "74px" },
-                    letterSpacing: -0.8,
-                  }}
+                  <Typography
+                    variant="h1"
+                    sx={{
+                      fontWeight: 900,
+                      lineHeight: 1.04,
+                      fontSize: { xs: "44px", md: "74px" },
+                      letterSpacing: -0.8,
+                    }}
+                  >
+                    {activePromotion.title}
+                  </Typography>
+                  <Typography sx={{ mt: 1.1, color: "text.secondary", fontSize: { xs: "16px", md: "20px" }, maxWidth: 640 }}>
+                    {activePromotion.description}
+                  </Typography>
+                </MotionBox>
+              ) : (
+                <MotionBox
+                  key="default-hero"
+                  initial={reduceMotion ? { opacity: 1 } : { opacity: 0, y: 18 }}
+                  animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+                  exit={reduceMotion ? { opacity: 1 } : { opacity: 0, y: -18 }}
+                  transition={{ duration: reduceMotion ? 0 : 0.38 }}
                 >
-                  {activePromotion.title}
-                </Typography>
-                <Typography sx={{ mt: 1.1, color: "text.secondary", fontSize: { xs: "16px", md: "20px" }, maxWidth: 640 }}>
-                  {activePromotion.description}
-                </Typography>
-              </>
-            ) : (
-              <>
-                <Typography
-                  variant="h1"
-                  sx={{
-                    fontWeight: 800,
-                    lineHeight: 1.1,
-                    fontSize: { xs: "42px", md: "68px" },
-                  }}
-                >
-                  Welcome To <br /> Resta Fast Food
-                </Typography>
-                <Typography sx={{ mt: 1.1, color: "text.secondary", fontSize: { xs: "16px", md: "20px" } }}>
-                  Serving Happiness in Every Bite
-                </Typography>
-              </>
-            )}
+                  <Typography
+                    variant="h1"
+                    sx={{
+                      fontWeight: 800,
+                      lineHeight: 1.1,
+                      fontSize: { xs: "42px", md: "68px" },
+                    }}
+                  >
+                    Welcome To <br /> Resta Fast Food
+                  </Typography>
+                  <Typography sx={{ mt: 1.1, color: "text.secondary", fontSize: { xs: "16px", md: "20px" } }}>
+                    Serving Happiness in Every Bite
+                  </Typography>
+                </MotionBox>
+              )}
+            </AnimatePresence>
           </Box>
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                 <Button
@@ -460,6 +491,32 @@ function HomePage() {
                   {secondaryCta.label}
                 </Button>
           </Stack>
+          {heroPromotions.length > 1 && (
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ pt: 1 }}>
+              {heroPromotions.map((promotion, index) => {
+                const isActive = index === resolvedHeroIndex;
+                return (
+                  <Box
+                    key={promotion.id || `${promotion.title}-${index}`}
+                    component="button"
+                    type="button"
+                    aria-label={`Show promotion ${index + 1}`}
+                    onClick={() => setActiveHeroIndex(index)}
+                    sx={{
+                      width: isActive ? 40 : 12,
+                      height: 12,
+                      borderRadius: 999,
+                      border: "none",
+                      cursor: "pointer",
+                      bgcolor: isActive ? "primary.main" : "rgba(255,255,255,0.25)",
+                      transition: "all 180ms ease",
+                      p: 0,
+                    }}
+                  />
+                );
+              })}
+            </Stack>
+          )}
         </Stack>
       </Box>
 
