@@ -65,14 +65,6 @@ async function startSession(payload = {}) {
     throw httpError(409, `${table.label} is already in use. Please ask staff to close the current table session.`);
   }
 
-  const { hasActiveOrderForTable } = require("../orders/ordersStore");
-  if (await hasActiveOrderForTable(table.id)) {
-    throw httpError(
-      409,
-      `${table.label} already has an active dine-in order. New sessions are blocked until it is completed.`
-    );
-  }
-
   if (table.status === "unavailable" || table.status === "cleaning" || table.status === "reserved") {
     throw httpError(409, `${table.label} is currently ${table.status}.`);
   }

@@ -26,6 +26,7 @@ import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import BackToTopButton from "../../../common/components/ui/BackToTopButton";
 import SiteFooter from "../../../common/components/ui/SiteFooter";
+import { apiRequest } from "../../../common/utils/api";
 import { useAuth } from "../../auth/context/AuthContext";
 import AuthHeaderActions from "../../../common/components/ui/AuthHeaderActions";
 import { buildPurchaseCounts, getMenuItemPurchasedCount } from "../../../common/utils/popularity";
@@ -235,14 +236,73 @@ function MenuPage() {
   useEffect(() => {
     const tableId = scannedParams.tableId;
     const tableToken = scannedParams.tableToken;
-    setTableLockNotice({ locked: false, tableId: "", message: "" });
-    if (!tableId) return;
-    if (tableContext?.sessionId && String(tableContext.tableId || "").trim() === tableId) return;
-    const timeoutId = window.setTimeout(() => {
-      setGuestPrompt({ open: true, tableId, tableToken, guestCount: "1", error: "" });
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [scannedParams.tableId, scannedParams.tableToken, tableContext?.sessionId, tableContext?.tableId]);
+    if (!tableId) {
+      setTableLockNotice({ locked: false, tableId: "", message: "" });
+      return;
+    }
+
+    let cancelled = false;
+
+    const syncTableAvailability = async () => {
+      const localTableId = String(tableContext?.tableId || "").trim();
+      const localSessionId = String(tableContext?.sessionId || "").trim();
+
+      try {
+        const { ok, data } = await apiRequest(`/sessions/table/${encodeURIComponent(tableId)}`);
+        if (cancelled) return;
+
+        const liveSessionId = String(data?.session?.id || "").trim();
+        const tableLabel = String(data?.tableLabel || tableId).trim() || tableId;
+        const localMatchesLiveSession =
+          Boolean(localSessionId) &&
+          localTableId === tableId &&
+          Boolean(liveSessionId) &&
+          localSessionId === liveSessionId;
+
+        if (liveSessionId) {
+          if (localMatchesLiveSession) {
+            setTableLockNotice({ locked: false, tableId: "", message: "" });
+            setGuestPrompt((current) => ({ ...current, open: false, error: "" }));
+            return;
+          }
+
+          if (localTableId === tableId && localSessionId && localSessionId !== liveSessionId) {
+            clearTableContext();
+          }
+
+          setTableLockNotice({
+            locked: true,
+            tableId,
+            message: `${tableLabel} is already booked. Only the admin can mark it free before another customer uses this QR.`,
+          });
+          setGuestPrompt({ open: false, tableId: "", tableToken: "", guestCount: "1", error: "" });
+          return;
+        }
+
+        if (localTableId === tableId && localSessionId) {
+          clearTableContext();
+        }
+
+        setTableLockNotice({ locked: false, tableId: "", message: "" });
+        setGuestPrompt({ open: true, tableId, tableToken, guestCount: "1", error: "" });
+      } catch {
+        if (cancelled) return;
+
+        if (tableContext?.sessionId && String(tableContext.tableId || "").trim() === tableId) {
+          return;
+        }
+
+        setTableLockNotice({ locked: false, tableId: "", message: "" });
+        setGuestPrompt({ open: true, tableId, tableToken, guestCount: "1", error: "" });
+      }
+    };
+
+    syncTableAvailability();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [scannedParams.tableId, scannedParams.tableToken, tableContext?.sessionId, tableContext?.tableId, clearTableContext]);
 
   const submitGuestPrompt = async () => {
     const guestCount = Math.round(Number(guestPrompt.guestCount));
