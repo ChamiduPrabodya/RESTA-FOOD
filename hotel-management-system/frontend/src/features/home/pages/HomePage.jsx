@@ -31,7 +31,7 @@ import { getMostBoughtMenuItems } from "../../../common/utils/popularity";
 const heroImage = "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&q=80&w=1920";
 const popularImage01 = "https://images.unsplash.com/photo-1600891964599-f61ba0e24092?auto=format&fit=crop&q=80&w=800";
 const popularImage02 = "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&fit=crop&q=80&w=800";
-const popularImage03 = "/images/home/popular-03.svg";
+const popularImage03 = `${import.meta.env.BASE_URL}images/home/deviled/WhatsApp Image 2026-03-20 at 16.39.22.jpeg`;
 const vipImage01 = `${import.meta.env.BASE_URL}images/home/VIP1.jpeg`;
 
 const sectionPaddingX = { xs: 2.5, sm: 5, md: 8, lg: 12 };
@@ -295,8 +295,26 @@ function HomePage() {
           backgroundPosition: "center",
         }}
       >
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ py: 2.5 }}>
-          <Typography sx={{ fontWeight: 800, fontSize: 26, color: "primary.main" }}>RESTA FAST FOOD</Typography>
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="center"
+          flexWrap="wrap"
+          rowGap={1.25}
+          columnGap={2}
+          sx={{ py: 2.5 }}
+        >
+          <Typography
+            sx={{
+              fontWeight: 800,
+              fontSize: { xs: 18, sm: 22, md: 26 },
+              color: "primary.main",
+              lineHeight: 1.05,
+              flex: "1 1 auto",
+            }}
+          >
+            RESTA FAST FOOD
+          </Typography>
           <Stack direction="row" spacing={3} sx={{ display: { xs: "none", md: "flex" } }}>
             <Stack direction="row" spacing={0.6} alignItems="center">
               <HomeRoundedIcon sx={{ fontSize: 18, color: "primary.main" }} />
@@ -315,7 +333,9 @@ function HomePage() {
               </Typography>
             </Stack>
           </Stack>
-          <AuthHeaderActions />
+          <Box sx={{ flexShrink: 0, ml: "auto" }}>
+            <AuthHeaderActions />
+          </Box>
         </Stack>
 
         <Stack

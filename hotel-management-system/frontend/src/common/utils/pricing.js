@@ -38,12 +38,32 @@ export const getPurchasePoints = (purchase) => {
 
 export const normalizeLoyaltyRules = (rules) => {
   const source = Array.isArray(rules) ? rules : DEFAULT_LOYALTY_RULES;
-  return source
-    .map((rule) => ({
-      id: String(rule?.id || crypto.randomUUID()),
-      threshold: String(rule?.threshold ?? "").trim(),
-      discount: String(rule?.discount ?? "").trim(),
-    }));
+  const deduped = new Map();
+
+  source.forEach((rule) => {
+    const thresholdNumber = Number(rule?.threshold);
+    const discountNumber = Number(rule?.discount);
+    if (!Number.isFinite(thresholdNumber) || thresholdNumber < 0) return;
+    if (!Number.isFinite(discountNumber) || discountNumber < 0) return;
+
+    const threshold = String(Math.round(thresholdNumber));
+    const discount = String(Math.round(discountNumber));
+    const existing = deduped.get(threshold);
+
+    if (!existing || Number(discount) >= Number(existing.discount)) {
+      deduped.set(threshold, {
+        id: String(rule?.id || existing?.id || crypto.randomUUID()),
+        threshold,
+        discount,
+      });
+    }
+  });
+
+  if (deduped.size === 0) {
+    return DEFAULT_LOYALTY_RULES.map((rule) => ({ ...rule }));
+  }
+
+  return [...deduped.values()].sort((a, b) => Number(a.threshold) - Number(b.threshold));
 };
 
 export const getLoyaltyDiscountPercent = (points, rules) => {

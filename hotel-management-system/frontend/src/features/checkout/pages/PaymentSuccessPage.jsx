@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Box, Button, CircularProgress, Paper, Stack, Typography } from "@mui/material";
-
-const API_BASE_URL = String(import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api").trim().replace(/\/$/, "");
+import { API_BASE_URL } from "../../../common/utils/api";
 const AUTH_TOKEN_STORAGE_KEY = "hms_auth_token";
 
 function PaymentSuccessPage() {

@@ -67,11 +67,28 @@ function computePointsFromLineItems(lineItems, menuItems = []) {
 
 function normalizeLoyaltyRules(rules) {
   const source = Array.isArray(rules) ? rules : [];
-  return source.map((rule) => ({
-    id: String(rule && rule.id ? rule.id : crypto.randomUUID()),
-    threshold: String(rule && rule.threshold !== undefined ? rule.threshold : "").trim(),
-    discount: String(rule && rule.discount !== undefined ? rule.discount : "").trim(),
-  }));
+  const deduped = new Map();
+
+  source.forEach((rule) => {
+    const thresholdNumber = Number(rule && rule.threshold !== undefined ? rule.threshold : NaN);
+    const discountNumber = Number(rule && rule.discount !== undefined ? rule.discount : NaN);
+    if (!Number.isFinite(thresholdNumber) || thresholdNumber < 0) return;
+    if (!Number.isFinite(discountNumber) || discountNumber < 0) return;
+
+    const threshold = String(Math.round(thresholdNumber));
+    const discount = String(Math.round(discountNumber));
+    const existing = deduped.get(threshold);
+
+    if (!existing || Number(discount) >= Number(existing.discount)) {
+      deduped.set(threshold, {
+        id: String(rule && rule.id ? rule.id : existing && existing.id ? existing.id : crypto.randomUUID()),
+        threshold,
+        discount,
+      });
+    }
+  });
+
+  return [...deduped.values()].sort((a, b) => Number(a.threshold) - Number(b.threshold));
 }
 
 function getLoyaltyDiscountPercent(points, rules) {

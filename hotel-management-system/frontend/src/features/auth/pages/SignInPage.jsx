@@ -156,8 +156,9 @@ function SignInPage() {
               onChange={(event) => setEmail(event.target.value)}
               placeholder="Enter your email address"
               type="email"
-              autoComplete="off"
+              autoComplete="email"
               name="signin-email"
+              required
               sx={{
                 mb: 2.6,
                 "& .MuiOutlinedInput-root": {
@@ -177,8 +178,9 @@ function SignInPage() {
               onChange={(event) => setPassword(event.target.value)}
               placeholder="Enter your password"
               type={showPassword ? "text" : "password"}
-              autoComplete="new-password"
+              autoComplete="current-password"
               name="signin-password"
+              required
               sx={{
                 mb: 3.2,
                 "& .MuiOutlinedInput-root": {

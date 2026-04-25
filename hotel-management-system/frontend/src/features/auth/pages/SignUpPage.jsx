@@ -185,6 +185,7 @@ function SignUpPage() {
               placeholder="Enter your full name"
               type="text"
               name="signup-full-name"
+              required
               sx={{
                 mb: 2.6,
                 "& .MuiOutlinedInput-root": {
@@ -205,6 +206,8 @@ function SignUpPage() {
               placeholder="Enter your email address"
               type="email"
               name="signup-email"
+              autoComplete="email"
+              required
               sx={{
                 mb: 2.6,
                 "& .MuiOutlinedInput-root": {
@@ -235,6 +238,7 @@ function SignUpPage() {
               placeholder="e.g. 0771234567 or +94771234567"
               type="tel"
               name="signup-phone"
+              required
               error={Boolean(phoneError)}
               helperText={phoneError || " "}
               sx={{
@@ -258,6 +262,7 @@ function SignUpPage() {
                 placeholder="House number and street name"
                 type="text"
                 name="signup-street-1"
+                required
                 sx={{
                   "& .MuiOutlinedInput-root": {
                     borderRadius: 3,
@@ -293,6 +298,7 @@ function SignUpPage() {
               placeholder="Enter your town or city"
               type="text"
               name="signup-city"
+              required
               sx={{
                 mb: 2.6,
                 "& .MuiOutlinedInput-root": {
@@ -313,6 +319,8 @@ function SignUpPage() {
               placeholder="Create a password"
               type={showPassword ? "text" : "password"}
               name="signup-password"
+              autoComplete="new-password"
+              required
               sx={{
                 mb: 2.6,
                 "& .MuiOutlinedInput-root": {
@@ -344,6 +352,8 @@ function SignUpPage() {
               placeholder="Re-enter your password"
               type={showConfirmPassword ? "text" : "password"}
               name="signup-confirm-password"
+              autoComplete="new-password"
+              required
               sx={{
                 mb: 3.2,
                 "& .MuiOutlinedInput-root": {

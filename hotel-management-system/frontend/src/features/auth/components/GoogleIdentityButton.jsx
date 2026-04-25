@@ -4,14 +4,35 @@ import { getGoogleClientId, loadGoogleIdentityScript } from "../../../common/uti
 
 function GoogleIdentityButton({ onCredential, onError, text = "continue_with" }) {
   const containerRef = useRef(null);
+  const frameRef = useRef(null);
   const onCredentialRef = useRef(onCredential);
   const onErrorRef = useRef(onError);
   const [ready, setReady] = useState(false);
+  const [buttonWidth, setButtonWidth] = useState(320);
 
   useEffect(() => {
     onCredentialRef.current = onCredential;
     onErrorRef.current = onError;
   }, [onCredential, onError]);
+
+  useEffect(() => {
+    const updateWidth = () => {
+      const nextWidth = Math.max(220, Math.min(frameRef.current?.clientWidth || 320, 360));
+      setButtonWidth((currentWidth) => (currentWidth === nextWidth ? currentWidth : nextWidth));
+    };
+
+    updateWidth();
+
+    if (typeof ResizeObserver === "undefined" || !frameRef.current) {
+      window.addEventListener("resize", updateWidth);
+      return () => window.removeEventListener("resize", updateWidth);
+    }
+
+    const observer = new ResizeObserver(() => updateWidth());
+    observer.observe(frameRef.current);
+
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,10 +66,11 @@ function GoogleIdentityButton({ onCredential, onError, text = "continue_with" })
 
         if (containerRef.current) {
           containerRef.current.innerHTML = "";
+          setReady(false);
           google.accounts.id.renderButton(containerRef.current, {
             theme: "outline",
             size: "large",
-            width: 360,
+            width: buttonWidth,
             text,
             shape: "pill",
           });
@@ -62,11 +84,15 @@ function GoogleIdentityButton({ onCredential, onError, text = "continue_with" })
     return () => {
       cancelled = true;
     };
-  }, [text]);
+  }, [buttonWidth, text]);
 
   return (
     <Box
+      ref={frameRef}
       sx={{
+        width: "100%",
+        maxWidth: 360,
+        mx: "auto",
         display: "grid",
         justifyContent: "center",
         minHeight: 44,

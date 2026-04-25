@@ -1,4 +1,21 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
+const resolveDefaultApiBaseUrl = () => {
+  try {
+    const location = typeof window !== "undefined" ? window.location : null;
+    const hostname = location ? String(location.hostname || "").trim() : "";
+    const port = location ? String(location.port || "").trim() : "";
+
+    if (hostname === "localhost" || port === "5173" || port === "4173") {
+      const resolvedHost = hostname || "localhost";
+      return `http://${resolvedHost}:5000/api`;
+    }
+
+    return `${String(location?.origin || "").replace(/\/$/, "")}/api`;
+  } catch {
+    return "http://localhost:5000/api";
+  }
+};
+
+const API_BASE_URL = String(import.meta.env.VITE_API_BASE_URL || resolveDefaultApiBaseUrl()).trim().replace(/\/$/, "");
 const TOKEN_STORAGE_KEY = "hms_auth_token";
 
 export const getStoredToken = () => localStorage.getItem(TOKEN_STORAGE_KEY) || "";
@@ -33,14 +50,11 @@ export async function apiRequest(path, { token, headers, body, ...options } = {}
     payload = {};
   }
 
-  if (!response.ok) {
-    const error = new Error(payload?.message || "Request failed.");
-    error.status = response.status;
-    error.payload = payload;
-    throw error;
-  }
-
-  return payload;
+  return {
+    ok: response.ok,
+    status: response.status,
+    data: payload,
+  };
 }
 
-export { API_BASE_URL, TOKEN_STORAGE_KEY };
+export { API_BASE_URL, TOKEN_STORAGE_KEY, resolveDefaultApiBaseUrl };

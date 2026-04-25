@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Box, Button, Stack } from "@mui/material";
+import { Box, Button, Stack, useMediaQuery, useTheme } from "@mui/material";
 import LoginRoundedIcon from "@mui/icons-material/LoginRounded";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import GridViewRoundedIcon from "@mui/icons-material/GridViewRounded";
 import EmojiEventsOutlinedIcon from "@mui/icons-material/EmojiEventsOutlined";
 import PersonOutlineRoundedIcon from "@mui/icons-material/PersonOutlineRounded";
+import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import { useAuth } from "../../../features/auth/context/AuthContext";
 import AccountDialog from "./AccountDialog";
 import CartDialog from "./CartDialog";
@@ -23,7 +24,16 @@ const getLoyaltyTier = (points) => {
   return { label: "Brown", color: "#d2a679", bg: "rgba(150,95,48,0.18)", border: "rgba(150,95,48,0.35)" };
 };
 
+const formatTableBadgeLabel = (tableLabel, tableId) => {
+  const raw = String(tableLabel || tableId || "").trim();
+  if (!raw) return "Table";
+  if (/^table\b/i.test(raw)) return raw;
+  return `Table ${raw}`;
+};
+
 function AuthHeaderActions() {
+  const theme = useTheme();
+  const isCompact = useMediaQuery(theme.breakpoints.down("sm"));
   const navigate = useNavigate();
   const {
     authUser,
@@ -36,6 +46,7 @@ function AuthHeaderActions() {
     cancelVipBookingByUser,
     cartItems,
     tableContext,
+    clearTableContext,
     increaseCartQty,
     decreaseCartQty,
     removeFromCart,
@@ -65,6 +76,7 @@ function AuthHeaderActions() {
   const tier = useMemo(() => getLoyaltyTier(points), [points]);
   const normalizedProvider = String(authUser?.authProvider || "").trim().toLowerCase();
   const isGoogleUser = normalizedProvider === "google";
+  const tableBadgeLabel = formatTableBadgeLabel(tableContext?.tableLabel, tableContext?.tableId);
   const displayName = isTableGuestMode
     ? "Table Guest"
     : isAdmin
@@ -88,15 +100,30 @@ function AuthHeaderActions() {
 
   if (!authUser && !isTableGuestMode) {
     return (
-      <Button component={Link} to="/sign-in" variant="contained" color="primary" startIcon={<LoginRoundedIcon />}>
-        Sign In
+      <Button
+        component={Link}
+        to="/sign-in"
+        variant="contained"
+        color="primary"
+        startIcon={isCompact ? null : <LoginRoundedIcon />}
+        sx={{
+          flexShrink: 0,
+          minWidth: { xs: "auto", sm: 118 },
+          px: { xs: 1.6, sm: 2.4 },
+          py: 1,
+          borderRadius: 999,
+          whiteSpace: "nowrap",
+          boxShadow: "none",
+        }}
+      >
+        {isCompact ? "Login" : "Sign In"}
       </Button>
     );
   }
 
   return (
     <>
-      <Stack direction="row" spacing={1.5} alignItems="center">
+      <Stack direction="row" spacing={{ xs: 1, sm: 1.5 }} alignItems="center" justifyContent="flex-end" flexWrap="wrap">
         <Button onClick={() => setCartOpen(true)} sx={{ minWidth: 38, width: 38, height: 38, p: 0, color: "text.secondary", border: "1px solid rgba(212,178,95,0.2)", borderRadius: 99, position: "relative" }}>
           <Inventory2OutlinedIcon fontSize="small" />
           {userCartItems.length > 0 && (
@@ -123,18 +150,41 @@ function AuthHeaderActions() {
         </Button>
 
         {isTableGuestMode ? (
-          <Button
-            variant="outlined"
-            sx={{
-              borderRadius: 99,
-              borderColor: "rgba(212,178,95,0.35)",
-              color: "primary.main",
-              px: 2.1,
-              py: 0.8,
-            }}
-          >
-            {String(tableContext?.tableLabel || tableContext?.tableId || "Table").trim()}
-          </Button>
+          <Stack direction="row" spacing={0.8} alignItems="center">
+            <Button
+              variant="outlined"
+              sx={{
+                borderRadius: 99,
+                borderColor: "rgba(212,178,95,0.35)",
+                color: "primary.main",
+                px: 2.1,
+                py: 0.8,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {tableBadgeLabel}
+            </Button>
+            <Button
+              onClick={clearTableContext}
+              variant="text"
+              color="inherit"
+              startIcon={isCompact ? null : <CloseRoundedIcon />}
+              sx={{
+                minWidth: { xs: 36, sm: "auto" },
+                width: { xs: 36, sm: "auto" },
+                height: 36,
+                borderRadius: 99,
+                px: { xs: 0, sm: 1.4 },
+                color: "text.secondary",
+                border: "1px solid rgba(212,178,95,0.18)",
+                whiteSpace: "nowrap",
+              }}
+              aria-label="Leave table session"
+              title="Leave table session"
+            >
+              {isCompact ? <CloseRoundedIcon fontSize="small" /> : "Exit"}
+            </Button>
+          </Stack>
         ) : isAdmin ? (
           <Button
             component={Link}
