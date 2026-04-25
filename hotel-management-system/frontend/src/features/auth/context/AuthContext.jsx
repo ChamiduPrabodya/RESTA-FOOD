@@ -37,6 +37,50 @@ const LOYALTY_RULES_STORAGE_KEY = "hms_loyalty_rules";
 const CART_STORAGE_KEY = "hms_cart_items";
 const DELIVERY_DETAILS_STORAGE_KEY = "hms_delivery_details";
 const TABLE_CONTEXT_STORAGE_KEY = "hms_table_context";
+
+const prepareLoyaltyRulesForSave = (rules) => {
+  if (!Array.isArray(rules)) {
+    return { success: false, message: "Loyalty rules must be an array." };
+  }
+
+  const deduped = new Map();
+
+  for (const rule of rules) {
+    const thresholdText = String(rule?.threshold ?? "").trim();
+    const discountText = String(rule?.discount ?? "").trim();
+
+    if (!thresholdText || !discountText) {
+      return { success: false, message: "Each loyalty tier must include threshold and discount." };
+    }
+
+    const threshold = Number(thresholdText);
+    const discount = Number(discountText);
+
+    if (!Number.isFinite(threshold) || threshold < 0) {
+      return { success: false, message: "Each loyalty threshold must be 0 or more." };
+    }
+    if (!Number.isFinite(discount) || discount < 0 || discount > 100) {
+      return { success: false, message: "Each loyalty discount must be between 0 and 100." };
+    }
+
+    const normalizedThreshold = String(Math.round(threshold));
+    const normalizedDiscount = String(Math.round(discount));
+    const existing = deduped.get(normalizedThreshold);
+
+    if (!existing || Number(normalizedDiscount) >= Number(existing.discount)) {
+      deduped.set(normalizedThreshold, {
+        id: String(rule?.id || existing?.id || crypto.randomUUID()),
+        threshold: normalizedThreshold,
+        discount: normalizedDiscount,
+      });
+    }
+  }
+
+  return {
+    success: true,
+    rules: [...deduped.values()].sort((a, b) => Number(a.threshold) - Number(b.threshold)),
+  };
+};
 // Menu data must come from MongoDB (backend). Keep no local default menu seed here.
 
 const VIP_SUITE_CAPACITY = Object.freeze({
@@ -624,16 +668,15 @@ export function AuthProvider({ children }) {
     if (!normalizedToken) return { success: false, message: "Please login again." };
 
     try {
-      const payloadRules = normalizeLoyaltyRules(loyaltyRules).map((rule) => ({
-        id: rule.id,
-        threshold: rule.threshold,
-        discount: rule.discount,
-      }));
+      const prepared = prepareLoyaltyRulesForSave(loyaltyRules);
+      if (!prepared.success) {
+        return { success: false, message: prepared.message };
+      }
 
       const { ok, data } = await apiRequest("/loyalty/rules", {
         method: "PUT",
         token: normalizedToken,
-        body: { rules: payloadRules },
+        body: { rules: prepared.rules },
       });
 
       if (!ok || !data || data.success !== true || !Array.isArray(data.rules)) {
@@ -1062,10 +1105,8 @@ export function AuthProvider({ children }) {
     const normalizedField = field === "discount" ? "discount" : "threshold";
     const normalizedId = String(id || "");
     setLoyaltyRules((current) =>
-      normalizeLoyaltyRules(
-        (Array.isArray(current) ? current : []).map((rule) =>
-          String(rule.id) === normalizedId ? { ...rule, [normalizedField]: value } : rule
-        )
+      (Array.isArray(current) ? current : []).map((rule) =>
+        String(rule.id) === normalizedId ? { ...rule, [normalizedField]: value } : rule
       )
     );
     return { success: true };
@@ -1073,17 +1114,13 @@ export function AuthProvider({ children }) {
 
   const addLoyaltyRule = () => {
     const nextId = `r${Date.now()}`;
-    setLoyaltyRules((current) =>
-      normalizeLoyaltyRules([...(Array.isArray(current) ? current : []), { id: nextId, threshold: "", discount: "" }])
-    );
+    setLoyaltyRules((current) => [...(Array.isArray(current) ? current : []), { id: nextId, threshold: "", discount: "" }]);
     return { success: true };
   };
 
   const removeLoyaltyRule = (id) => {
     const normalizedId = String(id || "");
-    setLoyaltyRules((current) =>
-      normalizeLoyaltyRules((Array.isArray(current) ? current : []).filter((rule) => String(rule.id) !== normalizedId))
-    );
+    setLoyaltyRules((current) => (Array.isArray(current) ? current : []).filter((rule) => String(rule.id) !== normalizedId));
     return { success: true };
   };
 

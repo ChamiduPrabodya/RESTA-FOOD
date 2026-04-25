@@ -92,9 +92,20 @@ function AdminCustomersPanel({ users, purchases, pointsByEmail }) {
   const updateRule = (id, field, value) => updateLoyaltyRule(id, field, value);
   const addRule = () => addLoyaltyRule();
   const removeRuleById = (id) => removeLoyaltyRule(id);
+  const getThresholdError = (value) => {
+    const normalized = String(value ?? "").trim();
+    if (!normalized) return "Threshold is required.";
+
+    const numeric = Number(normalized);
+    if (!Number.isFinite(numeric) || numeric < 0) {
+      return "Threshold must be 0 or more.";
+    }
+    return "";
+  };
+
   const getDiscountError = (value) => {
     const normalized = String(value ?? "").trim();
-    if (!normalized) return "";
+    if (!normalized) return "Discount is required.";
 
     const numeric = Number(normalized);
     if (!Number.isFinite(numeric) || numeric < 0) {
@@ -107,6 +118,18 @@ function AdminCustomersPanel({ users, purchases, pointsByEmail }) {
   };
 
   const handleSaveTiers = async () => {
+    const invalidThresholdRule = (Array.isArray(loyaltyRules) ? loyaltyRules : []).find(
+      (rule) => Boolean(getThresholdError(rule.threshold))
+    );
+    if (invalidThresholdRule) {
+      setNotice({
+        open: true,
+        message: getThresholdError(invalidThresholdRule.threshold),
+        severity: "error",
+      });
+      return;
+    }
+
     const invalidRule = (Array.isArray(loyaltyRules) ? loyaltyRules : []).find(
       (rule) => Boolean(getDiscountError(rule.discount))
     );
@@ -244,6 +267,10 @@ function AdminCustomersPanel({ users, purchases, pointsByEmail }) {
                   size="small"
                   value={rule.threshold}
                   onChange={(event) => updateRule(rule.id, "threshold", event.target.value)}
+                  type="number"
+                  inputProps={{ min: 0, step: "1" }}
+                  error={Boolean(getThresholdError(rule.threshold))}
+                  helperText={getThresholdError(rule.threshold) || " "}
                   sx={{ mb: 1.2, "& .MuiOutlinedInput-root": { bgcolor: "#110d0c", borderRadius: 2 } }}
                 />
                 <Typography sx={{ color: "text.secondary", textTransform: "uppercase", fontSize: "0.8rem", mb: 0.6 }}>
