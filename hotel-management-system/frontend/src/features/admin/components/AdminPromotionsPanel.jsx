@@ -180,6 +180,30 @@ function AdminPromotionsPanel({
     setNotice({ open: true, message, severity });
   };
 
+  const showNegativeValueWarning = () => {
+    const message = "Negative values are not allowed for promotions.";
+    showNotice(message);
+    if (typeof window !== "undefined" && typeof window.alert === "function") {
+      window.alert(message);
+    }
+  };
+
+  const preventNegativeInput = (event) => {
+    const key = String(event?.key || "");
+    if (key === "-" || key === "Subtract") {
+      event.preventDefault();
+      showNegativeValueWarning();
+    }
+  };
+
+  const preventNegativePaste = (event) => {
+    const pastedText = String(event?.clipboardData?.getData("text") || "").trim();
+    if (pastedText.startsWith("-")) {
+      event.preventDefault();
+      showNegativeValueWarning();
+    }
+  };
+
   const updateNonNegativeNumberField = (field, value) => {
     const nextValue = String(value ?? "");
     if (nextValue === "") {
@@ -189,7 +213,7 @@ function AdminPromotionsPanel({
 
     if (nextValue.trim().startsWith("-")) {
       updateField(field, "0");
-      showNotice("Negative values are not allowed for promotions.");
+      showNegativeValueWarning();
       return;
     }
 
@@ -198,7 +222,7 @@ function AdminPromotionsPanel({
 
     if (parsed < 0) {
       updateField(field, "0");
-      showNotice("Negative values are not allowed for promotions.");
+      showNegativeValueWarning();
       return;
     }
 
@@ -334,26 +358,30 @@ function AdminPromotionsPanel({
                     Discount Value *
                   </Typography>
                   <TextField
-                    fullWidth
-                    type="number"
-                    value={form.discountValue}
-                    onChange={(event) => updateNonNegativeNumberField("discountValue", event.target.value)}
-                    inputProps={{ min: 0, step: "any" }}
-                    sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116", borderRadius: 2.5 } }}
-                  />
+                      fullWidth
+                      type="number"
+                      value={form.discountValue}
+                      onChange={(event) => updateNonNegativeNumberField("discountValue", event.target.value)}
+                      onKeyDown={preventNegativeInput}
+                      onPaste={preventNegativePaste}
+                      inputProps={{ min: 0, step: "any" }}
+                      sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116", borderRadius: 2.5 } }}
+                    />
                 </Box>
                 <Box>
                   <Typography sx={{ color: "text.secondary", textTransform: "uppercase", fontWeight: 700, mb: 0.6 }}>
                     Max Discount (SLR)
                   </Typography>
                   <TextField
-                    fullWidth
-                    type="number"
-                    value={form.maxDiscount}
-                    onChange={(event) => updateNonNegativeNumberField("maxDiscount", event.target.value)}
-                    inputProps={{ min: 0, step: "any" }}
-                    sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116", borderRadius: 2.5 } }}
-                  />
+                      fullWidth
+                      type="number"
+                      value={form.maxDiscount}
+                      onChange={(event) => updateNonNegativeNumberField("maxDiscount", event.target.value)}
+                      onKeyDown={preventNegativeInput}
+                      onPaste={preventNegativePaste}
+                      inputProps={{ min: 0, step: "any" }}
+                      sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116", borderRadius: 2.5 } }}
+                    />
                 </Box>
 
                 <Box>
@@ -361,13 +389,15 @@ function AdminPromotionsPanel({
                     Min Order Value (SLR)
                   </Typography>
                   <TextField
-                    fullWidth
-                    type="number"
-                    value={form.minOrderValue}
-                    onChange={(event) => updateNonNegativeNumberField("minOrderValue", event.target.value)}
-                    inputProps={{ min: 0, step: "any" }}
-                    sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116", borderRadius: 2.5 } }}
-                  />
+                      fullWidth
+                      type="number"
+                      value={form.minOrderValue}
+                      onChange={(event) => updateNonNegativeNumberField("minOrderValue", event.target.value)}
+                      onKeyDown={preventNegativeInput}
+                      onPaste={preventNegativePaste}
+                      inputProps={{ min: 0, step: "any" }}
+                      sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116", borderRadius: 2.5 } }}
+                    />
                 </Box>
 
                 <Box>
