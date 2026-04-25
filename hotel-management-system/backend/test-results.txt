@@ -1,4 +1,4 @@
-Started: 2026-04-25T11:03:45.656Z
+Started: 2026-04-25T12:52:50.209Z
 Node: v24.13.0
 
 PASS admin-seed.test.js - ensureAdminUser: skips when env missing
@@ -46,6 +46,7 @@ PASS payhere-service.test.js - payhere.applyPayhereNotification: verifies md5sig
 PASS payhere-service.test.js - payhere.applyPayhereNotification: rejects invalid md5sig
 PASS promotions-service.test.js - promotionsService.addPromotion: normalizes payload and discount text
 PASS promotions-service.test.js - promotionsService.addPromotion: rejects invalid date range
+PASS promotions-service.test.js - promotionsService.addPromotion: rejects negative numeric fields
 PASS promotions-service.test.js - promotionsService.editPromotion: updates existing promotion
 PASS reviews-service.test.js - reviewsService.addReviewForUser: creates review with stored user name
 PASS reviews-service.test.js - reviewsService.addReviewForUser: rejects missing auth
@@ -65,5 +66,5 @@ PASS vip-bookings-validator.test.js - vipBookingsValidator.validateCreateVipBook
 PASS vip-bookings-validator.test.js - vipBookingsValidator.validateUpdateVipBookingStatus: maps cancelled -> Cancelled
 PASS vip-bookings-validator.test.js - vipBookingsValidator.validateUpdateVipBookingStatus: rejects invalid status
 
-Summary: 63 passed, 0 failed
-Finished: 2026-04-25T11:03:46.173Z
+Summary: 64 passed, 0 failed
+Finished: 2026-04-25T12:52:50.838Z

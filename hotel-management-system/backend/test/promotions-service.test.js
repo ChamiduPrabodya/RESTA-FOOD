@@ -91,6 +91,41 @@ module.exports = [
     },
   },
   {
+    name: "promotionsService.addPromotion: rejects negative numeric fields",
+    fn: async () => {
+      const { service, cleanup } = loadServiceWithStoreStub();
+      try {
+        await assert.rejects(
+          () =>
+            service.addPromotion({
+              title: "Bad",
+              description: "Negative max discount",
+              discountValue: 10,
+              maxDiscount: -1,
+              startDate: "2026-04-20",
+              endDate: "2026-04-25",
+            }),
+          /maxDiscount cannot be negative/
+        );
+
+        await assert.rejects(
+          () =>
+            service.addPromotion({
+              title: "Bad",
+              description: "Negative min order value",
+              discountValue: 10,
+              minOrderValue: -50,
+              startDate: "2026-04-20",
+              endDate: "2026-04-25",
+            }),
+          /minOrderValue cannot be negative/
+        );
+      } finally {
+        cleanup();
+      }
+    },
+  },
+  {
     name: "promotionsService.editPromotion: updates existing promotion",
     fn: async () => {
       let seenId = "";

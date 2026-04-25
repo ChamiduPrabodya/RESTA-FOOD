@@ -173,6 +173,19 @@ function AdminPromotionsPanel({
     setForm((current) => ({ ...current, [field]: value }));
   };
 
+  const updateNonNegativeNumberField = (field, value) => {
+    const nextValue = String(value ?? "");
+    if (nextValue === "") {
+      updateField(field, "");
+      return;
+    }
+
+    const parsed = Number(nextValue);
+    if (!Number.isFinite(parsed)) return;
+
+    updateField(field, parsed < 0 ? "0" : nextValue);
+  };
+
   const closeForm = () => {
     setFormOpen(false);
     setEditingPromotionId(null);
@@ -305,7 +318,8 @@ function AdminPromotionsPanel({
                     fullWidth
                     type="number"
                     value={form.discountValue}
-                    onChange={(event) => updateField("discountValue", event.target.value)}
+                    onChange={(event) => updateNonNegativeNumberField("discountValue", event.target.value)}
+                    inputProps={{ min: 0, step: "any" }}
                     sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116", borderRadius: 2.5 } }}
                   />
                 </Box>
@@ -317,7 +331,8 @@ function AdminPromotionsPanel({
                     fullWidth
                     type="number"
                     value={form.maxDiscount}
-                    onChange={(event) => updateField("maxDiscount", event.target.value)}
+                    onChange={(event) => updateNonNegativeNumberField("maxDiscount", event.target.value)}
+                    inputProps={{ min: 0, step: "any" }}
                     sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116", borderRadius: 2.5 } }}
                   />
                 </Box>
@@ -330,7 +345,8 @@ function AdminPromotionsPanel({
                     fullWidth
                     type="number"
                     value={form.minOrderValue}
-                    onChange={(event) => updateField("minOrderValue", event.target.value)}
+                    onChange={(event) => updateNonNegativeNumberField("minOrderValue", event.target.value)}
+                    inputProps={{ min: 0, step: "any" }}
                     sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#0f1116", borderRadius: 2.5 } }}
                   />
                 </Box>

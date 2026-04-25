@@ -29,8 +29,8 @@ function normalizePromotionPayload(input = {}, existing = {}) {
   const type = normalizeType(input.type ?? existing.type);
   const discountType = normalizeDiscountType(input.discountType ?? existing.discountType);
   const discountValue = Number(input.discountValue ?? existing.discountValue);
-  const maxDiscount = Math.max(0, Number(input.maxDiscount ?? existing.maxDiscount ?? 0) || 0);
-  const minOrderValue = Math.max(0, Number(input.minOrderValue ?? existing.minOrderValue ?? 0) || 0);
+  const maxDiscount = Number(input.maxDiscount ?? existing.maxDiscount ?? 0);
+  const minOrderValue = Number(input.minOrderValue ?? existing.minOrderValue ?? 0);
   const promoCode = String(input.promoCode ?? existing.promoCode ?? "").trim().toUpperCase();
   const startDate = String(input.startDate ?? existing.startDate ?? "").trim();
   const endDate = String(input.endDate ?? existing.endDate ?? "").trim();
@@ -54,6 +54,12 @@ function normalizePromotionPayload(input = {}, existing = {}) {
   if (!description) throw httpError(400, "description is required.");
   if (!Number.isFinite(discountValue) || discountValue <= 0) {
     throw httpError(400, "discountValue must be greater than zero.");
+  }
+  if (!Number.isFinite(maxDiscount) || maxDiscount < 0) {
+    throw httpError(400, "maxDiscount cannot be negative.");
+  }
+  if (!Number.isFinite(minOrderValue) || minOrderValue < 0) {
+    throw httpError(400, "minOrderValue cannot be negative.");
   }
   if (!startDate) throw httpError(400, "startDate is required.");
   if (!endDate) throw httpError(400, "endDate is required.");

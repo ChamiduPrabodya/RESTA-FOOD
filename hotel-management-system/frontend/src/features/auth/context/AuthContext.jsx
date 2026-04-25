@@ -1816,6 +1816,12 @@ export function AuthProvider({ children }) {
     if (!Number.isFinite(normalizedDiscountValue) || normalizedDiscountValue <= 0) {
       return { success: false, message: "Discount value must be greater than zero." };
     }
+    if (normalizedMaxDiscount < 0) {
+      return { success: false, message: "Max discount cannot be negative." };
+    }
+    if (normalizedMinOrderValue < 0) {
+      return { success: false, message: "Min order value cannot be negative." };
+    }
     if (new Date(normalizedEndDate).getTime() < new Date(normalizedStartDate).getTime()) {
       return { success: false, message: "End date must be after start date." };
     }
@@ -1937,6 +1943,12 @@ export function AuthProvider({ children }) {
     }
     if (!Number.isFinite(normalizedDiscountValue) || normalizedDiscountValue <= 0) {
       return { success: false, message: "Discount value must be greater than zero." };
+    }
+    if (normalizedMaxDiscount < 0) {
+      return { success: false, message: "Max discount cannot be negative." };
+    }
+    if (normalizedMinOrderValue < 0) {
+      return { success: false, message: "Min order value cannot be negative." };
     }
     if (new Date(normalizedEndDate).getTime() < new Date(normalizedStartDate).getTime()) {
       return { success: false, message: "End date must be after start date." };

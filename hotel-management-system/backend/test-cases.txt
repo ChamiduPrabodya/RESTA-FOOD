@@ -1,4 +1,4 @@
-Generated: 2026-04-25T11:03:46.173Z
+Generated: 2026-04-25T12:52:50.838Z
 
 admin-seed.test.js - ensureAdminUser: skips when env missing
 admin-seed.test.js - ensureAdminUser: creates admin when missing
@@ -45,6 +45,7 @@ payhere-service.test.js - payhere.applyPayhereNotification: verifies md5sig and 
 payhere-service.test.js - payhere.applyPayhereNotification: rejects invalid md5sig
 promotions-service.test.js - promotionsService.addPromotion: normalizes payload and discount text
 promotions-service.test.js - promotionsService.addPromotion: rejects invalid date range
+promotions-service.test.js - promotionsService.addPromotion: rejects negative numeric fields
 promotions-service.test.js - promotionsService.editPromotion: updates existing promotion
 reviews-service.test.js - reviewsService.addReviewForUser: creates review with stored user name
 reviews-service.test.js - reviewsService.addReviewForUser: rejects missing auth
