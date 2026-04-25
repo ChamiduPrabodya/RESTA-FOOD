@@ -1113,7 +1113,7 @@ export function AuthProvider({ children }) {
   };
 
   const addLoyaltyRule = () => {
-    const nextId = `r${Date.now()}`;
+    const nextId = `r${Date.now()}-${crypto.randomUUID()}`;
     setLoyaltyRules((current) => [...(Array.isArray(current) ? current : []), { id: nextId, threshold: "", discount: "" }]);
     return { success: true };
   };

@@ -4,6 +4,10 @@ import {
   Box,
   Button,
   Card,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   IconButton,
   Snackbar,
   Stack,
@@ -34,6 +38,7 @@ function AdminCustomersPanel({ users, purchases, pointsByEmail }) {
   const { loyaltyRules, updateLoyaltyRule, addLoyaltyRule, removeLoyaltyRule, saveLoyaltyRulesToServer } = useAuth();
   const [isConfiguring, setIsConfiguring] = useState(false);
   const [notice, setNotice] = useState({ open: false, message: "", severity: "warning" });
+  const [blockingDialog, setBlockingDialog] = useState({ open: false, message: "" });
 
   const rows = useMemo(() => {
     const byEmail = new Map();
@@ -122,11 +127,13 @@ function AdminCustomersPanel({ users, purchases, pointsByEmail }) {
       (rule) => Boolean(getThresholdError(rule.threshold))
     );
     if (invalidThresholdRule) {
+      const message = getThresholdError(invalidThresholdRule.threshold);
       setNotice({
         open: true,
-        message: getThresholdError(invalidThresholdRule.threshold),
+        message,
         severity: "error",
       });
+      setBlockingDialog({ open: true, message });
       return;
     }
 
@@ -135,21 +142,25 @@ function AdminCustomersPanel({ users, purchases, pointsByEmail }) {
     );
 
     if (invalidRule) {
+      const message = getDiscountError(invalidRule.discount);
       setNotice({
         open: true,
-        message: getDiscountError(invalidRule.discount),
+        message,
         severity: "error",
       });
+      setBlockingDialog({ open: true, message });
       return;
     }
 
     const result = await saveLoyaltyRulesToServer?.();
     if (!result?.success) {
+      const message = result?.message || "Unable to save loyalty rules.";
       setNotice({
         open: true,
-        message: result?.message || "Unable to save loyalty rules.",
+        message,
         severity: "error",
       });
+      setBlockingDialog({ open: true, message });
       return;
     }
 
@@ -313,6 +324,30 @@ function AdminCustomersPanel({ users, purchases, pointsByEmail }) {
           {notice.message}
         </Alert>
       </Snackbar>
+
+      <Dialog
+        open={blockingDialog.open}
+        onClose={() => setBlockingDialog({ open: false, message: "" })}
+        fullWidth
+        maxWidth="xs"
+        PaperProps={{
+          sx: {
+            bgcolor: "#17100c",
+            border: "1px solid rgba(212,178,95,0.18)",
+            borderRadius: 3,
+          },
+        }}
+      >
+        <DialogTitle sx={{ color: "primary.main", fontWeight: 800 }}>Loyalty Validation</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ color: "text.primary" }}>{blockingDialog.message}</Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.4 }}>
+          <Button variant="contained" color="primary" onClick={() => setBlockingDialog({ open: false, message: "" })}>
+            OK
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
