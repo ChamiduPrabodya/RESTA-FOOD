@@ -35,10 +35,13 @@ const getLoyaltyTier = (points) => {
 };
 
 function AdminCustomersPanel({ users, purchases, pointsByEmail }) {
-  const { loyaltyRules, updateLoyaltyRule, addLoyaltyRule, removeLoyaltyRule, saveLoyaltyRulesToServer } = useAuth();
+  const { loyaltyRules, saveLoyaltyRulesToServer } = useAuth();
   const [isConfiguring, setIsConfiguring] = useState(false);
   const [notice, setNotice] = useState({ open: false, message: "", severity: "warning" });
   const [blockingDialog, setBlockingDialog] = useState({ open: false, message: "" });
+  const [draftRules, setDraftRules] = useState(() =>
+    (Array.isArray(loyaltyRules) ? loyaltyRules : []).map((rule) => ({ ...rule }))
+  );
 
   const rows = useMemo(() => {
     const byEmail = new Map();
@@ -94,9 +97,25 @@ function AdminCustomersPanel({ users, purchases, pointsByEmail }) {
       .slice(0, 8);
   }, [purchases, loyaltyRules, users, pointsByEmail]);
 
-  const updateRule = (id, field, value) => updateLoyaltyRule(id, field, value);
-  const addRule = () => addLoyaltyRule();
-  const removeRuleById = (id) => removeLoyaltyRule(id);
+  const updateRule = (id, field, value) => {
+    const normalizedField = field === "discount" ? "discount" : "threshold";
+    const normalizedId = String(id || "");
+    setDraftRules((current) =>
+      (Array.isArray(current) ? current : []).map((rule) =>
+        String(rule.id) === normalizedId ? { ...rule, [normalizedField]: value } : rule
+      )
+    );
+  };
+
+  const addRule = () => {
+    const nextId = `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    setDraftRules((current) => [...(Array.isArray(current) ? current : []), { id: nextId, threshold: "", discount: "" }]);
+  };
+
+  const removeRuleById = (id) => {
+    const normalizedId = String(id || "");
+    setDraftRules((current) => (Array.isArray(current) ? current : []).filter((rule) => String(rule.id) !== normalizedId));
+  };
   const getThresholdError = (value) => {
     const normalized = String(value ?? "").trim();
     if (!normalized) return "Threshold is required.";
@@ -123,7 +142,7 @@ function AdminCustomersPanel({ users, purchases, pointsByEmail }) {
   };
 
   const handleSaveTiers = async () => {
-    const invalidThresholdRule = (Array.isArray(loyaltyRules) ? loyaltyRules : []).find(
+    const invalidThresholdRule = (Array.isArray(draftRules) ? draftRules : []).find(
       (rule) => Boolean(getThresholdError(rule.threshold))
     );
     if (invalidThresholdRule) {
@@ -137,7 +156,7 @@ function AdminCustomersPanel({ users, purchases, pointsByEmail }) {
       return;
     }
 
-    const invalidRule = (Array.isArray(loyaltyRules) ? loyaltyRules : []).find(
+    const invalidRule = (Array.isArray(draftRules) ? draftRules : []).find(
       (rule) => Boolean(getDiscountError(rule.discount))
     );
 
@@ -152,7 +171,7 @@ function AdminCustomersPanel({ users, purchases, pointsByEmail }) {
       return;
     }
 
-    const result = await saveLoyaltyRulesToServer?.();
+    const result = await saveLoyaltyRulesToServer?.(draftRules);
     if (!result?.success) {
       const message = result?.message || "Unable to save loyalty rules.";
       setNotice({
@@ -180,18 +199,37 @@ function AdminCustomersPanel({ users, purchases, pointsByEmail }) {
           </Typography>
         </Box>
         {!isConfiguring ? (
-          <Button variant="contained" color="primary" onClick={() => setIsConfiguring(true)}>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => {
+              setDraftRules((Array.isArray(loyaltyRules) ? loyaltyRules : []).map((rule) => ({ ...rule })));
+              setIsConfiguring(true);
+            }}
+          >
             Configure Tiers
           </Button>
         ) : (
-          <Button
-            variant="contained"
-            color="success"
-            startIcon={<CheckRoundedIcon />}
-            onClick={handleSaveTiers}
-          >
-            Save Tiers
-          </Button>
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="outlined"
+              color="primary"
+              onClick={() => {
+                setDraftRules((Array.isArray(loyaltyRules) ? loyaltyRules : []).map((rule) => ({ ...rule })));
+                setIsConfiguring(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              color="success"
+              startIcon={<CheckRoundedIcon />}
+              onClick={handleSaveTiers}
+            >
+              Save Tiers
+            </Button>
+          </Stack>
         )}
       </Stack>
 
@@ -268,7 +306,7 @@ function AdminCustomersPanel({ users, purchases, pointsByEmail }) {
           </Stack>
 
           <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0, 1fr))" } }}>
-            {loyaltyRules.map((rule) => (
+            {draftRules.map((rule) => (
               <Box key={rule.id} sx={{ border: "1px solid rgba(212,178,95,0.15)", borderRadius: 3, p: 1.6 }}>
                 <Typography sx={{ color: "text.secondary", textTransform: "uppercase", fontSize: "0.8rem", mb: 0.6 }}>
                   Points Threshold

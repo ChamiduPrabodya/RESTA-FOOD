@@ -663,12 +663,12 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const saveLoyaltyRulesToServer = async (token = authToken) => {
+  const saveLoyaltyRulesToServer = async (rulesInput = loyaltyRules, token = authToken) => {
     const normalizedToken = String(token || "").trim();
     if (!normalizedToken) return { success: false, message: "Please login again." };
 
     try {
-      const prepared = prepareLoyaltyRulesForSave(loyaltyRules);
+      const prepared = prepareLoyaltyRulesForSave(rulesInput);
       if (!prepared.success) {
         return { success: false, message: prepared.message };
       }
