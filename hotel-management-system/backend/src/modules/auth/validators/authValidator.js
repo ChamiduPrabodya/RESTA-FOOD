@@ -61,13 +61,16 @@ function validateSignup({ fullName, email, password, phone, streetAddress1, stre
 
 function validateLogin({ email, password } = {}) {
   const normalizedEmail = String(email || "").trim().toLowerCase();
-  const normalizedPassword = String(password || "").trim();
+  const rawPassword = String(password || "");
 
-  if (!normalizedEmail || !normalizedPassword) {
+  if (!normalizedEmail || !rawPassword.trim()) {
     return { ok: false, message: "Please enter email and password." };
   }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    return { ok: false, message: "Please enter a valid email address." };
+  }
 
-  return { ok: true, value: { email: normalizedEmail, password: normalizedPassword } };
+  return { ok: true, value: { email: normalizedEmail, password: rawPassword } };
 }
 
 module.exports = { validateSignup, validateLogin };

@@ -10,8 +10,8 @@ function validateReplaceRules(body) {
     if (!Number.isFinite(threshold) || threshold < 0) {
       return { ok: false, message: "Each rule.threshold must be a number (0 or more)." };
     }
-    if (!Number.isFinite(discount) || discount < 0) {
-      return { ok: false, message: "Each rule.discount must be a number (0 or more)." };
+    if (!Number.isFinite(discount) || discount < 0 || discount > 100) {
+      return { ok: false, message: "Each rule.discount must be a number between 0 and 100." };
     }
   }
 
@@ -49,8 +49,8 @@ function validateAddPurchases(body) {
       }
       if (purchase && Object.prototype.hasOwnProperty.call(purchase, "orderType")) {
         const orderType = String(purchase.orderType || "").trim().toLowerCase();
-        if (orderType && orderType !== "delivery" && orderType !== "takeaway") {
-          return { ok: false, message: "purchase.orderType must be Delivery or Takeaway." };
+        if (orderType && orderType !== "delivery" && orderType !== "takeaway" && orderType !== "dinein" && orderType !== "dine-in" && orderType !== "dine in") {
+          return { ok: false, message: "purchase.orderType must be Delivery, Takeaway, or DineIn." };
         }
       }
     }
@@ -109,7 +109,9 @@ function validateUpdatePurchaseStatus(body) {
   const allowed = {
     pending: "Pending",
     preparing: "Preparing",
-    prepared: "Prepared",
+    prepared: "Prepared (Ready)",
+    "prepared (ready)": "Prepared (Ready)",
+    ready: "Prepared (Ready)",
     "out for delivery": "Out for Delivery",
     delivered: "Delivered",
     completed: "Completed",

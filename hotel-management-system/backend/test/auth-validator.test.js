@@ -19,6 +19,21 @@ module.exports = [
     },
   },
   {
+    name: "authValidator.validateLogin: rejects invalid email format",
+    fn: () => {
+      const res = validateLogin({ email: "not-an-email", password: "Password1" });
+      assert.equal(res.ok, false);
+    },
+  },
+  {
+    name: "authValidator.validateLogin: preserves password whitespace",
+    fn: () => {
+      const res = validateLogin({ email: "test@example.com", password: " Password1 " });
+      assert.equal(res.ok, true);
+      assert.equal(res.value.password, " Password1 ");
+    },
+  },
+  {
     name: "authValidator.validateSignup: rejects weak password",
     fn: () => {
       const res = validateSignup({
@@ -51,4 +66,3 @@ module.exports = [
     },
   },
 ];
-

@@ -73,7 +73,7 @@ function normalizeLoyaltyRules(rules) {
     const thresholdNumber = Number(rule && rule.threshold !== undefined ? rule.threshold : NaN);
     const discountNumber = Number(rule && rule.discount !== undefined ? rule.discount : NaN);
     if (!Number.isFinite(thresholdNumber) || thresholdNumber < 0) return;
-    if (!Number.isFinite(discountNumber) || discountNumber < 0) return;
+    if (!Number.isFinite(discountNumber) || discountNumber < 0 || discountNumber > 100) return;
 
     const threshold = String(Math.round(thresholdNumber));
     const discount = String(Math.round(discountNumber));
@@ -101,7 +101,7 @@ function getLoyaltyDiscountPercent(points, rules) {
     .sort((a, b) => a.threshold - b.threshold);
 
   const matched = sortedRules.reduce((best, rule) => (normalizedPoints >= rule.threshold ? rule : best), null);
-  return Math.max(0, Number(matched && matched.discount !== undefined ? matched.discount : 0) || 0);
+  return Math.min(100, Math.max(0, Number(matched && matched.discount !== undefined ? matched.discount : 0) || 0));
 }
 
 function getUserPointsFromPurchases(purchases, userEmail) {

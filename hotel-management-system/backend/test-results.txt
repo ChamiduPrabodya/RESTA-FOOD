@@ -1,4 +1,4 @@
-Started: 2026-04-25T09:07:23.140Z
+Started: 2026-04-25T10:41:47.074Z
 Node: v24.13.0
 
 PASS admin-seed.test.js - ensureAdminUser: skips when env missing
@@ -10,6 +10,8 @@ PASS auth-controller.test.js - authController.login: rejects google-only account
 PASS auth-controller.test.js - authController.login: succeeds and returns token when password matches
 PASS auth-validator.test.js - authValidator.validateLogin: requires email and password
 PASS auth-validator.test.js - authValidator.validateLogin: normalizes email
+PASS auth-validator.test.js - authValidator.validateLogin: rejects invalid email format
+PASS auth-validator.test.js - authValidator.validateLogin: preserves password whitespace
 PASS auth-validator.test.js - authValidator.validateSignup: rejects weak password
 PASS auth-validator.test.js - authValidator.validateSignup: returns normalized payload
 PASS loyalty-service-points.test.js - loyaltyService.addPurchasesForUser: pointsEarned uses menu item loyaltyPoints * quantity
@@ -23,8 +25,10 @@ PASS loyalty-utils.test.js - isCompletedPurchase: only Delivered/Completed/Paid 
 PASS loyalty-utils.test.js - getUserPointsFromPurchases: sums only completed purchases for user
 PASS loyalty-utils.test.js - computePointsFromLineItems: uses menu loyaltyPoints when available
 PASS loyalty-utils.test.js - computePointsFromLineItems: falls back to unitPrice when menu item missing
+PASS loyalty-validator.test.js - validateReplaceRules: rejects discounts above 100
 PASS loyalty-validator.test.js - validateAddPurchases: rejects loyaltyPointsEarned from client
 PASS loyalty-validator.test.js - validateAddPurchases: accepts status when valid
+PASS loyalty-validator.test.js - validateAddPurchases: accepts dine-in order type
 PASS loyalty-validator.test.js - validateUpdatePurchaseStatus: requires cancelReason when cancelling
 PASS loyalty-validator.test.js - validateUpdatePurchaseStatus: normalizes statuses
 PASS menu-controllers.test.js - menuController: listMenuItemsController returns success true
@@ -59,5 +63,5 @@ PASS vip-bookings-validator.test.js - vipBookingsValidator.validateCreateVipBook
 PASS vip-bookings-validator.test.js - vipBookingsValidator.validateUpdateVipBookingStatus: maps cancelled -> Cancelled
 PASS vip-bookings-validator.test.js - vipBookingsValidator.validateUpdateVipBookingStatus: rejects invalid status
 
-Summary: 57 passed, 0 failed
-Finished: 2026-04-25T09:07:23.689Z
+Summary: 61 passed, 0 failed
+Finished: 2026-04-25T10:41:47.625Z

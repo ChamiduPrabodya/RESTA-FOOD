@@ -1,11 +1,21 @@
 const assert = require("node:assert/strict");
 
 const {
+  validateReplaceRules,
   validateAddPurchases,
   validateUpdatePurchaseStatus,
 } = require("../src/modules/loyalty/validators/loyaltyValidator");
 
 module.exports = [
+  {
+    name: "validateReplaceRules: rejects discounts above 100",
+    fn: () => {
+      const result = validateReplaceRules({
+        rules: [{ threshold: 1000, discount: 150 }],
+      });
+      assert.equal(result.ok, false);
+    },
+  },
   {
     name: "validateAddPurchases: rejects loyaltyPointsEarned from client",
     fn: () => {
@@ -20,6 +30,15 @@ module.exports = [
     fn: () => {
       const result = validateAddPurchases({
         purchases: [{ id: "p1", subtotal: 100, status: "Pending" }],
+      });
+      assert.equal(result.ok, true);
+    },
+  },
+  {
+    name: "validateAddPurchases: accepts dine-in order type",
+    fn: () => {
+      const result = validateAddPurchases({
+        purchases: [{ id: "p1", subtotal: 100, orderType: "DineIn" }],
       });
       assert.equal(result.ok, true);
     },
@@ -41,7 +60,10 @@ module.exports = [
       const cancelled = validateUpdatePurchaseStatus({ status: "canceled", cancelReason: "test" });
       assert.equal(cancelled.ok, true);
       assert.equal(cancelled.value.status, "Cancelled");
+
+      const prepared = validateUpdatePurchaseStatus({ status: "prepared (ready)" });
+      assert.equal(prepared.ok, true);
+      assert.equal(prepared.value.status, "Prepared (Ready)");
     },
   },
 ];
-
