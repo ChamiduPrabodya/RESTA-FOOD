@@ -155,6 +155,20 @@ const submitPostForm = ({ actionUrl, fields }) => {
 
 const formatSLRValue = (value) => `SLR ${Math.round(Number(value) || 0).toLocaleString()}`;
 
+const normalizeServerCartItems = (items, userEmail) =>
+  (Array.isArray(items) ? items : []).map((item) => ({
+    id: String(item?.id || crypto.randomUUID()),
+    menuItemId: String(item?.menuItemId || "").trim(),
+    itemName: String(item?.itemName || "").trim(),
+    size: String(item?.size || "Small").trim() || "Small",
+    image: String(item?.image || "").trim(),
+    unitPrice: Math.max(0, Number(item?.unitPrice) || 0),
+    quantity: Math.max(1, Number(item?.quantity) || 1),
+    userEmail: String(item?.userEmail || userEmail || "").trim().toLowerCase(),
+    createdAt: String(item?.createdAt || "").trim(),
+    updatedAt: String(item?.updatedAt || "").trim(),
+  }));
+
 const flattenServerOrderRows = (orders) =>
   (Array.isArray(orders) ? orders : []).flatMap((order, orderIndex) => {
     const orderId = String(order?.id || order?.orderId || "").trim();
@@ -604,6 +618,46 @@ export function AuthProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const refreshCartFromServer = async (token = authToken, userEmail = authUser?.email) => {
+    const normalizedToken = String(token || "").trim();
+    const normalizedEmail = String(userEmail || "").trim().toLowerCase();
+    if (!normalizedToken || !normalizedEmail) {
+      return { success: false, message: "Missing auth token." };
+    }
+
+    try {
+      const { ok, data } = await apiRequest("/checkout/cart", { token: normalizedToken });
+      if (!ok || !data || data.success !== true || !Array.isArray(data.cartItems)) {
+        return { success: false, message: data?.message || "Unable to load cart." };
+      }
+
+      const normalizedServerItems = normalizeServerCartItems(data.cartItems, normalizedEmail);
+      setCartItems((current) => {
+        const localItems = Array.isArray(current) ? current : [];
+        const guestItems = localItems.filter((item) => {
+          const owner = String(item?.userEmail || "").trim().toLowerCase();
+          return owner.startsWith("guest:");
+        });
+        return [...normalizedServerItems, ...guestItems];
+      });
+
+      return { success: true, cartItems: normalizedServerItems };
+    } catch {
+      return { success: false, message: "Backend is not reachable. Start the backend server." };
+    }
+  };
+
+  const replaceUserCartItems = (userEmail, items) => {
+    const normalizedEmail = String(userEmail || "").trim().toLowerCase();
+    const normalizedItems = normalizeServerCartItems(items, normalizedEmail);
+    setCartItems((current) => {
+      const list = Array.isArray(current) ? current : [];
+      const others = list.filter((item) => String(item?.userEmail || "").trim().toLowerCase() !== normalizedEmail);
+      return [...normalizedItems, ...others];
+    });
+    return normalizedItems;
+  };
+
   useEffect(() => {
     const refreshPublicData = () => {
       if (typeof document !== "undefined" && document.hidden) return;
@@ -813,6 +867,7 @@ export function AuthProvider({ children }) {
         setAuthUser(data.user);
         upsertLocalUser(data.user);
         if (String(data.user.role || "") !== "admin") {
+          refreshCartFromServer(token, data.user.email);
           refreshOrdersFromServer(token);
           refreshLoyaltySummary(token);
           refreshVipBookingsFromServer(token);
@@ -855,6 +910,7 @@ export function AuthProvider({ children }) {
         refreshAdminLoyaltyPurchases(token);
         return;
       }
+      refreshCartFromServer(token, authUser.email);
       refreshLoyaltySummary(token);
     };
 
@@ -1124,7 +1180,7 @@ export function AuthProvider({ children }) {
     return { success: true };
   };
 
-  const addToCart = ({ menuItemId, itemName, price, image, size = "Small" }) => {
+  const addToCart = async ({ menuItemId, itemName, price, image, size = "Small" }) => {
     const guestKey = getGuestCartKey();
     const isGuest = Boolean(guestKey);
     if (!authUser && !isGuest) {
@@ -1147,12 +1203,36 @@ export function AuthProvider({ children }) {
 
     const priceValue = parsePrice(price);
     const cartOwnerKey = isGuest ? guestKey : authUser.email;
-    const existing = cartItems.find(
-      (item) =>
-        item.userEmail === cartOwnerKey &&
-        item.itemName === itemName &&
-        item.size === size
-    );
+    const existing = cartItems.find((item) => item.userEmail === cartOwnerKey && item.itemName === itemName && item.size === size);
+
+    if (!isGuest) {
+      const token = String(authToken || "").trim();
+      if (!token) return { success: false, message: "Please login again." };
+
+      try {
+        const { ok, data } = await apiRequest("/checkout/cart/items", {
+          method: "POST",
+          token,
+          body: {
+            menuItemId: menuItem.id,
+            itemName,
+            size,
+            image,
+            unitPrice: priceValue,
+            quantity: 1,
+          },
+        });
+
+        if (!ok || !data || data.success !== true || !Array.isArray(data.cartItems)) {
+          return { success: false, message: data?.message || "Unable to add item to cart." };
+        }
+
+        replaceUserCartItems(authUser.email, data.cartItems);
+        return { success: true };
+      } catch {
+        return { success: false, message: "Backend is not reachable. Start the backend server." };
+      }
+    }
 
     if (existing) {
       setCartItems((current) =>
@@ -1179,12 +1259,35 @@ export function AuthProvider({ children }) {
     return { success: true };
   };
 
-  const increaseCartQty = (cartItemId) => {
+  const increaseCartQty = async (cartItemId) => {
     const guestKey = getGuestCartKey();
     const isGuest = Boolean(guestKey);
-    if (!authUser && !isGuest) return;
-    if (authUser && authUser.role !== "user" && !isGuest) return;
+    if (!authUser && !isGuest) return { success: false, message: "Please login as user to use cart." };
+    if (authUser && authUser.role !== "user" && !isGuest) return { success: false, message: "Please login as user to use cart." };
     const cartOwnerKey = isGuest ? guestKey : authUser.email;
+
+    if (!isGuest) {
+      const token = String(authToken || "").trim();
+      const target = cartItems.find((item) => item.id === cartItemId && item.userEmail === cartOwnerKey);
+      if (!token) return { success: false, message: "Please login again." };
+      if (!target) return { success: false, message: "Cart item not found." };
+
+      try {
+        const { ok, data } = await apiRequest(`/checkout/cart/items/${encodeURIComponent(cartItemId)}`, {
+          method: "PATCH",
+          token,
+          body: { quantity: Math.max(1, Number(target.quantity) || 1) + 1 },
+        });
+        if (!ok || !data || data.success !== true || !Array.isArray(data.cartItems)) {
+          return { success: false, message: data?.message || "Unable to update cart item." };
+        }
+        replaceUserCartItems(authUser.email, data.cartItems);
+        return { success: true };
+      } catch {
+        return { success: false, message: "Backend is not reachable. Start the backend server." };
+      }
+    }
+
     setCartItems((current) =>
       current.map((item) =>
         item.id === cartItemId && item.userEmail === cartOwnerKey
@@ -1192,14 +1295,38 @@ export function AuthProvider({ children }) {
           : item
       )
     );
+    return { success: true };
   };
 
-  const decreaseCartQty = (cartItemId) => {
+  const decreaseCartQty = async (cartItemId) => {
     const guestKey = getGuestCartKey();
     const isGuest = Boolean(guestKey);
-    if (!authUser && !isGuest) return;
-    if (authUser && authUser.role !== "user" && !isGuest) return;
+    if (!authUser && !isGuest) return { success: false, message: "Please login as user to use cart." };
+    if (authUser && authUser.role !== "user" && !isGuest) return { success: false, message: "Please login as user to use cart." };
     const cartOwnerKey = isGuest ? guestKey : authUser.email;
+
+    if (!isGuest) {
+      const token = String(authToken || "").trim();
+      const target = cartItems.find((item) => item.id === cartItemId && item.userEmail === cartOwnerKey);
+      if (!token) return { success: false, message: "Please login again." };
+      if (!target) return { success: false, message: "Cart item not found." };
+
+      try {
+        const { ok, data } = await apiRequest(`/checkout/cart/items/${encodeURIComponent(cartItemId)}`, {
+          method: "PATCH",
+          token,
+          body: { quantity: Math.max(1, (Number(target.quantity) || 1) - 1) },
+        });
+        if (!ok || !data || data.success !== true || !Array.isArray(data.cartItems)) {
+          return { success: false, message: data?.message || "Unable to update cart item." };
+        }
+        replaceUserCartItems(authUser.email, data.cartItems);
+        return { success: true };
+      } catch {
+        return { success: false, message: "Backend is not reachable. Start the backend server." };
+      }
+    }
+
     setCartItems((current) =>
       current.map((item) =>
         item.id === cartItemId && item.userEmail === cartOwnerKey
@@ -1207,30 +1334,75 @@ export function AuthProvider({ children }) {
           : item
       )
     );
+    return { success: true };
   };
 
-  const removeFromCart = (cartItemId) => {
+  const removeFromCart = async (cartItemId) => {
     const guestKey = getGuestCartKey();
     const isGuest = Boolean(guestKey);
-    if (!authUser && !isGuest) return;
-    if (authUser && authUser.role !== "user" && !isGuest) return;
+    if (!authUser && !isGuest) return { success: false, message: "Please login as user to use cart." };
+    if (authUser && authUser.role !== "user" && !isGuest) return { success: false, message: "Please login as user to use cart." };
     const cartOwnerKey = isGuest ? guestKey : authUser.email;
+
+    if (!isGuest) {
+      const token = String(authToken || "").trim();
+      if (!token) return { success: false, message: "Please login again." };
+      try {
+        const { ok, data } = await apiRequest(`/checkout/cart/items/${encodeURIComponent(cartItemId)}`, {
+          method: "DELETE",
+          token,
+        });
+        if (!ok || !data || data.success !== true || !Array.isArray(data.cartItems)) {
+          return { success: false, message: data?.message || "Unable to remove cart item." };
+        }
+        replaceUserCartItems(authUser.email, data.cartItems);
+        return { success: true };
+      } catch {
+        return { success: false, message: "Backend is not reachable. Start the backend server." };
+      }
+    }
+
     setCartItems((current) =>
       current.filter(
         (item) => !(item.id === cartItemId && item.userEmail === cartOwnerKey)
       )
     );
+    return { success: true };
   };
 
-  const clearCart = () => {
+  const clearCart = async () => {
     const guestKey = getGuestCartKey();
     const isGuest = Boolean(guestKey);
-    if (!authUser && !isGuest) return;
-    if (authUser && authUser.role !== "user" && !isGuest) return;
+    if (!authUser && !isGuest) return { success: false, message: "Please login as user to use cart." };
+    if (authUser && authUser.role !== "user" && !isGuest) return { success: false, message: "Please login as user to use cart." };
     const cartOwnerKey = isGuest ? guestKey : authUser.email;
+
+    if (!isGuest) {
+      const token = String(authToken || "").trim();
+      if (!token) return { success: false, message: "Please login again." };
+      const userItems = cartItems.filter((item) => String(item?.userEmail || "").trim().toLowerCase() === String(cartOwnerKey || "").trim().toLowerCase());
+      try {
+        for (const item of userItems) {
+          // Delete each persisted user cart row so DB and UI stay aligned.
+          const { ok, data } = await apiRequest(`/checkout/cart/items/${encodeURIComponent(item.id)}`, {
+            method: "DELETE",
+            token,
+          });
+          if (!ok || !data || data.success !== true || !Array.isArray(data.cartItems)) {
+            return { success: false, message: data?.message || "Unable to clear cart." };
+          }
+        }
+        replaceUserCartItems(authUser.email, []);
+        return { success: true };
+      } catch {
+        return { success: false, message: "Backend is not reachable. Start the backend server." };
+      }
+    }
+
     setCartItems((current) =>
       (Array.isArray(current) ? current : []).filter((item) => String(item?.userEmail || "").trim().toLowerCase() !== String(cartOwnerKey || "").trim().toLowerCase())
     );
+    return { success: true };
   };
 
   const placeOrderFromCart = async (checkoutDetails = {}) => {

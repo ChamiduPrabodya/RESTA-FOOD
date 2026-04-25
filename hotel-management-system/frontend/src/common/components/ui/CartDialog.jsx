@@ -44,13 +44,40 @@ function CartDialog({
     onClose();
   };
 
-  const handleClearCart = () => {
+  const handleClearCart = async () => {
     if (cartItems.length === 0) return;
     const confirmed = window.confirm("Clear all items from your cart?");
     if (!confirmed) return;
-    const result = onClear?.();
+    const result = await onClear?.();
     if (result && result.success === false) {
       setErrorMessage(result.message || "Unable to clear cart.");
+      return;
+    }
+    setErrorMessage("");
+  };
+
+  const handleIncrease = async (cartItemId) => {
+    const result = await onIncrease?.(cartItemId);
+    if (result && result.success === false) {
+      setErrorMessage(result.message || "Unable to update cart item.");
+      return;
+    }
+    setErrorMessage("");
+  };
+
+  const handleDecrease = async (cartItemId) => {
+    const result = await onDecrease?.(cartItemId);
+    if (result && result.success === false) {
+      setErrorMessage(result.message || "Unable to update cart item.");
+      return;
+    }
+    setErrorMessage("");
+  };
+
+  const handleRemove = async (cartItemId) => {
+    const result = await onRemove?.(cartItemId);
+    if (result && result.success === false) {
+      setErrorMessage(result.message || "Unable to remove cart item.");
       return;
     }
     setErrorMessage("");
@@ -152,7 +179,7 @@ function CartDialog({
                         </Typography>
                       </Box>
                       <Tooltip title="Remove item" placement="bottom">
-                        <IconButton onClick={() => onRemove(item.id)} sx={{ color: "text.secondary" }} aria-label="Remove item">
+                        <IconButton onClick={() => handleRemove(item.id)} sx={{ color: "text.secondary" }} aria-label="Remove item">
                           <DeleteOutlineRoundedIcon sx={{ fontSize: 22 }} />
                         </IconButton>
                       </Tooltip>
@@ -161,7 +188,7 @@ function CartDialog({
                     <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1.4 }}>
                       <Stack direction="row" spacing={1.2} alignItems="center">
                         <Button
-                          onClick={() => onDecrease(item.id)}
+                          onClick={() => handleDecrease(item.id)}
                           sx={{
                             minWidth: 42,
                             width: 42,
@@ -178,7 +205,7 @@ function CartDialog({
                           {item.quantity}
                         </Typography>
                         <Button
-                          onClick={() => onIncrease(item.id)}
+                          onClick={() => handleIncrease(item.id)}
                           sx={{
                             minWidth: 42,
                             width: 42,

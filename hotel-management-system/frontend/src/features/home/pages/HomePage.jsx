@@ -272,7 +272,7 @@ function HomePage() {
     return favorites.length > 0 ? favorites : popularItems;
   }, [menuItems, purchases]);
 
-  const handleBuy = (item, size, price) => {
+  const handleBuy = async (item, size, price) => {
     const isTableGuestMode = Boolean(tableContext?.sessionId);
     if (!authUser && !isTableGuestMode) {
       navigate("/sign-in", { state: { from: "/" } });
@@ -288,7 +288,7 @@ function HomePage() {
       return;
     }
 
-    const result = addToCart({
+    const result = await addToCart({
       menuItemId: item?.id,
       itemName: item?.name,
       price,

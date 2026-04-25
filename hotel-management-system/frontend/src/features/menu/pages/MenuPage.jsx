@@ -182,7 +182,7 @@ function MenuPage() {
     });
   }, [menuItems, purchaseCounts, search, selectedCategory]);
 
-  const handleBuy = (item, size, price) => {
+  const handleBuy = async (item, size, price) => {
     const isTableGuestMode = Boolean(tableContext?.sessionId);
     if (tableOrderingLocked) {
       setNotice({
@@ -206,7 +206,7 @@ function MenuPage() {
       return;
     }
 
-    const result = addToCart({
+    const result = await addToCart({
       menuItemId: item.id,
       itemName: item.name,
       price,
