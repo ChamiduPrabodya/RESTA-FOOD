@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   Alert,
   Box,
@@ -369,81 +369,82 @@ function HomePage() {
           transition={{ duration: 0.45, delay: 0.2 }}
           sx={{ maxWidth: 760, pt: { xs: 8, md: 12 }, pb: 8 }}
         >
-          <Box sx={{ minHeight: { xs: 260, md: 330 } }}>
-            <AnimatePresence mode="wait">
-              {activePromotion ? (
-                  <MotionBox
-                  key={activePromotion.id || activePromotion.title || `promo-${resolvedHeroIndex}`}
-                  initial={reduceMotion ? { opacity: 1 } : { opacity: 0, y: 18 }}
-                  animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
-                  exit={reduceMotion ? { opacity: 1 } : { opacity: 0, y: -18 }}
-                  transition={{ duration: reduceMotion ? 0 : 0.38 }}
-                >
-                  <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>
-                    <Chip
-                      label="LIMITED TIME OFFER"
-                      sx={{
-                        bgcolor: "rgba(212,178,95,0.14)",
-                        border: "1px solid rgba(212,178,95,0.28)",
-                        color: "primary.main",
-                        fontWeight: 800,
-                        letterSpacing: 0.8,
-                        px: 0.4,
-                      }}
-                    />
-                    {activePromotion.discountText && (
+          <Box sx={{ minHeight: { xs: 260, md: 330 }, position: "relative" }}>
+            {heroPromotions.length > 0 ? (
+              heroPromotions.map((promotion, index) => {
+                const isActive = index === resolvedHeroIndex;
+                return (
+                  <Box
+                    key={promotion.id || `${promotion.title}-${index}`}
+                    sx={{
+                      position: isActive ? "relative" : "absolute",
+                      inset: 0,
+                      opacity: isActive ? 1 : 0,
+                      pointerEvents: isActive ? "auto" : "none",
+                      transform: isActive ? "translateY(0)" : "translateY(12px)",
+                      transition: reduceMotion ? "none" : "opacity 380ms ease, transform 380ms ease",
+                    }}
+                  >
+                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>
                       <Chip
-                        icon={<LocalOfferRoundedIcon sx={{ color: "primary.main" }} />}
-                        label={activePromotion.discountText}
+                        label="LIMITED TIME OFFER"
                         sx={{
-                          bgcolor: "rgba(15,20,30,0.55)",
-                          border: "1px solid rgba(212,178,95,0.22)",
-                          color: "text.primary",
-                          fontWeight: 700,
+                          bgcolor: "rgba(212,178,95,0.14)",
+                          border: "1px solid rgba(212,178,95,0.28)",
+                          color: "primary.main",
+                          fontWeight: 800,
+                          letterSpacing: 0.8,
+                          px: 0.4,
                         }}
                       />
-                    )}
-                  </Stack>
+                      {promotion.discountText && (
+                        <Chip
+                          icon={<LocalOfferRoundedIcon sx={{ color: "primary.main" }} />}
+                          label={promotion.discountText}
+                          sx={{
+                            bgcolor: "rgba(15,20,30,0.55)",
+                            border: "1px solid rgba(212,178,95,0.22)",
+                            color: "text.primary",
+                            fontWeight: 700,
+                          }}
+                        />
+                      )}
+                    </Stack>
 
-                  <Typography
-                    variant="h1"
-                    sx={{
-                      fontWeight: 900,
-                      lineHeight: 1.04,
-                      fontSize: { xs: "44px", md: "74px" },
-                      letterSpacing: -0.8,
-                    }}
-                  >
-                    {activePromotion.title}
-                  </Typography>
-                  <Typography sx={{ mt: 1.1, color: "text.secondary", fontSize: { xs: "16px", md: "20px" }, maxWidth: 640 }}>
-                    {activePromotion.description}
-                  </Typography>
-                </MotionBox>
-              ) : (
-                <MotionBox
-                  key="default-hero"
-                  initial={reduceMotion ? { opacity: 1 } : { opacity: 0, y: 18 }}
-                  animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
-                  exit={reduceMotion ? { opacity: 1 } : { opacity: 0, y: -18 }}
-                  transition={{ duration: reduceMotion ? 0 : 0.38 }}
+                    <Typography
+                      variant="h1"
+                      sx={{
+                        fontWeight: 900,
+                        lineHeight: 1.04,
+                        fontSize: { xs: "44px", md: "74px" },
+                        letterSpacing: -0.8,
+                      }}
+                    >
+                      {promotion.title}
+                    </Typography>
+                    <Typography sx={{ mt: 1.1, color: "text.secondary", fontSize: { xs: "16px", md: "20px" }, maxWidth: 640 }}>
+                      {promotion.description}
+                    </Typography>
+                  </Box>
+                );
+              })
+            ) : (
+              <Box>
+                <Typography
+                  variant="h1"
+                  sx={{
+                    fontWeight: 800,
+                    lineHeight: 1.1,
+                    fontSize: { xs: "42px", md: "68px" },
+                  }}
                 >
-                  <Typography
-                    variant="h1"
-                    sx={{
-                      fontWeight: 800,
-                      lineHeight: 1.1,
-                      fontSize: { xs: "42px", md: "68px" },
-                    }}
-                  >
-                    Welcome To <br /> Resta Fast Food
-                  </Typography>
-                  <Typography sx={{ mt: 1.1, color: "text.secondary", fontSize: { xs: "16px", md: "20px" } }}>
-                    Serving Happiness in Every Bite
-                  </Typography>
-                </MotionBox>
-              )}
-            </AnimatePresence>
+                  Welcome To <br /> Resta Fast Food
+                </Typography>
+                <Typography sx={{ mt: 1.1, color: "text.secondary", fontSize: { xs: "16px", md: "20px" } }}>
+                  Serving Happiness in Every Bite
+                </Typography>
+              </Box>
+            )}
           </Box>
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                 <Button
