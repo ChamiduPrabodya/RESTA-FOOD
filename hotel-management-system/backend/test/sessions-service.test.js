@@ -113,4 +113,26 @@ module.exports = [
       }
     },
   },
+  {
+    name: "sessionsService.startSession: rejects table when an active session already exists",
+    fn: async () => {
+      const { service, cleanup } = loadServiceWithStubs({
+        activeSession: {
+          id: "session_0001",
+          tableId: "table_1",
+          guestCount: 2,
+          status: "active",
+          createdAt: "2026-04-25T00:00:00.000Z",
+        },
+      });
+      try {
+        await assert.rejects(
+          () => service.startSession({ tableId: "table_1", tableToken: "tok", guestCount: 4 }),
+          /already in use/
+        );
+      } finally {
+        cleanup();
+      }
+    },
+  },
 ];

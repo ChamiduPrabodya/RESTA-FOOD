@@ -1,4 +1,4 @@
-Generated: 2026-04-25T03:40:12.775Z
+Generated: 2026-04-25T06:08:22.481Z
 
 admin-seed.test.js - ensureAdminUser: skips when env missing
 admin-seed.test.js - ensureAdminUser: creates admin when missing
@@ -45,6 +45,7 @@ reviews-service.test.js - reviewsService.addReviewForUser: rejects missing auth
 reviews-service.test.js - reviewsService.addReviewForUser: validates rating and message
 sessions-service.test.js - sessionsService.startSession: stores guestCount
 sessions-service.test.js - sessionsService.startSession: rejects more than six guests
+sessions-service.test.js - sessionsService.startSession: rejects table when an active session already exists
 user-controller.test.js - userController.updateMe: forbids non-user role
 user-controller.test.js - userController.updateMe: validates phone number
 user-controller.test.js - userController.getMe: returns sanitized user

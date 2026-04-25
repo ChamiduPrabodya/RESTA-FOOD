@@ -62,18 +62,7 @@ async function startSession(payload = {}) {
 
   const existing = await getActiveSessionByTableId(table.id);
   if (existing) {
-    let session = existing;
-    if (!Number(existing.guestCount)) {
-      await TableSession.updateOne({ id: existing.id }, { $set: { guestCount } });
-      session = { ...existing, guestCount };
-    }
-    return {
-      tableId: table.id,
-      tableLabel: table.label,
-      session: mapSession(session),
-      reused: true,
-      message: `Reusing the active session for ${table.label}.`,
-    };
+    throw httpError(409, `${table.label} is already in use. Please ask staff to close the current table session.`);
   }
 
   const { hasActiveOrderForTable } = require("../orders/ordersStore");

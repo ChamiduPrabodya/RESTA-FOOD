@@ -49,6 +49,7 @@ function loadServiceWithStubs({
         addedOrder = order;
         return order;
       },
+      hasActiveOrderForTable: async () => false,
       findOrderById: async () => existingOrder,
       listOrdersForUser: async () => [],
       listAllOrders: async () => [],
@@ -168,4 +169,3 @@ module.exports = [
     },
   },
 ];
-

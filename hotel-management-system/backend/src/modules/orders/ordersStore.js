@@ -99,13 +99,18 @@ async function updateOrderById(id, updater) {
   return stripMongoFields(doc.toObject());
 }
 
-async function hasActiveOrderForTable(tableId) {
+async function hasActiveOrderForTable(tableId, { excludeOrderId = "" } = {}) {
   await connectMongo();
   const normalized = String(tableId || "").trim();
   if (!normalized) return false;
+  const excludedId = String(excludeOrderId || "").trim();
 
   const inactive = ["Delivered", "Completed", "Cancelled"];
-  const exists = await OrderModel.exists({ tableId: normalized, status: { $nin: inactive } });
+  const query = { tableId: normalized, status: { $nin: inactive } };
+  if (excludedId) {
+    query.id = { $ne: excludedId };
+  }
+  const exists = await OrderModel.exists(query);
   return Boolean(exists);
 }
 

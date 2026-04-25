@@ -7,7 +7,7 @@ const { formatAmount, generateCheckoutHash, getCheckoutActionUrl, safeAppendQuer
 const { findMenuItemsByIds, findMenuItemsByNames } = require("../menu/menuStore");
 const { getLoyaltySummaryForUser, addPurchasesForUser, updatePurchaseStatus } = require("../loyalty/loyaltyService");
 const { findUserByEmail } = require("../auth/authStore");
-const { addOrder, findOrderById, listOrdersForUser, listAllOrders, updateOrderById } = require("./ordersStore");
+const { addOrder, findOrderById, listOrdersForUser, listAllOrders, updateOrderById, hasActiveOrderForTable } = require("./ordersStore");
 const {
   PAYHERE_MERCHANT_ID,
   PAYHERE_MERCHANT_SECRET,
@@ -311,6 +311,26 @@ async function setOrderStatusForActor(actor, id, { status, cancelReason } = {}) 
     });
   } catch {
     // ignore
+  }
+
+  if (
+    updated &&
+    updated.orderType === "DineIn" &&
+    updated.tableId &&
+    updated.tableSessionId &&
+    ["Delivered", "Cancelled"].includes(String(updated.status || "").trim())
+  ) {
+    try {
+      const hasOtherActiveOrders = await hasActiveOrderForTable(updated.tableId, { excludeOrderId: updated.id });
+      if (!hasOtherActiveOrders) {
+        const { TableSession } = require("../../models/TableSession");
+        const { Table } = require("../../models/Table");
+        await TableSession.updateOne({ id: updated.tableSessionId }, { $set: { status: "closed" } });
+        await Table.updateOne({ id: updated.tableId }, { $set: { status: "available" } });
+      }
+    } catch {
+      // ignore table-release failures so order status updates still succeed
+    }
   }
 
   return updated;

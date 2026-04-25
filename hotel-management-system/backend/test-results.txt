@@ -1,4 +1,4 @@
-Started: 2026-04-25T03:40:11.954Z
+Started: 2026-04-25T06:08:21.940Z
 Node: v24.13.0
 
 PASS admin-seed.test.js - ensureAdminUser: skips when env missing
@@ -46,6 +46,7 @@ PASS reviews-service.test.js - reviewsService.addReviewForUser: rejects missing 
 PASS reviews-service.test.js - reviewsService.addReviewForUser: validates rating and message
 PASS sessions-service.test.js - sessionsService.startSession: stores guestCount
 PASS sessions-service.test.js - sessionsService.startSession: rejects more than six guests
+PASS sessions-service.test.js - sessionsService.startSession: rejects table when an active session already exists
 PASS user-controller.test.js - userController.updateMe: forbids non-user role
 PASS user-controller.test.js - userController.updateMe: validates phone number
 PASS user-controller.test.js - userController.getMe: returns sanitized user
@@ -58,5 +59,5 @@ PASS vip-bookings-validator.test.js - vipBookingsValidator.validateCreateVipBook
 PASS vip-bookings-validator.test.js - vipBookingsValidator.validateUpdateVipBookingStatus: maps cancelled -> Cancelled
 PASS vip-bookings-validator.test.js - vipBookingsValidator.validateUpdateVipBookingStatus: rejects invalid status
 
-Summary: 56 passed, 0 failed
-Finished: 2026-04-25T03:40:12.775Z
+Summary: 57 passed, 0 failed
+Finished: 2026-04-25T06:08:22.481Z

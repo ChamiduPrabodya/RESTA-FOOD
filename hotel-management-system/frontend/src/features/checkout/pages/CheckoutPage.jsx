@@ -13,7 +13,6 @@ import {
 import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
 import RestaurantMenuRoundedIcon from "@mui/icons-material/RestaurantMenuRounded";
 import MeetingRoomRoundedIcon from "@mui/icons-material/MeetingRoomRounded";
-import CreditCardRoundedIcon from "@mui/icons-material/CreditCardRounded";
 import ShoppingCartCheckoutRoundedIcon from "@mui/icons-material/ShoppingCartCheckoutRounded";
 import AuthHeaderActions from "../../../common/components/ui/AuthHeaderActions";
 import { useAuth } from "../../auth/context/AuthContext";
@@ -326,23 +325,12 @@ function CheckoutPage() {
                 </Card>
               )}
 
-              <Card sx={{ bgcolor: "#17100d", border: "1px solid rgba(212,178,95,0.16)", borderRadius: 4 }}>
-                <CardContent sx={{ p: 2.4 }}>
-                  <Typography sx={{ color: "primary.main", textTransform: "uppercase", letterSpacing: 1.2, fontWeight: 700, mb: 1.2 }}>
-                    Payment Method
-                  </Typography>
-                  {isGuest ? (
-                    <Card sx={{ bgcolor: "#0f1116", border: "1px solid rgba(212,178,95,0.14)", borderRadius: 3 }}>
-                      <CardContent sx={{ p: 2.2 }}>
-                        <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
-                          Guest dine-in orders use cash payment (pay at counter).
-                        </Typography>
-                        <Typography sx={{ mt: 0.8, fontWeight: 900, color: "primary.main" }}>
-                          Cash
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                  ) : (
+              {!isGuest && (
+                <Card sx={{ bgcolor: "#17100d", border: "1px solid rgba(212,178,95,0.16)", borderRadius: 4 }}>
+                  <CardContent sx={{ p: 2.4 }}>
+                    <Typography sx={{ color: "primary.main", textTransform: "uppercase", letterSpacing: 1.2, fontWeight: 700, mb: 1.2 }}>
+                      Payment Method
+                    </Typography>
                     <Stack direction="row" spacing={1.4} sx={{ mb: 2 }}>
                       {["Cash", "Card"].map((method) => (
                         <Button
@@ -365,26 +353,23 @@ function CheckoutPage() {
                         </Button>
                       ))}
                     </Stack>
-                  )}
 
-                  {!isGuest && paymentMethod === "Card (Online)" && (
-                    <Card sx={{ bgcolor: "#0f1116", border: "1px solid rgba(212,178,95,0.14)", borderRadius: 3 }}>
-                      <CardContent sx={{ p: 2.2 }}>
-                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.2 }}>
-                          <CreditCardRoundedIcon sx={{ color: "primary.main", fontSize: 20 }} />
+                    {paymentMethod === "Card (Online)" && (
+                      <Card sx={{ bgcolor: "#0f1116", border: "1px solid rgba(212,178,95,0.14)", borderRadius: 3 }}>
+                        <CardContent sx={{ p: 2.2 }}>
                           <Typography sx={{ color: "primary.main", textTransform: "uppercase", letterSpacing: 1.1, fontWeight: 700 }}>
                             PayHere Card Payment
                           </Typography>
-                        </Stack>
-                        <Divider sx={{ borderColor: "rgba(212,178,95,0.14)", mb: 1.4 }} />
-                        <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
-                          You will be redirected to PayHere to enter your bank card details securely and complete the payment.
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                  )}
-                </CardContent>
-              </Card>
+                          <Divider sx={{ borderColor: "rgba(212,178,95,0.14)", my: 1.4 }} />
+                          <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
+                            You will be redirected to PayHere to enter your bank card details securely and complete the payment.
+                          </Typography>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
             </Box>
 
             <Card sx={{ bgcolor: "#17100d", border: "1px solid rgba(212,178,95,0.16)", borderRadius: 4, height: "fit-content" }}>
@@ -459,6 +444,11 @@ function CheckoutPage() {
                       Loyalty points: {pricing.points}
                     </Typography>
                   )}
+                  {isGuest && (
+                    <Typography sx={{ color: "text.secondary", fontSize: 12 }}>
+                      This table order will go straight to the admin kitchen dashboard under {String(tableContext?.tableLabel || tableContext?.tableId || "the table").trim()}.
+                    </Typography>
+                  )}
                   {errorMessage && (
                     <Typography sx={{ color: "#ff6b7a", fontSize: 13 }}>{errorMessage}</Typography>
                   )}
@@ -474,7 +464,7 @@ function CheckoutPage() {
                   }
                   sx={{ py: 1.5, borderRadius: 3.2, bgcolor: "primary.main", color: "#111214", fontWeight: 900, fontSize: "18px", "&:hover": { bgcolor: "#d4b25f" } }}
                 >
-                  Place Order
+                  {isGuest ? "Send Order to Kitchen" : "Place Order"}
                 </Button>
                 {orderType === "Delivery" && pricing.deliveryAllowed === false && (
                   <Typography sx={{ color: "#ff6b7a", fontSize: 13, mt: 1.2 }}>
