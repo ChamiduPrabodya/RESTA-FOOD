@@ -230,20 +230,14 @@ function HomePage() {
       return Number.isFinite(timestamp) ? timestamp : 0;
     };
 
-    const pickPromotions = (predicate) =>
-      list
-        .filter((promotion) => predicate(promotion))
-        .sort((a, b) => getPromoTimestamp(b) - getPromoTimestamp(a));
-
-    const homeHeaderPromotions = pickPromotions(
-      (promotion) => isPromotionActiveNow(promotion) && promotion?.displayInHomeHeader
-    ).slice(0, 8);
-
-    if (homeHeaderPromotions.length > 0) {
-      return homeHeaderPromotions;
-    }
-
-    return pickPromotions((promotion) => isPromotionActiveNow(promotion)).slice(0, 8);
+    return list
+      .filter((promotion) => isPromotionActiveNow(promotion))
+      .sort((a, b) => {
+        const headerDiff = Number(Boolean(b?.displayInHomeHeader)) - Number(Boolean(a?.displayInHomeHeader));
+        if (headerDiff !== 0) return headerDiff;
+        return getPromoTimestamp(b) - getPromoTimestamp(a);
+      })
+      .slice(0, 8);
   }, [promotions]);
 
   useEffect(() => {
