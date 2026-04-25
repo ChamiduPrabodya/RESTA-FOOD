@@ -220,7 +220,7 @@ function HomePage() {
   const [notice, setNotice] = useState({ open: false, message: "", severity: "success" });
   const [activeHeroIndex, setActiveHeroIndex] = useState(0);
 
-  const headerPromotions = useMemo(() => {
+  const heroSlides = useMemo(() => {
     const list = Array.isArray(promotions) ? promotions : [];
 
     const getPromoTimestamp = (promotion) => {
@@ -229,29 +229,35 @@ function HomePage() {
       return Number.isFinite(timestamp) ? timestamp : 0;
     };
 
-    return list
+    const validPromotions = list
       .filter(
         (promotion) =>
-          Boolean(promotion?.displayInHomeHeader) &&
-          Boolean(String(promotion?.title || "").trim() || String(promotion?.description || "").trim())
+          Boolean(
+            String(promotion?.title || "").trim() ||
+              String(promotion?.description || "").trim() ||
+              String(promotion?.imageUrl || "").trim()
+          )
       )
       .slice()
       .sort((a, b) => getPromoTimestamp(b) - getPromoTimestamp(a))
       .slice(0, 8);
+
+    const headerOnly = validPromotions.filter((promotion) => Boolean(promotion?.displayInHomeHeader));
+    return headerOnly.length > 1 ? headerOnly : validPromotions;
   }, [promotions]);
 
   useEffect(() => {
-    if (headerPromotions.length <= 1) return undefined;
+    if (heroSlides.length <= 1) return undefined;
 
     const intervalId = window.setInterval(() => {
-      setActiveHeroIndex((current) => (current + 1) % headerPromotions.length);
+      setActiveHeroIndex((current) => (current + 1) % heroSlides.length);
     }, 5000);
 
     return () => window.clearInterval(intervalId);
-  }, [headerPromotions.length]);
+  }, [heroSlides.length]);
 
-  const resolvedHeroIndex = headerPromotions.length > 0 ? activeHeroIndex % headerPromotions.length : 0;
-  const activePromotion = headerPromotions[resolvedHeroIndex] || null;
+  const resolvedHeroIndex = heroSlides.length > 0 ? activeHeroIndex % heroSlides.length : 0;
+  const activePromotion = heroSlides[resolvedHeroIndex] || null;
   const heroBackgroundImage = String(activePromotion?.imageUrl || "").trim() || heroImage;
   const primaryCta =
     activePromotion?.type === "vip"
@@ -479,7 +485,7 @@ function HomePage() {
           </Stack>
         </Stack>
 
-        {headerPromotions.length > 1 && (
+        {heroSlides.length > 1 && (
           <Stack
             direction="row"
             spacing={1}
@@ -497,7 +503,7 @@ function HomePage() {
               backdropFilter: "blur(8px)",
             }}
           >
-            {headerPromotions.map((promotion, index) => {
+            {heroSlides.map((promotion, index) => {
               const isActive = index === resolvedHeroIndex;
               return (
                 <Box
