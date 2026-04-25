@@ -521,6 +521,28 @@ export function AuthProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    const refreshPublicData = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      refreshMenuItemsFromServer();
+      refreshMenuCategoriesFromServer();
+      refreshPromotionsFromServer();
+      refreshReviewsFromServer();
+    };
+
+    const intervalId = window.setInterval(refreshPublicData, 15000);
+    const handleVisibilityChange = () => {
+      if (!document.hidden) refreshPublicData();
+    };
+
+    window.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const saveMenuCategoriesToServer = async (categories, token = authToken) => {
     const normalizedToken = String(token || "").trim();
     if (!normalizedToken) return { success: false, message: "Missing auth token." };
@@ -743,6 +765,11 @@ export function AuthProvider({ children }) {
       refreshOrdersFromServer(token);
       refreshVipBookingsFromServer(token);
       if (authUser.role === "admin") {
+        refreshAdminUsers(token);
+        refreshMenuItemsFromServer();
+        refreshMenuCategoriesFromServer();
+        refreshPromotionsFromServer();
+        refreshReviewsFromServer();
         refreshAdminLoyaltyPurchases(token);
         return;
       }
