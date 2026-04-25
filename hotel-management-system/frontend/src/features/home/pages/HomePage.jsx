@@ -221,7 +221,7 @@ function HomePage() {
   const [notice, setNotice] = useState({ open: false, message: "", severity: "success" });
   const [activeHeroIndex, setActiveHeroIndex] = useState(0);
 
-  const heroPromotions = useMemo(() => {
+  const headerPromotions = useMemo(() => {
     const list = Array.isArray(promotions) ? promotions : [];
 
     const getPromoTimestamp = (promotion) => {
@@ -231,32 +231,29 @@ function HomePage() {
     };
 
     return list
-      .filter((promotion) => Boolean(String(promotion?.title || "").trim() || String(promotion?.description || "").trim()))
+      .filter(
+        (promotion) =>
+          Boolean(promotion?.displayInHomeHeader) &&
+          Boolean(String(promotion?.title || "").trim() || String(promotion?.description || "").trim()) &&
+          Boolean(isPromotionActiveNow(promotion))
+      )
       .slice()
-      .sort((a, b) => {
-        const headerDiff = Number(Boolean(b?.displayInHomeHeader)) - Number(Boolean(a?.displayInHomeHeader));
-        if (headerDiff !== 0) return headerDiff;
-
-        const activeDiff = Number(Boolean(isPromotionActiveNow(b))) - Number(Boolean(isPromotionActiveNow(a)));
-        if (activeDiff !== 0) return activeDiff;
-
-        return getPromoTimestamp(b) - getPromoTimestamp(a);
-      })
+      .sort((a, b) => getPromoTimestamp(b) - getPromoTimestamp(a))
       .slice(0, 8);
   }, [promotions]);
 
   useEffect(() => {
-    if (heroPromotions.length <= 1) return undefined;
+    if (headerPromotions.length <= 1) return undefined;
 
     const intervalId = window.setInterval(() => {
-      setActiveHeroIndex((current) => (current + 1) % heroPromotions.length);
+      setActiveHeroIndex((current) => (current + 1) % headerPromotions.length);
     }, 5000);
 
     return () => window.clearInterval(intervalId);
-  }, [heroPromotions.length]);
+  }, [headerPromotions.length]);
 
-  const resolvedHeroIndex = heroPromotions.length > 0 ? activeHeroIndex % heroPromotions.length : 0;
-  const activePromotion = heroPromotions[resolvedHeroIndex] || null;
+  const resolvedHeroIndex = headerPromotions.length > 0 ? activeHeroIndex % headerPromotions.length : 0;
+  const activePromotion = headerPromotions[resolvedHeroIndex] || null;
   const heroBackgroundImage = String(activePromotion?.imageUrl || "").trim() || heroImage;
   const primaryCta =
     activePromotion?.type === "vip"
@@ -370,64 +367,54 @@ function HomePage() {
           sx={{ maxWidth: 760, pt: { xs: 8, md: 12 }, pb: 8 }}
         >
           <Box sx={{ minHeight: { xs: 260, md: 330 }, position: "relative" }}>
-            {heroPromotions.length > 0 ? (
-              heroPromotions.map((promotion, index) => {
-                const isActive = index === resolvedHeroIndex;
-                return (
-                  <Box
-                    key={promotion.id || `${promotion.title}-${index}`}
+            {activePromotion ? (
+              <Box
+                key={activePromotion.id || `${activePromotion.title}-${resolvedHeroIndex}`}
+                sx={{
+                  transition: reduceMotion ? "none" : "opacity 380ms ease, transform 380ms ease",
+                }}
+              >
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>
+                  <Chip
+                    label="LIMITED TIME OFFER"
                     sx={{
-                      position: isActive ? "relative" : "absolute",
-                      inset: 0,
-                      opacity: isActive ? 1 : 0,
-                      pointerEvents: isActive ? "auto" : "none",
-                      transform: isActive ? "translateY(0)" : "translateY(12px)",
-                      transition: reduceMotion ? "none" : "opacity 380ms ease, transform 380ms ease",
+                      bgcolor: "rgba(212,178,95,0.14)",
+                      border: "1px solid rgba(212,178,95,0.28)",
+                      color: "primary.main",
+                      fontWeight: 800,
+                      letterSpacing: 0.8,
+                      px: 0.4,
                     }}
-                  >
-                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>
-                      <Chip
-                        label="LIMITED TIME OFFER"
-                        sx={{
-                          bgcolor: "rgba(212,178,95,0.14)",
-                          border: "1px solid rgba(212,178,95,0.28)",
-                          color: "primary.main",
-                          fontWeight: 800,
-                          letterSpacing: 0.8,
-                          px: 0.4,
-                        }}
-                      />
-                      {promotion.discountText && (
-                        <Chip
-                          icon={<LocalOfferRoundedIcon sx={{ color: "primary.main" }} />}
-                          label={promotion.discountText}
-                          sx={{
-                            bgcolor: "rgba(15,20,30,0.55)",
-                            border: "1px solid rgba(212,178,95,0.22)",
-                            color: "text.primary",
-                            fontWeight: 700,
-                          }}
-                        />
-                      )}
-                    </Stack>
-
-                    <Typography
-                      variant="h1"
+                  />
+                  {activePromotion.discountText && (
+                    <Chip
+                      icon={<LocalOfferRoundedIcon sx={{ color: "primary.main" }} />}
+                      label={activePromotion.discountText}
                       sx={{
-                        fontWeight: 900,
-                        lineHeight: 1.04,
-                        fontSize: { xs: "44px", md: "74px" },
-                        letterSpacing: -0.8,
+                        bgcolor: "rgba(15,20,30,0.55)",
+                        border: "1px solid rgba(212,178,95,0.22)",
+                        color: "text.primary",
+                        fontWeight: 700,
                       }}
-                    >
-                      {promotion.title}
-                    </Typography>
-                    <Typography sx={{ mt: 1.1, color: "text.secondary", fontSize: { xs: "16px", md: "20px" }, maxWidth: 640 }}>
-                      {promotion.description}
-                    </Typography>
-                  </Box>
-                );
-              })
+                    />
+                  )}
+                </Stack>
+
+                <Typography
+                  variant="h1"
+                  sx={{
+                    fontWeight: 900,
+                    lineHeight: 1.04,
+                    fontSize: { xs: "44px", md: "74px" },
+                    letterSpacing: -0.8,
+                  }}
+                >
+                  {activePromotion.title}
+                </Typography>
+                <Typography sx={{ mt: 1.1, color: "text.secondary", fontSize: { xs: "16px", md: "20px" }, maxWidth: 640 }}>
+                  {activePromotion.description}
+                </Typography>
+              </Box>
             ) : (
               <Box>
                 <Typography
@@ -494,7 +481,7 @@ function HomePage() {
           </Stack>
         </Stack>
 
-        {heroPromotions.length > 1 && (
+        {headerPromotions.length > 1 && (
           <Stack
             direction="row"
             spacing={1}
@@ -512,7 +499,7 @@ function HomePage() {
               backdropFilter: "blur(8px)",
             }}
           >
-            {heroPromotions.map((promotion, index) => {
+            {headerPromotions.map((promotion, index) => {
               const isActive = index === resolvedHeroIndex;
               return (
                 <Box
