@@ -228,14 +228,16 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus }) {
             <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" gap={2}>
               <Box>
                 <Typography variant="h3" sx={{ fontSize: { xs: "20px", md: "22px" } }}>
-                  {String(order.orderRef || "").trim() || `ORD-${3046 + index}`}
+                  {String(order.orderType || "").toLowerCase() === "dinein"
+                    ? String(order.tableLabel || order.tableId || "Table").trim()
+                    : String(order.orderRef || "").trim() || `ORD-${3046 + index}`}
                 </Typography>
                 <Typography sx={{ color: "text.secondary", textTransform: "uppercase", letterSpacing: 0.8, fontSize: "0.78rem" }}>
                   {String(order.orderType || "Delivery")}
                 </Typography>
                 {String(order.orderType || "").toLowerCase() === "dinein" && (
                   <Typography sx={{ color: "primary.main", fontWeight: 800, mt: 0.5 }}>
-                    {String(order.tableLabel || order.tableId || "Table").trim()}
+                    {String(order.orderRef || "").trim() || `ORD-${3046 + index}`}
                     {Number(order.guestCount) > 0 ? ` - ${Number(order.guestCount)} guest${Number(order.guestCount) === 1 ? "" : "s"}` : ""}
                   </Typography>
                 )}

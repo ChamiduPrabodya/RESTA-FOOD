@@ -362,9 +362,15 @@ function AdminDashboardPage() {
                     <Stack spacing={1.2}>
                       {activeOrders.slice(0, 4).map((purchase) => (
                         <Box key={purchase.id}>
-                          <Typography sx={{ fontWeight: 700 }}>{purchase.itemName}</Typography>
+                          <Typography sx={{ fontWeight: 700 }}>
+                            {String(purchase.orderType || "").toLowerCase() === "dinein"
+                              ? String(purchase.tableLabel || purchase.tableId || purchase.itemName).trim()
+                              : purchase.itemName}
+                          </Typography>
                           <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                            {purchase.userEmail} - {purchase.price}
+                            {String(purchase.orderType || "").toLowerCase() === "dinein"
+                              ? `${purchase.itemName} - ${purchase.price}`
+                              : `${purchase.userEmail} - ${purchase.price}`}
                           </Typography>
                         </Box>
                       ))}
