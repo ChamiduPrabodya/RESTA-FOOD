@@ -26,7 +26,6 @@ import AuthHeaderActions from "../../../common/components/ui/AuthHeaderActions";
 import ReviewSection from "../components/ReviewSection";
 import { useAuth } from "../../auth/context/AuthContext";
 import { getMostBoughtMenuItems } from "../../../common/utils/popularity";
-import { isPromotionActiveNow } from "../../../common/utils/pricing";
 
 // NOTE: Image files should be placed in: frontend/public/images/home/
 const heroImage = "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&q=80&w=1920";
@@ -234,8 +233,7 @@ function HomePage() {
       .filter(
         (promotion) =>
           Boolean(promotion?.displayInHomeHeader) &&
-          Boolean(String(promotion?.title || "").trim() || String(promotion?.description || "").trim()) &&
-          Boolean(isPromotionActiveNow(promotion))
+          Boolean(String(promotion?.title || "").trim() || String(promotion?.description || "").trim())
       )
       .slice()
       .sort((a, b) => getPromoTimestamp(b) - getPromoTimestamp(a))
