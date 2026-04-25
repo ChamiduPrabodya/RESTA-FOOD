@@ -1,4 +1,4 @@
-Generated: 2026-04-25T10:57:39.815Z
+Generated: 2026-04-25T11:03:46.173Z
 
 admin-seed.test.js - ensureAdminUser: skips when env missing
 admin-seed.test.js - ensureAdminUser: creates admin when missing
@@ -38,6 +38,7 @@ menu-service.test.js - normalizeIncomingMenuItems: adds nameLower and normalizes
 menu-service.test.js - normalizeCategoryNames: trims and dedupes
 orders-service.test.js - ordersService.createOrderForUser: computes totals from live promotions + loyalty + delivery fee
 orders-service.test.js - ordersService.getOrderForActor: exposes placedAt for legacy orders
+orders-service.test.js - ordersService.getOrderForActor: falls back to updated timestamps when createdAt is missing
 orders-service.test.js - ordersService mock payment: initiate + confirm sets paymentStatus to Paid
 payhere-service.test.js - payhere.generateCheckoutHash: matches documented MD5 formula
 payhere-service.test.js - payhere.applyPayhereNotification: verifies md5sig and marks order paymentStatus

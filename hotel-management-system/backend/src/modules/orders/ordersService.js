@@ -37,7 +37,14 @@ function normalizePaymentMethod(value) {
 function serializeOrderTiming(order) {
   if (!order || typeof order !== "object") return order;
 
-  const placedAt = String(order.placedAt || order.createdAt || "").trim();
+  const placedAt = String(
+    order.placedAt ||
+      order.createdAt ||
+      order.statusUpdatedAt ||
+      order.updatedAt ||
+      (order.payment && order.payment.createdAt) ||
+      ""
+  ).trim();
   const placedAtEpochMs = placedAt ? new Date(placedAt).getTime() : Number.NaN;
 
   return {

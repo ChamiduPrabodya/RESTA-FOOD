@@ -190,6 +190,29 @@ module.exports = [
     },
   },
   {
+    name: "ordersService.getOrderForActor: falls back to updated timestamps when createdAt is missing",
+    fn: async () => {
+      const existingOrder = {
+        id: "o-legacy-2",
+        userEmail: "u@example.com",
+        status: "Pending",
+        statusUpdatedAt: "2026-04-08T11:45:00.000Z",
+        updatedAt: "2026-04-08T11:50:00.000Z",
+      };
+
+      const { service, cleanup } = loadServiceWithStubs({ existingOrder });
+
+      try {
+        const order = await service.getOrderForActor({ email: "u@example.com", role: "user" }, "o-legacy-2");
+        assert.ok(order);
+        assert.equal(order.placedAt, existingOrder.statusUpdatedAt);
+        assert.ok(Number.isFinite(order.placedAtEpochMs));
+      } finally {
+        cleanup();
+      }
+    },
+  },
+  {
     name: "ordersService mock payment: initiate + confirm sets paymentStatus to Paid",
     fn: async () => {
       const existingOrder = {

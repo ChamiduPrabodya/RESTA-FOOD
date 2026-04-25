@@ -142,11 +142,28 @@ const flattenServerOrderRows = (orders) =>
         paymentMethod: order?.paymentMethod || "",
         paymentStatus: order?.paymentStatus || "",
         deliveryDetails: order?.deliveryDetails || null,
-        placedAt: order?.placedAt || order?.createdAt || "",
-        placedTime: order?.placedTime || order?.placedAt || order?.createdAt || "",
+        placedAt:
+          order?.placedAt ||
+          order?.placedTime ||
+          order?.createdAt ||
+          item?.createdAt ||
+          order?.statusUpdatedAt ||
+          item?.statusUpdatedAt ||
+          order?.updatedAt ||
+          "",
+        placedTime:
+          order?.placedTime ||
+          order?.placedAt ||
+          order?.createdAt ||
+          item?.createdAt ||
+          order?.statusUpdatedAt ||
+          item?.statusUpdatedAt ||
+          order?.updatedAt ||
+          "",
         placedAtEpochMs:
           Number.isFinite(Number(order?.placedAtEpochMs)) ? Number(order.placedAtEpochMs) : "",
         createdAt: order?.createdAt || "",
+        updatedAt: order?.updatedAt || "",
         orderSubtotal: Number(order?.subtotal) || 0,
         orderTotalDiscount: (Number(order?.promotionDiscount) || 0) + (Number(order?.loyaltyDiscount) || 0),
         deliveryZone: order?.deliveryZone || "",

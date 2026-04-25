@@ -67,7 +67,14 @@ const resolvePlacedEpochMs = (purchase) => {
   const direct = Number(purchase?.placedAtEpochMs);
   if (Number.isFinite(direct) && direct > 0) return direct;
 
-  const text = String(purchase?.placedAt || purchase?.placedTime || purchase?.createdAt || "").trim();
+  const text = String(
+    purchase?.placedAt ||
+      purchase?.placedTime ||
+      purchase?.createdAt ||
+      purchase?.statusUpdatedAt ||
+      purchase?.updatedAt ||
+      ""
+  ).trim();
   if (!text) return 0;
 
   const parsed = new Date(text).getTime();
@@ -121,14 +128,27 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus }) {
       normalizedPurchases.forEach((purchase) => {
         const orderKey = String(purchase.orderId || purchase.id || "").trim() || String(purchase.id || "");
         const existing = groups.get(orderKey);
-        const placedAt = String(purchase.placedAt || purchase.placedTime || purchase.createdAt || "").trim();
+        const placedAt = String(
+          purchase.placedAt ||
+            purchase.placedTime ||
+            purchase.createdAt ||
+            purchase.statusUpdatedAt ||
+            purchase.updatedAt ||
+            ""
+        ).trim();
         const createdAtTime = resolvePlacedEpochMs(purchase);
 
         if (!existing) {
           groups.set(orderKey, {
             orderId: orderKey,
             orderRef: purchase.orderRef || "",
-            placedAt: purchase.placedAt || purchase.placedTime || purchase.createdAt || "",
+            placedAt:
+              purchase.placedAt ||
+              purchase.placedTime ||
+              purchase.createdAt ||
+              purchase.statusUpdatedAt ||
+              purchase.updatedAt ||
+              "",
             createdAtTime,
             orderType: purchase.orderType || "Delivery",
             paymentMethod: purchase.paymentMethod || "",
@@ -146,7 +166,13 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus }) {
       existing.items.push(purchase);
       if (!existing.createdAtTime || (createdAtTime > 0 && createdAtTime < existing.createdAtTime)) {
         existing.createdAtTime = createdAtTime;
-        existing.placedAt = purchase.placedAt || purchase.placedTime || purchase.createdAt || existing.placedAt;
+        existing.placedAt =
+          purchase.placedAt ||
+          purchase.placedTime ||
+          purchase.createdAt ||
+          purchase.statusUpdatedAt ||
+          purchase.updatedAt ||
+          existing.placedAt;
       }
       existing.orderRef = existing.orderRef || purchase.orderRef || "";
       existing.orderType = existing.orderType || purchase.orderType;
