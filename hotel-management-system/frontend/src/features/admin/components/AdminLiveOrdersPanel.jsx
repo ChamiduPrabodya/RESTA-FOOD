@@ -48,6 +48,21 @@ const normalizeStatus = (status) => {
     return "Cancelled";
   return text;
 };
+const formatPlacedAt = (value) => {
+  const text = String(value || "").trim();
+  if (!text) return "";
+
+  const parsed = new Date(text);
+  if (Number.isNaN(parsed.getTime())) return text;
+
+  return parsed.toLocaleString([], {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
 
 const formatTableLabel = (tableLabel, tableId) => {
   const raw = String(tableLabel || tableId || "").trim();
@@ -96,14 +111,15 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus }) {
       normalizedPurchases.forEach((purchase) => {
         const orderKey = String(purchase.orderId || purchase.id || "").trim() || String(purchase.id || "");
         const existing = groups.get(orderKey);
-        const createdAt = String(purchase.createdAt || "").trim();
-        const createdAtTime = createdAt ? new Date(createdAt).getTime() : 0;
+        const placedAt = String(purchase.placedAt || purchase.createdAt || "").trim();
+        const createdAtTime =
+          Number.isFinite(Number(purchase.placedAtEpochMs)) ? Number(purchase.placedAtEpochMs) : placedAt ? new Date(placedAt).getTime() : 0;
 
         if (!existing) {
           groups.set(orderKey, {
             orderId: orderKey,
             orderRef: purchase.orderRef || "",
-            createdAt: purchase.createdAt || "",
+            placedAt: purchase.placedAt || purchase.createdAt || "",
             createdAtTime,
             orderType: purchase.orderType || "Delivery",
             paymentMethod: purchase.paymentMethod || "",
@@ -121,7 +137,7 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus }) {
       existing.items.push(purchase);
       if (createdAtTime > existing.createdAtTime) {
         existing.createdAtTime = createdAtTime;
-        existing.createdAt = purchase.createdAt || existing.createdAt;
+        existing.placedAt = purchase.placedAt || purchase.createdAt || existing.placedAt;
       }
       existing.orderRef = existing.orderRef || purchase.orderRef || "";
       existing.orderType = existing.orderType || purchase.orderType;
@@ -249,6 +265,11 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus }) {
                   <Typography sx={{ color: "primary.main", fontWeight: 800, mt: 0.5 }}>
                     {String(order.orderRef || "").trim() || `ORD-${3046 + index}`}
                     {Number(order.guestCount) > 0 ? ` - ${Number(order.guestCount)} guest${Number(order.guestCount) === 1 ? "" : "s"}` : ""}
+                  </Typography>
+                )}
+                {formatPlacedAt(order.placedAt) && (
+                  <Typography sx={{ color: "text.secondary", mt: 0.75, fontSize: "0.84rem" }}>
+                    Placed: {formatPlacedAt(order.placedAt)}
                   </Typography>
                 )}
               </Box>

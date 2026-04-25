@@ -142,6 +142,9 @@ const flattenServerOrderRows = (orders) =>
         paymentMethod: order?.paymentMethod || "",
         paymentStatus: order?.paymentStatus || "",
         deliveryDetails: order?.deliveryDetails || null,
+        placedAt: order?.placedAt || order?.createdAt || "",
+        placedAtEpochMs:
+          Number.isFinite(Number(order?.placedAtEpochMs)) ? Number(order.placedAtEpochMs) : "",
         createdAt: order?.createdAt || "",
         orderSubtotal: Number(order?.subtotal) || 0,
         orderTotalDiscount: (Number(order?.promotionDiscount) || 0) + (Number(order?.loyaltyDiscount) || 0),

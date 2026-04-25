@@ -34,6 +34,19 @@ function normalizePaymentMethod(value) {
   return "";
 }
 
+function serializeOrderTiming(order) {
+  if (!order || typeof order !== "object") return order;
+
+  const placedAt = String(order.placedAt || order.createdAt || "").trim();
+  const placedAtEpochMs = placedAt ? new Date(placedAt).getTime() : Number.NaN;
+
+  return {
+    ...order,
+    placedAt,
+    placedAtEpochMs: Number.isFinite(placedAtEpochMs) ? placedAtEpochMs : null,
+  };
+}
+
 function resolvePortionPrice(portions, size) {
   if (!portions || typeof portions !== "object") return null;
   const entries = Object.entries(portions).filter(([key]) => String(key || "").trim());
@@ -213,11 +226,12 @@ async function createOrderForUser(userEmail, input, meta = {}) {
     deliveryFee: pricing.deliveryFee,
     finalPaid: pricing.finalPaid,
     pointsEarned: pricing.pointsEarned,
+    placedAt: now,
     createdAt: now,
     updatedAt: now,
   };
 
-  const created = await addOrder(order);
+  const created = serializeOrderTiming(await addOrder(order));
 
   // Keep loyalty purchase records in sync (idempotent; duplicates are skipped by the service/store).
   if (!meta || meta.skipLoyaltySync !== true) {
@@ -258,18 +272,20 @@ async function getOrderForActor(actor, id) {
   const role = actor && actor.role ? actor.role : undefined;
   const email = String(actor && actor.email ? actor.email : "").trim().toLowerCase();
 
-  if (role === "admin") return order;
+  if (role === "admin") return serializeOrderTiming(order);
   if (!email) return null;
   if (String(order.userEmail || "").trim().toLowerCase() !== email) return null;
-  return order;
+  return serializeOrderTiming(order);
 }
 
 async function listOrdersForActor(actor) {
   const role = actor && actor.role ? actor.role : undefined;
   const email = String(actor && actor.email ? actor.email : "").trim().toLowerCase();
   if (!email) throw httpError(401, "Unauthorized.");
-  if (role === "admin") return listAllOrders();
-  return listOrdersForUser(email);
+  if (role === "admin") {
+    return (await listAllOrders()).map(serializeOrderTiming);
+  }
+  return (await listOrdersForUser(email)).map(serializeOrderTiming);
 }
 
 async function setOrderStatusForActor(actor, id, { status, cancelReason } = {}) {
@@ -321,7 +337,7 @@ async function setOrderStatusForActor(actor, id, { status, cancelReason } = {}) 
     // ignore
   }
 
-  return updated;
+  return serializeOrderTiming(updated);
 }
 
 async function initiateMockPaymentForActor(actor, id, { provider, method } = {}) {
@@ -358,7 +374,7 @@ async function initiateMockPaymentForActor(actor, id, { provider, method } = {})
     updatedAt: now,
   }));
 
-  return { order: updated, payment: updated.payment };
+  return { order: serializeOrderTiming(updated), payment: updated.payment };
 }
 
 async function confirmMockPaymentForActor(actor, id) {
@@ -418,7 +434,7 @@ async function confirmMockPaymentForActor(actor, id) {
     // ignore
   }
 
-  return { order: updated, payment: updated.payment };
+  return { order: serializeOrderTiming(updated), payment: updated.payment };
 }
 
 function splitFullName(fullName) {
@@ -531,7 +547,7 @@ async function initiatePayhereCheckoutForActor(actor, id, { customer } = {}) {
   }));
 
   return {
-    order: updated,
+    order: serializeOrderTiming(updated),
     checkout: {
       provider: "payhere",
       actionUrl: getCheckoutActionUrl({ sandbox: PAYHERE_SANDBOX }),

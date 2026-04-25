@@ -34,6 +34,7 @@ const orderSchema = new mongoose.Schema(
     finalPaid: { type: Number },
     pointsEarned: { type: Number },
 
+    placedAt: { type: String, trim: true, index: true },
     createdAt: { type: String, required: true, trim: true, index: true },
     updatedAt: { type: String, required: true, trim: true, index: true },
   },

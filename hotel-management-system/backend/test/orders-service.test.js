@@ -145,6 +145,8 @@ module.exports = [
         assert.equal(order.userEmail, "u@example.com");
         assert.equal(order.orderType, "Delivery");
         assert.equal(order.status, "Pending");
+        assert.equal(order.placedAt, order.createdAt);
+        assert.ok(Number.isFinite(order.placedAtEpochMs));
 
         assert.equal(order.subtotal, 1000);
         assert.equal(order.promotionDiscount, 100);
@@ -159,6 +161,29 @@ module.exports = [
         assert.ok(Array.isArray(order.items));
         assert.equal(order.items.length, 1);
         assert.equal(order.items[0].unitPrice, 500);
+      } finally {
+        cleanup();
+      }
+    },
+  },
+  {
+    name: "ordersService.getOrderForActor: exposes placedAt for legacy orders",
+    fn: async () => {
+      const existingOrder = {
+        id: "o-legacy",
+        userEmail: "u@example.com",
+        status: "Pending",
+        createdAt: "2026-04-08T10:30:00.000Z",
+        updatedAt: "2026-04-08T10:30:00.000Z",
+      };
+
+      const { service, cleanup } = loadServiceWithStubs({ existingOrder });
+
+      try {
+        const order = await service.getOrderForActor({ email: "u@example.com", role: "user" }, "o-legacy");
+        assert.ok(order);
+        assert.equal(order.placedAt, existingOrder.createdAt);
+        assert.ok(Number.isFinite(order.placedAtEpochMs));
       } finally {
         cleanup();
       }
