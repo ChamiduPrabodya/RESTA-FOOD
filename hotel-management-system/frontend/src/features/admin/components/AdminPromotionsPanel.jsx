@@ -184,7 +184,9 @@ function AdminPromotionsPanel({
     const message = "Negative values are not allowed for promotions.";
     showNotice(message);
     if (typeof window !== "undefined" && typeof window.alert === "function") {
-      window.alert(message);
+      window.setTimeout(() => {
+        window.alert(message);
+      }, 0);
     }
   };
 
