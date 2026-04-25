@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import {
+  Alert,
   Box,
   Button,
   Card,
@@ -7,6 +8,7 @@ import {
   Checkbox,
   FormControlLabel,
   MenuItem,
+  Snackbar,
   Select,
   Stack,
   TextField,
@@ -152,6 +154,7 @@ function AdminPromotionsPanel({
   const [formOpen, setFormOpen] = useState(false);
   const [editingPromotionId, setEditingPromotionId] = useState(null);
   const [form, setForm] = useState(createInitialForm());
+  const [notice, setNotice] = useState({ open: false, message: "", severity: "warning" });
   const isEditing = Boolean(editingPromotionId);
 
   const stats = useMemo(() => {
@@ -173,6 +176,10 @@ function AdminPromotionsPanel({
     setForm((current) => ({ ...current, [field]: value }));
   };
 
+  const showNotice = (message, severity = "warning") => {
+    setNotice({ open: true, message, severity });
+  };
+
   const updateNonNegativeNumberField = (field, value) => {
     const nextValue = String(value ?? "");
     if (nextValue === "") {
@@ -183,7 +190,13 @@ function AdminPromotionsPanel({
     const parsed = Number(nextValue);
     if (!Number.isFinite(parsed)) return;
 
-    updateField(field, parsed < 0 ? "0" : nextValue);
+    if (parsed < 0) {
+      updateField(field, "0");
+      showNotice("Negative values are not allowed for promotions.");
+      return;
+    }
+
+    updateField(field, nextValue);
   };
 
   const closeForm = () => {
@@ -454,6 +467,22 @@ function AdminPromotionsPanel({
         onEdit={startEdit}
         onDelete={handleDelete}
       />
+
+      <Snackbar
+        open={notice.open}
+        autoHideDuration={2500}
+        onClose={() => setNotice((current) => ({ ...current, open: false }))}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          severity={notice.severity}
+          variant="filled"
+          onClose={() => setNotice((current) => ({ ...current, open: false }))}
+          sx={{ width: "100%" }}
+        >
+          {notice.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }
