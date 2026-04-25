@@ -313,8 +313,8 @@ function AdminMenuManagementPanel({
     }));
   };
 
-  const handleSaveEdit = (itemId) => {
-    const result = updateMenuItem(itemId, {
+  const handleSaveEdit = async (itemId) => {
+    const result = await updateMenuItem(itemId, {
       name: editForm.name,
       category: editForm.category,
       description: editForm.description,

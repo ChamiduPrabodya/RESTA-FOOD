@@ -177,6 +177,17 @@ const flattenServerOrderRows = (orders) =>
     });
   });
 
+const normalizeServerMenuItems = (serverItems) =>
+  (Array.isArray(serverItems) ? serverItems : []).map((item) => ({
+    ...item,
+    id: item.id || crypto.randomUUID(),
+    outOfStock: Boolean(item.outOfStock),
+    loyaltyPoints:
+      item && Object.prototype.hasOwnProperty.call(item, "loyaltyPoints") && item.loyaltyPoints !== undefined && item.loyaltyPoints !== null
+        ? Math.max(0, Math.round(Number(item.loyaltyPoints) || 0))
+        : undefined,
+  }));
+
 export function AuthProvider({ children }) {
   const [authUser, setAuthUser] = useState(null);
   const [authToken, setAuthToken] = useState(() => String(localStorage.getItem(AUTH_TOKEN_STORAGE_KEY) || "").trim());
@@ -193,6 +204,8 @@ export function AuthProvider({ children }) {
   );
   const [menuItems, setMenuItems] = useState(() => []);
   const menuItemsRef = useRef(menuItems);
+  const menuItemsVersionRef = useRef(0);
+  const menuItemsSaveInFlightRef = useRef(0);
   useEffect(() => {
     menuItemsRef.current = menuItems;
   }, [menuItems]);
@@ -442,8 +455,16 @@ export function AuthProvider({ children }) {
     }
   }, [getGuestCartKey]);
 
+  const applyMenuItems = useCallback((nextItems) => {
+    const normalized = normalizeServerMenuItems(nextItems);
+    menuItemsRef.current = normalized;
+    setMenuItems(normalized);
+    return normalized;
+  }, []);
+
   const refreshMenuItemsFromServer = async ({ retries = 0 } = {}) => {
     let lastResult = { success: false, message: "Backend is not reachable. Start the backend server." };
+    const versionAtStart = menuItemsVersionRef.current;
 
     for (let attempt = 0; attempt <= retries; attempt += 1) {
       try {
@@ -451,17 +472,10 @@ export function AuthProvider({ children }) {
         if (!ok || !data || data.success !== true || !Array.isArray(data.items)) {
           lastResult = { success: false, message: data?.message || "Unable to load menu items." };
         } else {
-          const serverItems = data.items;
-          const normalized = serverItems.map((item) => ({
-            ...item,
-            id: item.id || crypto.randomUUID(),
-            outOfStock: Boolean(item.outOfStock),
-            loyaltyPoints:
-              item && Object.prototype.hasOwnProperty.call(item, "loyaltyPoints") && item.loyaltyPoints !== undefined && item.loyaltyPoints !== null
-                ? Math.max(0, Math.round(Number(item.loyaltyPoints) || 0))
-                : undefined,
-          }));
-          setMenuItems(normalized);
+          if (versionAtStart !== menuItemsVersionRef.current || menuItemsSaveInFlightRef.current > 0) {
+            return { success: true, items: data.items, skipped: true };
+          }
+          applyMenuItems(data.items);
           return { success: true, items: data.items };
         }
       } catch {
@@ -519,6 +533,7 @@ export function AuthProvider({ children }) {
     const normalizedToken = String(token || "").trim();
     if (!normalizedToken) return { success: false, message: "Missing auth token." };
 
+    menuItemsSaveInFlightRef.current += 1;
     try {
       const { ok, data } = await apiRequest("/menu/items", {
         method: "PUT",
@@ -528,9 +543,12 @@ export function AuthProvider({ children }) {
       if (!ok || !data || data.success !== true || !Array.isArray(data.items)) {
         return { success: false, message: data?.message || "Unable to save menu items." };
       }
+      applyMenuItems(data.items);
       return { success: true, items: data.items };
     } catch {
       return { success: false, message: "Backend is not reachable. Start the backend server." };
+    } finally {
+      menuItemsSaveInFlightRef.current = Math.max(0, menuItemsSaveInFlightRef.current - 1);
     }
   };
 
@@ -2179,28 +2197,28 @@ export function AuthProvider({ children }) {
     return { success: true };
   };
 
-  const updateMenuItem = (menuItemId, updates) => {
+  const updateMenuItem = async (menuItemId, updates) => {
     if (!authUser || authUser.role !== "admin") {
       return { success: false, message: "Only admins can update menu items." };
     }
     const normalizedCategory = String(updates?.category || "").trim();
-    setMenuItems((current) => {
-      const next = current.map((item) => {
-        if (item.id !== menuItemId) return item;
-        const next = { ...item, ...updates };
-        if (updates && Object.prototype.hasOwnProperty.call(updates, "loyaltyPoints")) {
-          next.loyaltyPoints =
-            updates.loyaltyPoints === undefined || updates.loyaltyPoints === null || String(updates.loyaltyPoints).trim() === ""
-              ? undefined
-              : Math.max(0, Math.round(Number(updates.loyaltyPoints) || 0));
-        }
-        return next;
-      });
-      queueMicrotask(() => {
-        if (authUser?.role === "admin") saveMenuItemsToServer(next);
-      });
-      return next;
+    const previous = Array.isArray(menuItemsRef.current) ? menuItemsRef.current : [];
+    const next = previous.map((item) => {
+      if (item.id !== menuItemId) return item;
+      const updatedItem = { ...item, ...updates };
+      if (updates && Object.prototype.hasOwnProperty.call(updates, "loyaltyPoints")) {
+        updatedItem.loyaltyPoints =
+          updates.loyaltyPoints === undefined || updates.loyaltyPoints === null || String(updates.loyaltyPoints).trim() === ""
+            ? undefined
+            : Math.max(0, Math.round(Number(updates.loyaltyPoints) || 0));
+      }
+      return updatedItem;
     });
+    if (next.length === previous.length && !next.some((item, index) => item !== previous[index])) {
+      return { success: false, message: "Menu item not found." };
+    }
+    menuItemsVersionRef.current += 1;
+    applyMenuItems(next);
     if (normalizedCategory) {
       setMenuCategories((current) => {
         if (current.some((category) => category.toLowerCase() === normalizedCategory.toLowerCase())) {
@@ -2209,7 +2227,13 @@ export function AuthProvider({ children }) {
         return [...current, normalizedCategory];
       });
     }
-    return { success: true };
+    const result = await saveMenuItemsToServer(next);
+    if (!result?.success) {
+      menuItemsVersionRef.current += 1;
+      applyMenuItems(previous);
+      return result;
+    }
+    return { success: true, items: result.items };
   };
 
   const deleteMenuItem = (menuItemId) => {

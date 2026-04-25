@@ -128,14 +128,6 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus }) {
       normalizedPurchases.forEach((purchase) => {
         const orderKey = String(purchase.orderId || purchase.id || "").trim() || String(purchase.id || "");
         const existing = groups.get(orderKey);
-        const placedAt = String(
-          purchase.placedAt ||
-            purchase.placedTime ||
-            purchase.createdAt ||
-            purchase.statusUpdatedAt ||
-            purchase.updatedAt ||
-            ""
-        ).trim();
         const createdAtTime = resolvePlacedEpochMs(purchase);
 
         if (!existing) {
