@@ -187,6 +187,12 @@ function AdminPromotionsPanel({
       return;
     }
 
+    if (nextValue.trim().startsWith("-")) {
+      updateField(field, "0");
+      showNotice("Negative values are not allowed for promotions.");
+      return;
+    }
+
     const parsed = Number(nextValue);
     if (!Number.isFinite(parsed)) return;
 
