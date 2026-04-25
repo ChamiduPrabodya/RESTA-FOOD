@@ -28,6 +28,7 @@ const ITEM_STATUSES = [
 ];
 
 const ORDER_STATUSES = ["Mixed", ...ITEM_STATUSES];
+const DINE_IN_ORDER_STATUSES = ["Mixed", "Pending", "Preparing", "Prepared (Ready)", "Delivered", "Cancelled"];
 
 const isCompletedOrder = (status) => status === "Delivered";
 const isCancelledOrder = (status) => status === "Cancelled";
@@ -46,6 +47,13 @@ const normalizeStatus = (status) => {
   if (lower === "cancelled" || lower === "canceled" || lower === "canceled by admin" || lower === "cancelled by admin")
     return "Cancelled";
   return text;
+};
+
+const formatTableLabel = (tableLabel, tableId) => {
+  const raw = String(tableLabel || tableId || "").trim();
+  if (!raw) return "Table";
+  if (/^table\b/i.test(raw)) return raw;
+  return `Table ${raw}`;
 };
 
 const deriveOrderStatus = (items) => {
@@ -154,6 +162,8 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus }) {
       : liveOrdersFilter === "cancelled"
         ? cancelledOrders
         : activeOrders;
+  const getOrderStatusOptions = (order) =>
+    String(order?.orderType || "").trim().toLowerCase() === "dinein" ? DINE_IN_ORDER_STATUSES : ORDER_STATUSES;
   const closeCancelDialog = () => setCancelDialog({ open: false, targetId: "", mode: "order", reason: "" });
   const handleOrderStatusChange = async (orderId, nextStatus) => {
     if (nextStatus === "Cancelled") {
@@ -229,7 +239,7 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus }) {
               <Box>
                 <Typography variant="h3" sx={{ fontSize: { xs: "20px", md: "22px" } }}>
                   {String(order.orderType || "").toLowerCase() === "dinein"
-                    ? String(order.tableLabel || order.tableId || "Table").trim()
+                    ? formatTableLabel(order.tableLabel, order.tableId)
                     : String(order.orderRef || "").trim() || `ORD-${3046 + index}`}
                 </Typography>
                 <Typography sx={{ color: "text.secondary", textTransform: "uppercase", letterSpacing: 0.8, fontSize: "0.78rem" }}>
@@ -264,7 +274,7 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus }) {
                   },
                   }}
                 >
-                  {ORDER_STATUSES.map((status) => (
+                  {getOrderStatusOptions(order).map((status) => (
                     <MenuItem key={status} value={status} disabled={status === "Mixed"}>
                       {status}
                     </MenuItem>
