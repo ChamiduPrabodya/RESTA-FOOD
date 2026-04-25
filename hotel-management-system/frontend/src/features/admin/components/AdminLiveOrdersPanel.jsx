@@ -63,6 +63,16 @@ const formatPlacedAt = (value) => {
     minute: "2-digit",
   });
 };
+const resolvePlacedEpochMs = (purchase) => {
+  const direct = Number(purchase?.placedAtEpochMs);
+  if (Number.isFinite(direct) && direct > 0) return direct;
+
+  const text = String(purchase?.placedAt || purchase?.placedTime || purchase?.createdAt || "").trim();
+  if (!text) return 0;
+
+  const parsed = new Date(text).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+};
 
 const formatTableLabel = (tableLabel, tableId) => {
   const raw = String(tableLabel || tableId || "").trim();
@@ -111,15 +121,14 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus }) {
       normalizedPurchases.forEach((purchase) => {
         const orderKey = String(purchase.orderId || purchase.id || "").trim() || String(purchase.id || "");
         const existing = groups.get(orderKey);
-        const placedAt = String(purchase.placedAt || purchase.createdAt || "").trim();
-        const createdAtTime =
-          Number.isFinite(Number(purchase.placedAtEpochMs)) ? Number(purchase.placedAtEpochMs) : placedAt ? new Date(placedAt).getTime() : 0;
+        const placedAt = String(purchase.placedAt || purchase.placedTime || purchase.createdAt || "").trim();
+        const createdAtTime = resolvePlacedEpochMs(purchase);
 
         if (!existing) {
           groups.set(orderKey, {
             orderId: orderKey,
             orderRef: purchase.orderRef || "",
-            placedAt: purchase.placedAt || purchase.createdAt || "",
+            placedAt: purchase.placedAt || purchase.placedTime || purchase.createdAt || "",
             createdAtTime,
             orderType: purchase.orderType || "Delivery",
             paymentMethod: purchase.paymentMethod || "",
@@ -135,9 +144,9 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus }) {
       }
 
       existing.items.push(purchase);
-      if (createdAtTime > existing.createdAtTime) {
+      if (!existing.createdAtTime || (createdAtTime > 0 && createdAtTime < existing.createdAtTime)) {
         existing.createdAtTime = createdAtTime;
-        existing.placedAt = purchase.placedAt || purchase.createdAt || existing.placedAt;
+        existing.placedAt = purchase.placedAt || purchase.placedTime || purchase.createdAt || existing.placedAt;
       }
       existing.orderRef = existing.orderRef || purchase.orderRef || "";
       existing.orderType = existing.orderType || purchase.orderType;
@@ -268,7 +277,7 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus }) {
                   </Typography>
                 )}
                 {formatPlacedAt(order.placedAt) && (
-                  <Typography sx={{ color: "text.secondary", mt: 0.75, fontSize: "0.84rem" }}>
+                  <Typography sx={{ color: "primary.main", mt: 0.9, fontSize: "0.92rem", fontWeight: 700 }}>
                     Placed: {formatPlacedAt(order.placedAt)}
                   </Typography>
                 )}

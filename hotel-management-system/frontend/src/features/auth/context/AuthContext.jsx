@@ -143,6 +143,7 @@ const flattenServerOrderRows = (orders) =>
         paymentStatus: order?.paymentStatus || "",
         deliveryDetails: order?.deliveryDetails || null,
         placedAt: order?.placedAt || order?.createdAt || "",
+        placedTime: order?.placedTime || order?.placedAt || order?.createdAt || "",
         placedAtEpochMs:
           Number.isFinite(Number(order?.placedAtEpochMs)) ? Number(order.placedAtEpochMs) : "",
         createdAt: order?.createdAt || "",

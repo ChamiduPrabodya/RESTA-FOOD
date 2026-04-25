@@ -44,6 +44,7 @@ function serializeOrderTiming(order) {
     ...order,
     placedAt,
     placedAtEpochMs: Number.isFinite(placedAtEpochMs) ? placedAtEpochMs : null,
+    placedTime: placedAt,
   };
 }
 
