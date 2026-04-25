@@ -2,10 +2,11 @@ const crypto = require("node:crypto");
 
 const { httpError } = require("../../shared/errors");
 const { parsePriceNumber } = require("../../shared/utils/loyalty");
-const { computeFinalPaidAndPoints } = require("../../shared/utils/checkoutPricing");
+const { computeFinalPaidAndPoints, pickBestPromotion } = require("../../shared/utils/checkoutPricing");
 const { formatAmount, generateCheckoutHash, getCheckoutActionUrl, safeAppendQuery } = require("../../shared/utils/payhere");
 const { findMenuItemsByIds, findMenuItemsByNames } = require("../menu/menuStore");
 const { getLoyaltySummaryForUser, addPurchasesForUser, updatePurchaseStatus } = require("../loyalty/loyaltyService");
+const { getPromotions } = require("../promotions/promotionsService");
 const { findUserByEmail } = require("../auth/authStore");
 const { addOrder, findOrderById, listOrdersForUser, listAllOrders, updateOrderById } = require("./ordersStore");
 const {
@@ -88,8 +89,6 @@ async function createOrderForUser(userEmail, input, meta = {}) {
   const paymentMethod = normalizePaymentMethod(input && input.paymentMethod !== undefined ? input.paymentMethod : "");
   if (!paymentMethod) throw httpError(400, "paymentMethod must be Cash or Card.");
 
-  const promotionDiscount = Math.max(0, Number(input && input.promotionDiscount !== undefined ? input.promotionDiscount : 0) || 0);
-
   const deliveryAddress = String(input && input.deliveryAddress !== undefined ? input.deliveryAddress : "").trim();
   const deliveryCityTown = String(input && input.deliveryCityTown !== undefined ? input.deliveryCityTown : "").trim();
 
@@ -164,6 +163,13 @@ async function createOrderForUser(userEmail, input, meta = {}) {
   const subtotal = resolvedItems.reduce((sum, row) => sum + (Number(row.unitPrice) || 0) * (Number(row.quantity) || 0), 0);
   const loyaltySummary = await getLoyaltySummaryForUser(email);
   const discountPercent = Math.max(0, Number(loyaltySummary && loyaltySummary.discountPercent !== undefined ? loyaltySummary.discountPercent : 0) || 0);
+  const promotions = await getPromotions().catch(() => []);
+  const bestPromotion = pickBestPromotion(promotions, {
+    subtotal,
+    now: new Date(),
+    type: "food",
+  });
+  const promotionDiscount = Math.max(0, Number(bestPromotion && bestPromotion.amount !== undefined ? bestPromotion.amount : 0) || 0);
 
   const pricing = computeFinalPaidAndPoints({
     subtotal,
@@ -198,6 +204,8 @@ async function createOrderForUser(userEmail, input, meta = {}) {
     deliveryAddress: deliveryAddress || undefined,
     deliveryCityTown: deliveryCityTown || undefined,
     subtotal: pricing.subtotal,
+    promotionId: bestPromotion && bestPromotion.promotion ? bestPromotion.promotion.id || "" : "",
+    promotionTitle: bestPromotion && bestPromotion.promotion ? bestPromotion.promotion.title || "" : "",
     promotionDiscount: pricing.promotionDiscount,
     loyaltyPercentUsed: pricing.loyaltyPercentUsed,
     loyaltyDiscount: pricing.loyaltyDiscount,

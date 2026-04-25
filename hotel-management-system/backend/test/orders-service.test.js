@@ -5,9 +5,11 @@ function loadServiceWithStubs({
   menuItems = [],
   loyaltySummary = { points: 0, discountPercent: 0 },
   existingOrder = null,
+  promotions = [],
 } = {}) {
   const menuStoreId = require.resolve(path.join(__dirname, "../src/modules/menu/menuStore"));
   const loyaltyServiceId = require.resolve(path.join(__dirname, "../src/modules/loyalty/loyaltyService"));
+  const promotionsServiceId = require.resolve(path.join(__dirname, "../src/modules/promotions/promotionsService"));
   const ordersStoreId = require.resolve(path.join(__dirname, "../src/modules/orders/ordersStore"));
   const serviceId = require.resolve(path.join(__dirname, "../src/modules/orders/ordersService"));
 
@@ -15,6 +17,7 @@ function loadServiceWithStubs({
   delete require.cache[ordersStoreId];
   delete require.cache[menuStoreId];
   delete require.cache[loyaltyServiceId];
+  delete require.cache[promotionsServiceId];
 
   let addedOrder = null;
   let updatedOrder = null;
@@ -37,6 +40,15 @@ function loadServiceWithStubs({
       getLoyaltySummaryForUser: async () => loyaltySummary,
       addPurchasesForUser: async () => ({ purchasesAdded: 1 }),
       updatePurchaseStatus: async () => null,
+    },
+  };
+
+  require.cache[promotionsServiceId] = {
+    id: promotionsServiceId,
+    filename: promotionsServiceId,
+    loaded: true,
+    exports: {
+      getPromotions: async () => promotions,
     },
   };
 
@@ -73,13 +85,14 @@ function loadServiceWithStubs({
       delete require.cache[ordersStoreId];
       delete require.cache[menuStoreId];
       delete require.cache[loyaltyServiceId];
+      delete require.cache[promotionsServiceId];
     },
   };
 }
 
 module.exports = [
   {
-    name: "ordersService.createOrderForUser: computes totals from menu portions + loyalty + delivery fee",
+    name: "ordersService.createOrderForUser: computes totals from live promotions + loyalty + delivery fee",
     fn: async () => {
       const { service, getAddedOrder, cleanup } = loadServiceWithStubs({
         menuItems: [
@@ -92,13 +105,35 @@ module.exports = [
           },
         ],
         loyaltySummary: { points: 5000, discountPercent: 5 },
+        promotions: [
+          {
+            id: "promo-live",
+            title: "Weekend Deal",
+            type: "food",
+            active: true,
+            discountType: "fixed",
+            discountValue: 100,
+            startDate: "2000-01-01",
+            endDate: "2099-12-31",
+          },
+          {
+            id: "promo-future",
+            title: "Sunday Only",
+            type: "food",
+            active: true,
+            discountType: "percentage",
+            discountValue: 50,
+            startDate: "2099-01-01",
+            endDate: "2099-01-02",
+          },
+        ],
       });
 
       try {
         const order = await service.createOrderForUser("u@example.com", {
           orderType: "Delivery",
           paymentMethod: "Cash",
-          promotionDiscount: 100,
+          promotionDiscount: 9999,
           deliveryCityTown: "Gonapola",
           items: [{ menuItemId: "m1", itemName: "Cheese Kottu", quantity: 2, size: "Small" }],
         });
@@ -113,6 +148,8 @@ module.exports = [
 
         assert.equal(order.subtotal, 1000);
         assert.equal(order.promotionDiscount, 100);
+        assert.equal(order.promotionId, "promo-live");
+        assert.equal(order.promotionTitle, "Weekend Deal");
         assert.equal(order.loyaltyPercentUsed, 5);
         assert.equal(order.loyaltyDiscount, 45);
         assert.equal(order.deliveryFee, 100);

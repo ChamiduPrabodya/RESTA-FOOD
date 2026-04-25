@@ -299,6 +299,8 @@ module.exports = {
   normalizeLoyaltyRules,
   getLoyaltyDiscountPercent,
   getUserPointsFromPurchases,
+  isPromotionActiveNow,
+  pickBestPromotion,
   calculateDeliveryFee,
   calculateDeliveryFeeFromAddress,
   computeFinalPaidAndPoints,
