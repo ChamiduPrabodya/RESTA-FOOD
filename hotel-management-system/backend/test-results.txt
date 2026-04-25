@@ -1,4 +1,4 @@
-Started: 2026-04-25T06:08:21.940Z
+Started: 2026-04-25T06:32:25.958Z
 Node: v24.13.0
 
 PASS admin-seed.test.js - ensureAdminUser: skips when env missing
@@ -60,4 +60,4 @@ PASS vip-bookings-validator.test.js - vipBookingsValidator.validateUpdateVipBook
 PASS vip-bookings-validator.test.js - vipBookingsValidator.validateUpdateVipBookingStatus: rejects invalid status
 
 Summary: 57 passed, 0 failed
-Finished: 2026-04-25T06:08:22.481Z
+Finished: 2026-04-25T06:32:26.516Z

@@ -197,7 +197,7 @@ function AdminQrSystemPanel() {
 
   const getStatusLabel = (status) => {
     const normalized = String(status || "").trim().toLowerCase();
-    if (normalized === "occupied") return "Occupied";
+    if (normalized === "occupied") return "Booked";
     if (normalized === "reserved") return "Reserved";
     if (normalized === "cleaning") return "Cleaning";
     if (normalized === "unavailable") return "Unavailable";
