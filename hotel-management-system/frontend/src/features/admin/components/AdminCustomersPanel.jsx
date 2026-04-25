@@ -100,9 +100,47 @@ function AdminCustomersPanel({ users, purchases, pointsByEmail }) {
   const updateRule = (id, field, value) => {
     const normalizedField = field === "discount" ? "discount" : "threshold";
     const normalizedId = String(id || "");
+
+    const nextValue = String(value ?? "");
+    if (nextValue === "") {
+      setDraftRules((current) =>
+        (Array.isArray(current) ? current : []).map((rule) =>
+          String(rule.id) === normalizedId ? { ...rule, [normalizedField]: "" } : rule
+        )
+      );
+      return;
+    }
+
+    const numeric = Number(nextValue);
+    if (!Number.isFinite(numeric)) {
+      return;
+    }
+
+    if (normalizedField === "threshold" && numeric < 0) {
+      const message = "Threshold must be 0 or more.";
+      setNotice({ open: true, message, severity: "error" });
+      setBlockingDialog({ open: true, message });
+      return;
+    }
+
+    if (normalizedField === "discount") {
+      if (numeric < 0) {
+        const message = "Discount must be between 0 and 100.";
+        setNotice({ open: true, message, severity: "error" });
+        setBlockingDialog({ open: true, message });
+        return;
+      }
+      if (numeric > 100) {
+        const message = "Discount cannot be over 100%.";
+        setNotice({ open: true, message, severity: "error" });
+        setBlockingDialog({ open: true, message });
+        return;
+      }
+    }
+
     setDraftRules((current) =>
       (Array.isArray(current) ? current : []).map((rule) =>
-        String(rule.id) === normalizedId ? { ...rule, [normalizedField]: value } : rule
+        String(rule.id) === normalizedId ? { ...rule, [normalizedField]: nextValue } : rule
       )
     );
   };
