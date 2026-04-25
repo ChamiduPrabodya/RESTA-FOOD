@@ -1192,6 +1192,19 @@ export function AuthProvider({ children }) {
           return { success: false, message: data?.message || "Unable to place dine-in order." };
         }
 
+        const rows = flattenServerOrderRows([data.order]);
+        setPurchases((current) => {
+          const existing = Array.isArray(current) ? current : [];
+          return [
+            ...rows,
+            ...existing.filter((purchase) => {
+              const purchaseOrderId = String(purchase?.orderId || "").trim();
+              const purchaseId = String(purchase?.id || "").trim();
+              const newOrderId = String(data.order?.id || "").trim();
+              return purchaseOrderId !== newOrderId && purchaseId !== newOrderId;
+            }),
+          ];
+        });
         setCartItems((current) => (Array.isArray(current) ? current : []).filter((item) => item.userEmail !== guestKey));
         return { success: true, order: data.order, mode: "guest-dine-in" };
       } catch {
