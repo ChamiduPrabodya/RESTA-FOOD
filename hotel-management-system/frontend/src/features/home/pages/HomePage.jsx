@@ -230,22 +230,19 @@ function HomePage() {
       return Number.isFinite(timestamp) ? timestamp : 0;
     };
 
-    const sortPromotions = (items) =>
-      items
-        .slice()
-        .sort((a, b) => {
-          const activeDiff = Number(Boolean(isPromotionActiveNow(b))) - Number(Boolean(isPromotionActiveNow(a)));
-          if (activeDiff !== 0) return activeDiff;
-          return getPromoTimestamp(b) - getPromoTimestamp(a);
-        })
-        .slice(0, 8);
+    return list
+      .filter((promotion) => Boolean(String(promotion?.title || "").trim() || String(promotion?.description || "").trim()))
+      .slice()
+      .sort((a, b) => {
+        const headerDiff = Number(Boolean(b?.displayInHomeHeader)) - Number(Boolean(a?.displayInHomeHeader));
+        if (headerDiff !== 0) return headerDiff;
 
-    const headerPromotions = list.filter((promotion) => Boolean(promotion?.displayInHomeHeader));
-    if (headerPromotions.length > 0) {
-      return sortPromotions(headerPromotions);
-    }
+        const activeDiff = Number(Boolean(isPromotionActiveNow(b))) - Number(Boolean(isPromotionActiveNow(a)));
+        if (activeDiff !== 0) return activeDiff;
 
-    return sortPromotions(list.filter((promotion) => isPromotionActiveNow(promotion)));
+        return getPromoTimestamp(b) - getPromoTimestamp(a);
+      })
+      .slice(0, 8);
   }, [promotions]);
 
   useEffect(() => {
