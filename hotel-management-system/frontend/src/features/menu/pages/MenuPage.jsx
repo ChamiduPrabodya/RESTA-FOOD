@@ -40,7 +40,7 @@ const sectionReveal = {
   },
 };
 
-function MenuCard({ item, index, onBuy }) {
+function MenuCard({ item, index, onBuy, disableOrdering = false }) {
   const portionKeys = Object.keys(item.portions);
   const [selectedPortion, setSelectedPortion] = useState(portionKeys[0]);
   const selectedPrice = item.portions[selectedPortion];
@@ -106,7 +106,7 @@ function MenuCard({ item, index, onBuy }) {
           </Box>
           <Button
             onClick={() => onBuy(item, selectedPortion, selectedPrice)}
-            disabled={item.outOfStock}
+            disabled={item.outOfStock || disableOrdering}
             sx={{ minWidth: 46, width: 46, height: 46, borderRadius: "14px", color: "#fff", bgcolor: "#9a6a3f", "&:hover": { bgcolor: "#b07b4a" } }}
           >
             <AddRoundedIcon />
@@ -115,6 +115,11 @@ function MenuCard({ item, index, onBuy }) {
         {item.outOfStock && (
           <Typography sx={{ color: "#ff7a84", fontWeight: 700, mt: 1 }}>
             Out of Stock
+          </Typography>
+        )}
+        {!item.outOfStock && disableOrdering && (
+          <Typography sx={{ color: "#ffb14a", fontWeight: 700, mt: 1 }}>
+            Table is booked. Ordering is locked until staff mark it free.
           </Typography>
         )}
       </CardContent>
@@ -129,6 +134,7 @@ function MenuPage() {
   const [isRetryingMenu, setIsRetryingMenu] = useState(false);
   const [notice, setNotice] = useState({ open: false, message: "", severity: "success" });
   const [guestPrompt, setGuestPrompt] = useState({ open: false, tableId: "", tableToken: "", guestCount: "1", error: "" });
+  const [tableLockNotice, setTableLockNotice] = useState({ locked: false, tableId: "", message: "" });
   const reduceMotion = useReducedMotion();
   const navigate = useNavigate();
   const {
@@ -141,6 +147,18 @@ function MenuPage() {
     clearTableContext,
     refreshMenuItemsFromServer,
   } = useAuth();
+  const scannedParams = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return {
+      tableId: String(params.get("tableId") || "").trim(),
+      tableToken: String(params.get("tableToken") || "").trim(),
+    };
+  }, [location.search]);
+  const tableOrderingLocked =
+    Boolean(scannedParams.tableId) &&
+    tableLockNotice.locked &&
+    String(tableLockNotice.tableId || "").trim() === scannedParams.tableId &&
+    (!tableContext?.sessionId || String(tableContext?.tableId || "").trim() !== scannedParams.tableId);
   const categories = useMemo(
     () => ["All", ...new Set(menuItems.map((item) => item.category))],
     [menuItems]
@@ -165,6 +183,14 @@ function MenuPage() {
 
   const handleBuy = (item, size, price) => {
     const isTableGuestMode = Boolean(tableContext?.sessionId) && (!authUser || authUser.role !== "user");
+    if (tableOrderingLocked) {
+      setNotice({
+        open: true,
+        message: tableLockNotice.message || "This table is already booked. Ask staff to mark it free, then scan again.",
+        severity: "warning",
+      });
+      return;
+    }
     if (!authUser && !tableContext?.sessionId) {
       navigate("/sign-in", { state: { from: "/menu" } });
       return;
@@ -207,16 +233,16 @@ function MenuPage() {
   };
 
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const tableId = String(params.get("tableId") || "").trim();
-    const tableToken = String(params.get("tableToken") || "").trim();
+    const tableId = scannedParams.tableId;
+    const tableToken = scannedParams.tableToken;
+    setTableLockNotice({ locked: false, tableId: "", message: "" });
     if (!tableId) return;
     if (tableContext?.sessionId && String(tableContext.tableId || "").trim() === tableId) return;
     const timeoutId = window.setTimeout(() => {
       setGuestPrompt({ open: true, tableId, tableToken, guestCount: "1", error: "" });
     }, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [location.search, tableContext?.sessionId, tableContext?.tableId]);
+  }, [scannedParams.tableId, scannedParams.tableToken, tableContext?.sessionId, tableContext?.tableId]);
 
   const submitGuestPrompt = async () => {
     const guestCount = Math.round(Number(guestPrompt.guestCount));
@@ -235,11 +261,27 @@ function MenuPage() {
       guestCount,
     });
     if (!result?.success) {
+      const failureMessage = result?.message || "Unable to start table session.";
+      if (String(failureMessage).toLowerCase().includes("already in use")) {
+        setTableLockNotice({
+          locked: true,
+          tableId: guestPrompt.tableId,
+          message: failureMessage,
+        });
+        setGuestPrompt((current) => ({ ...current, open: false, error: "" }));
+        setNotice({
+          open: true,
+          message: failureMessage,
+          severity: "warning",
+        });
+        return;
+      }
       setGuestPrompt((current) => ({ ...current, error: result?.message || "Unable to start table session." }));
       return;
     }
 
     const label = String(result?.tableLabel || "").trim();
+    setTableLockNotice({ locked: false, tableId: "", message: "" });
     setGuestPrompt({ open: false, tableId: "", tableToken: "", guestCount: "1", error: "" });
     setNotice({
       open: true,
@@ -297,6 +339,39 @@ function MenuPage() {
               </Button>
             </Stack>
           </Stack>
+        )}
+
+        {tableOrderingLocked && (
+          <Alert
+            severity="warning"
+            variant="outlined"
+            sx={{
+              mb: 2.2,
+              borderColor: "rgba(255,177,74,0.35)",
+              bgcolor: "rgba(255,177,74,0.08)",
+              color: "#ffe2b1",
+            }}
+            action={
+              <Button
+                color="inherit"
+                size="small"
+                onClick={() => {
+                  setTableLockNotice({ locked: false, tableId: "", message: "" });
+                  setGuestPrompt({
+                    open: true,
+                    tableId: scannedParams.tableId,
+                    tableToken: scannedParams.tableToken,
+                    guestCount: "1",
+                    error: "",
+                  });
+                }}
+              >
+                Try Again
+              </Button>
+            }
+          >
+            {tableLockNotice.message || "This table is already booked. Only the admin can mark it free before another customer scans this QR."}
+          </Alert>
         )}
       </Box>
 
@@ -405,7 +480,7 @@ function MenuPage() {
                 exit={{ opacity: 0, y: -8, scale: 0.97 }}
                 transition={{ duration: 0.28 }}
               >
-                <MenuCard item={item} index={index} onBuy={handleBuy} />
+                <MenuCard item={item} index={index} onBuy={handleBuy} disableOrdering={tableOrderingLocked} />
               </Box>
             ))}
           </AnimatePresence>
