@@ -4,6 +4,7 @@ import {
   Button,
   Card,
   CardContent,
+  Chip,
   IconButton,
   Stack,
   TextField,
@@ -26,6 +27,7 @@ function AdminQrSystemPanel() {
   const { authUser, authToken } = useAuth();
   const [tableInput, setTableInput] = useState("");
   const [tables, setTables] = useState([]);
+  const [updatingTableId, setUpdatingTableId] = useState("");
   const [notice, setNotice] = useState({ open: false, message: "", severity: "success" });
 
   const apiRequest = async (path, { method = "GET", body, token } = {}) => {
@@ -76,6 +78,7 @@ function AdminQrSystemPanel() {
       tables.map((table) => ({
         id: table.id,
         label: table.label,
+        status: String(table.status || "available").trim().toLowerCase() || "available",
         targetUrl: String(table.qrUrl || "").trim(),
         qrUrl: buildQrImageUrl(String(table.qrUrl || "").trim()),
       })),
@@ -141,6 +144,81 @@ function AdminQrSystemPanel() {
     } catch {
       setNotice({ open: true, message: "Backend is not reachable. Start the backend server.", severity: "error" });
     }
+  };
+
+  const handleMarkTableFree = async (table) => {
+    if (!authUser || authUser.role !== "admin") {
+      setNotice({ open: true, message: "Only admins can manage QR tables.", severity: "warning" });
+      return;
+    }
+
+    const tableId = String(table?.id || "").trim();
+    const tableLabel = String(table?.label || tableId || "Table").trim();
+    const token = String(authToken || "").trim();
+    if (!tableId || !token) {
+      setNotice({ open: true, message: "Missing auth token. Please sign in again.", severity: "error" });
+      return;
+    }
+
+    setUpdatingTableId(tableId);
+    try {
+      const sessionResponse = await apiRequest(`/sessions/table/${encodeURIComponent(tableId)}`, { token });
+      const activeSessionId = String(sessionResponse?.data?.session?.id || "").trim();
+
+      if (activeSessionId) {
+        const closeResponse = await apiRequest(`/sessions/${encodeURIComponent(activeSessionId)}/close`, {
+          method: "PATCH",
+          token,
+        });
+        if (!closeResponse.ok || !closeResponse.data || closeResponse.data.success !== true) {
+          setNotice({ open: true, message: closeResponse.data?.message || "Unable to close the table session.", severity: "error" });
+          return;
+        }
+      } else {
+        const statusResponse = await apiRequest(`/tables/${encodeURIComponent(tableId)}/status`, {
+          method: "PATCH",
+          token,
+          body: { status: "available" },
+        });
+        if (!statusResponse.ok || !statusResponse.data || statusResponse.data.success !== true) {
+          setNotice({ open: true, message: statusResponse.data?.message || "Unable to mark table as available.", severity: "error" });
+          return;
+        }
+      }
+
+      await refreshTables();
+      setNotice({ open: true, message: `${tableLabel} is now free.`, severity: "success" });
+    } catch {
+      setNotice({ open: true, message: "Backend is not reachable. Start the backend server.", severity: "error" });
+    } finally {
+      setUpdatingTableId("");
+    }
+  };
+
+  const getStatusLabel = (status) => {
+    const normalized = String(status || "").trim().toLowerCase();
+    if (normalized === "occupied") return "Occupied";
+    if (normalized === "reserved") return "Reserved";
+    if (normalized === "cleaning") return "Cleaning";
+    if (normalized === "unavailable") return "Unavailable";
+    return "Available";
+  };
+
+  const getStatusColors = (status) => {
+    const normalized = String(status || "").trim().toLowerCase();
+    if (normalized === "occupied") {
+      return { color: "#ffb14a", borderColor: "rgba(255,177,74,0.35)", backgroundColor: "rgba(255,177,74,0.12)" };
+    }
+    if (normalized === "reserved") {
+      return { color: "#7cb8ff", borderColor: "rgba(124,184,255,0.35)", backgroundColor: "rgba(124,184,255,0.12)" };
+    }
+    if (normalized === "cleaning") {
+      return { color: "#94e0b2", borderColor: "rgba(148,224,178,0.35)", backgroundColor: "rgba(148,224,178,0.12)" };
+    }
+    if (normalized === "unavailable") {
+      return { color: "#ff7a84", borderColor: "rgba(255,122,132,0.35)", backgroundColor: "rgba(255,122,132,0.12)" };
+    }
+    return { color: "#d4b25f", borderColor: "rgba(212,178,95,0.35)", backgroundColor: "rgba(212,178,95,0.12)" };
   };
 
   const handlePrint = (qrUrl) => {
@@ -248,6 +326,19 @@ function AdminQrSystemPanel() {
               <Typography sx={{ textAlign: "center", mt: 1.8, fontWeight: 800, fontSize: { xs: "1.45rem", md: "1.7rem" } }}>
                 {table.label}
               </Typography>
+              <Stack direction="row" justifyContent="center" sx={{ mt: 1 }}>
+                <Chip
+                  label={getStatusLabel(table.status)}
+                  sx={{
+                    color: getStatusColors(table.status).color,
+                    border: "1px solid",
+                    borderColor: getStatusColors(table.status).borderColor,
+                    bgcolor: getStatusColors(table.status).backgroundColor,
+                    fontWeight: 800,
+                    letterSpacing: 0.4,
+                  }}
+                />
+              </Stack>
               <Typography sx={{ textAlign: "center", color: "primary.main", textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 700, mb: 1.6 }}>
                 Digital Menu Access
               </Typography>
@@ -281,6 +372,21 @@ function AdminQrSystemPanel() {
                   }}
                 >
                   Print
+                </Button>
+                <Button
+                  fullWidth
+                  onClick={() => handleMarkTableFree(table)}
+                  disabled={updatingTableId === table.id || table.status === "available"}
+                  sx={{
+                    borderRadius: 3,
+                    py: 1.05,
+                    bgcolor: "rgba(124,230,162,0.15)",
+                    color: table.status === "available" ? "text.disabled" : "#7ce6a2",
+                    border: "1px solid rgba(124,230,162,0.28)",
+                    "&:hover": { bgcolor: "rgba(124,230,162,0.24)" },
+                  }}
+                >
+                  {updatingTableId === table.id ? "Updating..." : table.status === "available" ? "Free" : "Mark Free"}
                 </Button>
                 <IconButton
                   color="error"
