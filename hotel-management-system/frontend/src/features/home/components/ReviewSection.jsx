@@ -12,7 +12,6 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import FormatQuoteRoundedIcon from "@mui/icons-material/FormatQuoteRounded";
 import ChatBubbleOutlineRoundedIcon from "@mui/icons-material/ChatBubbleOutlineRounded";
 import SendRoundedIcon from "@mui/icons-material/SendRounded";
 import { useAuth } from "../../auth/context/AuthContext";
@@ -81,8 +80,7 @@ function ReviewSection({ sectionPaddingX, sectionReveal }) {
       >
         <Box>
           <Box sx={{ mb: 2 }}>
-            <Stack direction="row" alignItems="center" spacing={0.8}>
-              <FormatQuoteRoundedIcon sx={{ color: "primary.main", fontSize: 16 }} />
+            <Stack direction="row" alignItems="center">
               <Typography sx={{ color: "primary.main", textTransform: "uppercase", fontWeight: 700, fontSize: "2rem" }}>
                 Testimonials
               </Typography>
