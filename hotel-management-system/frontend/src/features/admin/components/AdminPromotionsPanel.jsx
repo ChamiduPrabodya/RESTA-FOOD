@@ -190,6 +190,16 @@ function AdminPromotionsPanel({
     }
   };
 
+  const showBlockingMessage = (message, severity = "warning") => {
+    const text = String(message || "").trim() || "Please check the promotion details.";
+    showNotice(text, severity);
+    if (typeof window !== "undefined" && typeof window.alert === "function") {
+      window.setTimeout(() => {
+        window.alert(text);
+      }, 0);
+    }
+  };
+
   const preventNegativeInput = (event) => {
     const key = String(event?.key || "");
     if (key === "-" || key === "Subtract") {
@@ -250,8 +260,28 @@ function AdminPromotionsPanel({
   };
 
   const handleSubmit = async () => {
+    const discountValue = Number(form.discountValue);
+    const maxDiscount = Number(form.maxDiscount || 0);
+    const minOrderValue = Number(form.minOrderValue || 0);
+
+    if (!Number.isFinite(discountValue) || discountValue <= 0) {
+      showBlockingMessage("Discount value must be greater than zero.");
+      return;
+    }
+    if (maxDiscount < 0) {
+      showBlockingMessage("Max discount cannot be negative.");
+      return;
+    }
+    if (minOrderValue < 0) {
+      showBlockingMessage("Min order value cannot be negative.");
+      return;
+    }
+
     const result = await (isEditing ? updatePromotion(editingPromotionId, form) : addPromotion(form));
-    if (!result.success) return;
+    if (!result.success) {
+      showBlockingMessage(result.message || "Unable to save promotion.", "error");
+      return;
+    }
     closeForm();
   };
 
