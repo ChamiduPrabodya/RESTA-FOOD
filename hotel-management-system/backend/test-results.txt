@@ -1,4 +1,4 @@
-Started: 2026-04-25T17:10:54.387Z
+Started: 2026-04-26T03:17:35.044Z
 Node: v24.13.0
 
 PASS admin-seed.test.js - ensureAdminUser: skips when env missing
@@ -42,6 +42,7 @@ PASS menu-service.test.js - normalizeIncomingMenuItems: drops items without id/n
 PASS menu-service.test.js - normalizeIncomingMenuItems: adds nameLower and normalizes loyaltyPoints
 PASS menu-service.test.js - normalizeCategoryNames: trims and dedupes
 PASS orders-service.test.js - ordersService.createOrderForUser: computes totals from live promotions + loyalty + delivery fee
+PASS orders-service.test.js - ordersService.createOrderForUser: supports guest dine-in orders with active table session
 PASS orders-service.test.js - ordersService.getOrderForActor: exposes placedAt for legacy orders
 PASS orders-service.test.js - ordersService.getOrderForActor: falls back to updated timestamps when createdAt is missing
 PASS orders-service.test.js - ordersService mock payment: initiate + confirm sets paymentStatus to Paid
@@ -70,5 +71,5 @@ PASS vip-bookings-validator.test.js - vipBookingsValidator.validateCreateVipBook
 PASS vip-bookings-validator.test.js - vipBookingsValidator.validateUpdateVipBookingStatus: maps cancelled -> Cancelled
 PASS vip-bookings-validator.test.js - vipBookingsValidator.validateUpdateVipBookingStatus: rejects invalid status
 
-Summary: 68 passed, 0 failed
-Finished: 2026-04-25T17:10:54.961Z
+Summary: 69 passed, 0 failed
+Finished: 2026-04-26T03:17:35.599Z

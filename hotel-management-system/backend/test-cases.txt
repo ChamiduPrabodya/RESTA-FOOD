@@ -1,4 +1,4 @@
-Generated: 2026-04-25T17:10:54.961Z
+Generated: 2026-04-26T03:17:35.599Z
 
 admin-seed.test.js - ensureAdminUser: skips when env missing
 admin-seed.test.js - ensureAdminUser: creates admin when missing
@@ -41,6 +41,7 @@ menu-service.test.js - normalizeIncomingMenuItems: drops items without id/name
 menu-service.test.js - normalizeIncomingMenuItems: adds nameLower and normalizes loyaltyPoints
 menu-service.test.js - normalizeCategoryNames: trims and dedupes
 orders-service.test.js - ordersService.createOrderForUser: computes totals from live promotions + loyalty + delivery fee
+orders-service.test.js - ordersService.createOrderForUser: supports guest dine-in orders with active table session
 orders-service.test.js - ordersService.getOrderForActor: exposes placedAt for legacy orders
 orders-service.test.js - ordersService.getOrderForActor: falls back to updated timestamps when createdAt is missing
 orders-service.test.js - ordersService mock payment: initiate + confirm sets paymentStatus to Paid

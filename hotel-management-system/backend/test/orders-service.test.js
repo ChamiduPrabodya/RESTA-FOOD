@@ -6,11 +6,16 @@ function loadServiceWithStubs({
   loyaltySummary = { points: 0, discountPercent: 0 },
   existingOrder = null,
   promotions = [],
+  table = null,
+  session = null,
 } = {}) {
   const menuStoreId = require.resolve(path.join(__dirname, "../src/modules/menu/menuStore"));
   const loyaltyServiceId = require.resolve(path.join(__dirname, "../src/modules/loyalty/loyaltyService"));
   const promotionsServiceId = require.resolve(path.join(__dirname, "../src/modules/promotions/promotionsService"));
   const ordersStoreId = require.resolve(path.join(__dirname, "../src/modules/orders/ordersStore"));
+  const mongoId = require.resolve(path.join(__dirname, "../src/shared/db/mongo"));
+  const tableModelId = require.resolve(path.join(__dirname, "../src/models/Table"));
+  const tableSessionModelId = require.resolve(path.join(__dirname, "../src/models/TableSession"));
   const serviceId = require.resolve(path.join(__dirname, "../src/modules/orders/ordersService"));
 
   delete require.cache[serviceId];
@@ -18,6 +23,9 @@ function loadServiceWithStubs({
   delete require.cache[menuStoreId];
   delete require.cache[loyaltyServiceId];
   delete require.cache[promotionsServiceId];
+  delete require.cache[mongoId];
+  delete require.cache[tableModelId];
+  delete require.cache[tableSessionModelId];
 
   let addedOrder = null;
   let updatedOrder = null;
@@ -49,6 +57,41 @@ function loadServiceWithStubs({
     loaded: true,
     exports: {
       getPromotions: async () => promotions,
+    },
+  };
+
+  require.cache[mongoId] = {
+    id: mongoId,
+    filename: mongoId,
+    loaded: true,
+    exports: {
+      connectMongo: async () => ({}),
+    },
+  };
+
+  require.cache[tableModelId] = {
+    id: tableModelId,
+    filename: tableModelId,
+    loaded: true,
+    exports: {
+      Table: {
+        findOne: () => ({
+          lean: async () => table,
+        }),
+      },
+    },
+  };
+
+  require.cache[tableSessionModelId] = {
+    id: tableSessionModelId,
+    filename: tableSessionModelId,
+    loaded: true,
+    exports: {
+      TableSession: {
+        findOne: () => ({
+          lean: async () => session,
+        }),
+      },
     },
   };
 
@@ -86,6 +129,9 @@ function loadServiceWithStubs({
       delete require.cache[menuStoreId];
       delete require.cache[loyaltyServiceId];
       delete require.cache[promotionsServiceId];
+      delete require.cache[mongoId];
+      delete require.cache[tableModelId];
+      delete require.cache[tableSessionModelId];
     },
   };
 }
@@ -161,6 +207,61 @@ module.exports = [
         assert.ok(Array.isArray(order.items));
         assert.equal(order.items.length, 1);
         assert.equal(order.items[0].unitPrice, 500);
+      } finally {
+        cleanup();
+      }
+    },
+  },
+  {
+    name: "ordersService.createOrderForUser: supports guest dine-in orders with active table session",
+    fn: async () => {
+      const { service, getAddedOrder, cleanup } = loadServiceWithStubs({
+        menuItems: [
+          {
+            id: "m1",
+            name: "Resta Special Kottu",
+            nameLower: "resta special kottu",
+            portions: { Regular: "SLR 1200" },
+            outOfStock: false,
+          },
+        ],
+        table: {
+          id: "table_3",
+          label: "3",
+        },
+        session: {
+          id: "session_0003",
+          tableId: "table_3",
+          guestCount: 5,
+          status: "active",
+        },
+      });
+
+      try {
+        const order = await service.createOrderForUser("guest+table_3+session_0003@dinein.local", {
+          orderType: "DineIn",
+          paymentMethod: "Cash",
+          tableId: "table_3",
+          tableSessionId: "session_0003",
+          guestCount: 5,
+          items: [{ menuItemId: "m1", itemName: "Resta Special Kottu", quantity: 2, size: "Regular" }],
+        }, {
+          skipLoyaltySync: true,
+        });
+
+        assert.ok(order);
+        assert.equal(order.orderType, "DineIn");
+        assert.equal(order.tableId, "table_3");
+        assert.equal(order.tableLabel, "3");
+        assert.equal(order.tableSessionId, "session_0003");
+        assert.equal(order.guestCount, 5);
+        assert.equal(order.deliveryFee, 0);
+        assert.equal(order.finalPaid, 2400);
+
+        const added = getAddedOrder();
+        assert.ok(added);
+        assert.equal(added.orderType, "DineIn");
+        assert.equal(added.tableLabel, "3");
       } finally {
         cleanup();
       }

@@ -1,6 +1,7 @@
 const crypto = require("node:crypto");
 
 const { httpError } = require("../../shared/errors");
+const { connectMongo } = require("../../shared/db/mongo");
 const { parsePriceNumber } = require("../../shared/utils/loyalty");
 const { computeFinalPaidAndPoints, pickBestPromotion } = require("../../shared/utils/checkoutPricing");
 const { formatAmount, generateCheckoutHash, getCheckoutActionUrl, safeAppendQuery } = require("../../shared/utils/payhere");
@@ -127,6 +128,8 @@ async function createOrderForUser(userEmail, input, meta = {}) {
 
     const { Table } = require("../../models/Table");
     const { TableSession } = require("../../models/TableSession");
+
+    await connectMongo();
 
     const table = await Table.findOne({ id: tableId }).lean();
     if (!table) throw httpError(404, "Table not found.");

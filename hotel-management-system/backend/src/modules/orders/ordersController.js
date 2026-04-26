@@ -1,5 +1,6 @@
 const { ROLES } = require("../../shared/constants/roles");
 const { httpError } = require("../../shared/errors");
+const { connectMongo } = require("../../shared/db/mongo");
 const { validateCreateOrder, validateUpdateOrderStatus, validateInitiatePayment } = require("./validators/ordersValidator");
 const {
   createOrderForUser,
@@ -34,6 +35,8 @@ async function createGuestDineInOrder(req, res) {
 
   if (!tableId) return res.status(400).json({ success: false, message: "tableId is required." });
   if (!tableSessionId) return res.status(400).json({ success: false, message: "tableSessionId is required." });
+
+  await connectMongo();
 
   const table = await Table.findOne({ id: tableId }).lean();
   if (!table) return res.status(404).json({ success: false, message: "Table not found." });
