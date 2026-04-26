@@ -35,6 +35,10 @@ function normalizePaymentMethod(value) {
   return "";
 }
 
+function isGuestDineInEmail(email) {
+  return String(email || "").trim().toLowerCase().endsWith("@dinein.local");
+}
+
 function serializeOrderTiming(order) {
   if (!order || typeof order !== "object") return order;
 
@@ -185,8 +189,15 @@ async function createOrderForUser(userEmail, input, meta = {}) {
   });
 
   const subtotal = resolvedItems.reduce((sum, row) => sum + (Number(row.unitPrice) || 0) * (Number(row.quantity) || 0), 0);
-  const loyaltySummary = await getLoyaltySummaryForUser(email);
-  const discountPercent = Math.max(0, Number(loyaltySummary && loyaltySummary.discountPercent !== undefined ? loyaltySummary.discountPercent : 0) || 0);
+  const shouldApplyLoyalty = !isGuestDineInEmail(email) && (!meta || meta.skipLoyaltySync !== true);
+  let discountPercent = 0;
+  if (shouldApplyLoyalty) {
+    const loyaltySummary = await getLoyaltySummaryForUser(email);
+    discountPercent = Math.max(
+      0,
+      Number(loyaltySummary && loyaltySummary.discountPercent !== undefined ? loyaltySummary.discountPercent : 0) || 0
+    );
+  }
   const promotions = await getPromotions().catch(() => []);
   const bestPromotion = pickBestPromotion(promotions, {
     subtotal,
