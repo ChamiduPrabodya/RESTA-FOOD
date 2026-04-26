@@ -99,7 +99,7 @@ const resolveOrderTotalValue = (order, items) => {
   const subtotal = Number(order?.orderSubtotal);
   const discount = Number(order?.orderTotalDiscount);
   const deliveryFee = Number(order?.deliveryFee);
-  if (Number.isFinite(subtotal) && Number.isFinite(discount) && Number.isFinite(deliveryFee)) {
+  if (Number.isFinite(subtotal) && subtotal > 0 && Number.isFinite(discount) && Number.isFinite(deliveryFee)) {
     return Math.max(0, subtotal - discount + deliveryFee);
   }
 
