@@ -81,6 +81,37 @@ const resolvePlacedEpochMs = (purchase) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const resolveOrderTotalValue = (order, items) => {
+  const directOrderTotal = Number(order?.orderTotal);
+  if (Number.isFinite(directOrderTotal) && directOrderTotal > 0) return directOrderTotal;
+
+  const directFinalPaid = Number(order?.finalPaid);
+  if (Number.isFinite(directFinalPaid) && directFinalPaid > 0) return directFinalPaid;
+
+  const itemLevelTotal = (Array.isArray(items) ? items : []).find((item) => {
+    const value = Number(item?.orderTotal ?? item?.finalPaid);
+    return Number.isFinite(value) && value > 0;
+  });
+  if (itemLevelTotal) {
+    return Number(itemLevelTotal.orderTotal ?? itemLevelTotal.finalPaid) || 0;
+  }
+
+  const subtotal = Number(order?.orderSubtotal);
+  const discount = Number(order?.orderTotalDiscount);
+  const deliveryFee = Number(order?.deliveryFee);
+  if (Number.isFinite(subtotal) && Number.isFinite(discount) && Number.isFinite(deliveryFee)) {
+    return Math.max(0, subtotal - discount + deliveryFee);
+  }
+
+  const totalFromFinalAmounts = (Array.isArray(items) ? items : []).reduce((sum, item) => {
+    const finalAmount = Number(item?.finalAmount);
+    if (Number.isFinite(finalAmount) && finalAmount > 0) return sum + finalAmount;
+    return sum + parsePriceNumber(item?.price);
+  }, 0);
+
+  return Math.max(0, Number(totalFromFinalAmounts) || 0);
+};
+
 const formatTableLabel = (tableLabel, tableId) => {
   const raw = String(tableLabel || tableId || "").trim();
   if (!raw) return "Table";
@@ -150,6 +181,11 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus }) {
             tableSessionId: purchase.tableSessionId || "",
             guestCount: Number(purchase.guestCount) || 0,
             deliveryDetails: purchase.deliveryDetails || null,
+            orderSubtotal: Number(purchase.orderSubtotal) || 0,
+            orderTotalDiscount: Number(purchase.orderTotalDiscount) || 0,
+            deliveryFee: Number(purchase.deliveryFee) || 0,
+            orderTotal: Number(purchase.orderTotal) || 0,
+            finalPaid: Number(purchase.finalPaid) || 0,
             items: [purchase],
           });
         return;
@@ -175,15 +211,18 @@ function AdminLiveOrdersPanel({ purchases, updateOrderStatus }) {
       existing.tableSessionId = existing.tableSessionId || purchase.tableSessionId;
       existing.guestCount = existing.guestCount || Number(purchase.guestCount) || 0;
       existing.deliveryDetails = existing.deliveryDetails || purchase.deliveryDetails;
+      existing.orderSubtotal = existing.orderSubtotal || Number(purchase.orderSubtotal) || 0;
+      existing.orderTotalDiscount = existing.orderTotalDiscount || Number(purchase.orderTotalDiscount) || 0;
+      existing.deliveryFee = existing.deliveryFee || Number(purchase.deliveryFee) || 0;
+      existing.orderTotal = existing.orderTotal || Number(purchase.orderTotal) || 0;
+      existing.finalPaid = existing.finalPaid || Number(purchase.finalPaid) || 0;
     });
 
     return [...groups.values()]
       .map((order) => {
         const items = order.items.sort((a, b) => String(a.itemName || "").localeCompare(String(b.itemName || "")));
         const status = deriveOrderStatus(items);
-        const totalValue =
-          items.find((item) => typeof item.orderTotal === "number")?.orderTotal ??
-          items.reduce((sum, item) => sum + parsePriceNumber(item.price), 0);
+        const totalValue = resolveOrderTotalValue(order, items);
         return {
           ...order,
           items,

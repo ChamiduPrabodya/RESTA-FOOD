@@ -1,4 +1,4 @@
-Generated: 2026-04-26T03:32:05.671Z
+Generated: 2026-04-26T03:37:05.907Z
 
 admin-seed.test.js - ensureAdminUser: skips when env missing
 admin-seed.test.js - ensureAdminUser: creates admin when missing

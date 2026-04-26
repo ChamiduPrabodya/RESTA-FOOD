@@ -3,7 +3,7 @@ const cors = require("cors");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const { HOST, PORT, CLIENT_ORIGIN, CLIENT_ORIGINS } = require("./config/env");
+const { HOST, PORT, CLIENT_ORIGIN, CLIENT_ORIGINS, PUBLIC_FRONTEND_ORIGIN } = require("./config/env");
 const { connectMongo } = require("./shared/db/mongo");
 const { ensureAdminUser } = require("./modules/auth/seedAdminUser");
 const { apiRouter } = require("./routes");
@@ -45,6 +45,23 @@ function isAllowedDevOrigin(origin) {
   }
 }
 
+function isAllowedHostedFrontendOrigin(origin) {
+  try {
+    const url = new URL(String(origin || ""));
+    if (!["https:", "http:"].includes(url.protocol)) return false;
+
+    const hostname = String(url.hostname || "").trim().toLowerCase();
+    if (!hostname) return false;
+
+    if (hostname === "resta-food-ci45.vercel.app") return true;
+    if (hostname.endsWith(".vercel.app") && hostname.startsWith("resta-food")) return true;
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 async function main() {
   await connectMongo();
   await ensureAdminUser();
@@ -56,13 +73,18 @@ async function main() {
   app.use(
     cors({
       origin: (origin, callback) => {
-        const allowed = [...parseCsv(CLIENT_ORIGINS), String(CLIENT_ORIGIN || "").trim()].filter(Boolean);
+        const allowed = [
+          ...parseCsv(CLIENT_ORIGINS),
+          String(CLIENT_ORIGIN || "").trim(),
+          String(PUBLIC_FRONTEND_ORIGIN || "").trim(),
+        ].filter(Boolean);
         const allowAll = allowed.includes("*") || allowed.includes("all");
 
         // Non-browser / same-origin scenarios.
         if (!origin) return callback(null, true);
         if (allowAll) return callback(null, true);
         if (allowed.length > 0 && allowed.includes(origin)) return callback(null, true);
+        if (isAllowedHostedFrontendOrigin(origin)) return callback(null, true);
 
         // Dev convenience: allow private-network origins by default.
         if (process.env.NODE_ENV !== "production" && isAllowedDevOrigin(origin)) {

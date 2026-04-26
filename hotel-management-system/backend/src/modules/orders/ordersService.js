@@ -220,8 +220,10 @@ async function createOrderForUser(userEmail, input, meta = {}) {
   }
 
   const now = new Date().toISOString();
+  const nextOrderId = crypto.randomUUID();
   const order = {
-    id: crypto.randomUUID(),
+    id: nextOrderId,
+    orderId: nextOrderId,
     userEmail: email,
     status: "Pending",
     statusUpdatedAt: now,
