@@ -28,56 +28,64 @@ function buildGuestEmail({ tableId, sessionId } = {}) {
 }
 
 async function createGuestDineInOrder(req, res) {
-  const payload = req.body && typeof req.body === "object" ? req.body : {};
-  const tableId = String(payload.tableId || "").trim();
-  const tableToken = String(payload.tableToken || "").trim();
-  const tableSessionId = String(payload.tableSessionId || payload.sessionId || "").trim();
+  try {
+    const payload = req.body && typeof req.body === "object" ? req.body : {};
+    const tableId = String(payload.tableId || "").trim();
+    const tableToken = String(payload.tableToken || "").trim();
+    const tableSessionId = String(payload.tableSessionId || payload.sessionId || "").trim();
 
-  if (!tableId) return res.status(400).json({ success: false, message: "tableId is required." });
-  if (!tableSessionId) return res.status(400).json({ success: false, message: "tableSessionId is required." });
+    if (!tableId) return res.status(400).json({ success: false, message: "tableId is required." });
+    if (!tableSessionId) return res.status(400).json({ success: false, message: "tableSessionId is required." });
 
-  await connectMongo();
+    await connectMongo();
 
-  const table = await Table.findOne({ id: tableId }).lean();
-  if (!table) return res.status(404).json({ success: false, message: "Table not found." });
+    const table = await Table.findOne({ id: tableId }).lean();
+    if (!table) return res.status(404).json({ success: false, message: "Table not found." });
 
-  const expectedToken = String(table.qrToken || "").trim();
-  if (expectedToken && tableToken !== expectedToken) {
-    return res.status(401).json({ success: false, message: "Invalid table token." });
+    const expectedToken = String(table.qrToken || "").trim();
+    if (expectedToken && tableToken !== expectedToken) {
+      return res.status(401).json({ success: false, message: "Invalid table token." });
+    }
+
+    const session = await TableSession.findOne({ id: tableSessionId }).lean();
+    if (!session) return res.status(404).json({ success: false, message: "Table session not found." });
+    if (String(session.tableId || "").trim() !== tableId) {
+      return res.status(400).json({ success: false, message: "tableSessionId does not belong to tableId." });
+    }
+    if (String(session.status || "").trim() !== "active") {
+      return res.status(409).json({ success: false, message: "Table session is not active." });
+    }
+
+    const bodyForValidation = {
+      ...(payload || {}),
+      orderType: "DineIn",
+      paymentMethod: "Cash",
+      promotionDiscount: 0,
+      deliveryAddress: "",
+      deliveryCityTown: "",
+      tableId,
+      tableSessionId,
+    };
+    const validation = validateCreateOrder(bodyForValidation);
+    if (!validation.ok) {
+      return res.status(400).json({ success: false, message: validation.message });
+    }
+
+    const guestEmail = buildGuestEmail({ tableId, sessionId: tableSessionId });
+    const order = await createOrderForUser(guestEmail, validation.value, {
+      ip: req.ip,
+      userAgent: req.headers["user-agent"],
+      skipLoyaltySync: true,
+    });
+
+    return res.status(201).json({ success: true, order });
+  } catch (error) {
+    const status = Number(error && error.status ? error.status : 500) || 500;
+    const message = String(error && error.message ? error.message : "Unable to create dine-in order.");
+    // eslint-disable-next-line no-console
+    console.error("Guest dine-in order failed:", error);
+    return res.status(status).json({ success: false, message });
   }
-
-  const session = await TableSession.findOne({ id: tableSessionId }).lean();
-  if (!session) return res.status(404).json({ success: false, message: "Table session not found." });
-  if (String(session.tableId || "").trim() !== tableId) {
-    return res.status(400).json({ success: false, message: "tableSessionId does not belong to tableId." });
-  }
-  if (String(session.status || "").trim() !== "active") {
-    return res.status(409).json({ success: false, message: "Table session is not active." });
-  }
-
-  const bodyForValidation = {
-    ...(payload || {}),
-    orderType: "DineIn",
-    paymentMethod: "Cash",
-    promotionDiscount: 0,
-    deliveryAddress: "",
-    deliveryCityTown: "",
-    tableId,
-    tableSessionId,
-  };
-  const validation = validateCreateOrder(bodyForValidation);
-  if (!validation.ok) {
-    return res.status(400).json({ success: false, message: validation.message });
-  }
-
-  const guestEmail = buildGuestEmail({ tableId, sessionId: tableSessionId });
-  const order = await createOrderForUser(guestEmail, validation.value, {
-    ip: req.ip,
-    userAgent: req.headers["user-agent"],
-    skipLoyaltySync: true,
-  });
-
-  return res.status(201).json({ success: true, order });
 }
 
 async function createMyOrder(req, res) {
