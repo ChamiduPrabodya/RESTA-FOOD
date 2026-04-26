@@ -501,6 +501,71 @@ export function AuthProvider({ children }) {
     }
   }, [apiRequest]);
 
+  const ensureActiveGuestTableSession = useCallback(async ({ tableId, tableToken, tableSessionId, guestCount } = {}) => {
+    const normalizedTableId = String(tableId || "").trim();
+    const normalizedToken = String(tableToken || "").trim();
+    const normalizedSessionId = String(tableSessionId || "").trim();
+    const normalizedGuestCount = Math.max(1, Math.min(6, Math.round(Number(guestCount) || 1)));
+
+    if (!normalizedTableId) {
+      return { success: false, message: "Missing tableId." };
+    }
+
+    try {
+      const { ok, data } = await apiRequest(`/sessions/table/${encodeURIComponent(normalizedTableId)}`);
+      if (!ok || !data || data.success !== true) {
+        return { success: false, message: data?.message || "Unable to validate table session." };
+      }
+
+      const liveSessionId = String(data?.session?.id || "").trim();
+      const liveTableLabel = String(data?.tableLabel || normalizedTableId).trim() || normalizedTableId;
+
+      if (liveSessionId && liveSessionId === normalizedSessionId) {
+        return {
+          success: true,
+          tableId: normalizedTableId,
+          tableLabel: liveTableLabel,
+          tableSessionId: liveSessionId,
+          guestCount: Number(data?.session?.guestCount || normalizedGuestCount) || normalizedGuestCount,
+        };
+      }
+
+      if (liveSessionId && liveSessionId !== normalizedSessionId) {
+        setTableContextState({
+          tableId: normalizedTableId,
+          tableLabel: liveTableLabel,
+          sessionId: liveSessionId,
+          guestCount: Number(data?.session?.guestCount || normalizedGuestCount) || normalizedGuestCount,
+          tableToken: normalizedToken,
+          startedAt: String(data?.session?.createdAt || new Date().toISOString()).trim(),
+        });
+        return {
+          success: false,
+          message: `${liveTableLabel} already has a newer active session. Please review your order and try again.`,
+        };
+      }
+
+      const restarted = await startTableSession({
+        tableId: normalizedTableId,
+        tableToken: normalizedToken,
+        guestCount: normalizedGuestCount,
+      });
+      if (!restarted?.success || !restarted?.session?.id) {
+        return { success: false, message: restarted?.message || "Unable to restart table session." };
+      }
+
+      return {
+        success: true,
+        tableId: String(restarted.tableId || normalizedTableId).trim() || normalizedTableId,
+        tableLabel: String(restarted.tableLabel || liveTableLabel).trim() || liveTableLabel,
+        tableSessionId: String(restarted.session.id || "").trim(),
+        guestCount: Number(restarted.session.guestCount || normalizedGuestCount) || normalizedGuestCount,
+      };
+    } catch {
+      return { success: false, message: "Backend is not reachable. Start the backend server." };
+    }
+  }, [apiRequest, startTableSession]);
+
   const clearTableContext = useCallback(() => {
     const guestKey = getGuestCartKey();
     setTableContextState(null);
@@ -1441,14 +1506,24 @@ export function AuthProvider({ children }) {
         return { success: false, message: "Missing dine-in session. Scan the table QR again." };
       }
 
+      const sessionCheck = await ensureActiveGuestTableSession({
+        tableId,
+        tableToken,
+        tableSessionId,
+        guestCount: Number(tableContext?.guestCount) || 1,
+      });
+      if (!sessionCheck?.success) {
+        return { success: false, message: sessionCheck?.message || "Table session is not active." };
+      }
+
       try {
         const { ok, data } = await apiRequest("/orders/dine-in", {
           method: "POST",
           body: {
-            tableId,
-            tableSessionId,
+            tableId: sessionCheck.tableId,
+            tableSessionId: sessionCheck.tableSessionId,
             tableToken,
-            guestCount: Number(tableContext?.guestCount) || 1,
+            guestCount: Number(sessionCheck.guestCount) || Number(tableContext?.guestCount) || 1,
             items: userCart.map((item) => ({
               menuItemId: item.menuItemId || "",
               itemName: item.itemName || "",
